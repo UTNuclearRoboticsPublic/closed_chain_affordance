@@ -145,12 +145,10 @@ switch robotType
      case 'UR5'
         %Link lengths
         mconv = 1000;
-        W1 = 109/mconv; W2 = 82/mconv; L1 = 425/mconv; L2 = 392/mconv; H1 = 89/mconv; H2 = 95/mconv; W3 = 135.85/mconv; W4 = 119.7/mconv; W6 = 93/mconv; aff = -150/mconv;
-        aff = -100/mconv;
-        % Start angles
+        W1 = 109/mconv; W2 = 82/mconv; L1 = 425/mconv; L2 = 392/mconv; H1 = 89/mconv; H2 = 95/mconv; W3 = 135.85/mconv; W4 = 119.7/mconv; W6 = 93/mconv; aff = -100/mconv;
+        
         % Start angles
         thetalist0 = zeros([10 1]);
-        % thetalist0(4) = -pi/4;
         
         % Screw axis locations from base frame in home position
         q(:,1) = [0 0 H1]';% first joint, base frame
@@ -162,7 +160,7 @@ switch robotType
         q(:,7) = [L1+L2 W3-W4+W6+W2 H1-H2]';% Imaginary joint
         q(:,8) = [L1+L2 W3-W4+W6+W2 H1-H2]';% Imaginary joint
         q(:,9) = [L1+L2 W3-W4+W6+W2 H1-H2]';% Imaginary joint
-        q(:,10) = [L1+L2 W3-W4+W6+W2-aff H1-H2]'; % location of affordance frame
+        q(:,10) = [L1+L2 W3-W4+W6+W2+aff H1-H2]'; % location of affordance frame
         q(:,11) = [0 0 0]';% Closed-loop end-effector
 
     

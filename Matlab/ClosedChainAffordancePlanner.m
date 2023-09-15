@@ -31,7 +31,7 @@ robotType = 'UR5';
 affType = 'pure_rot';
 
 % Algorithm control parameters
-affStep = 0.01;
+affStep = 0.1;
 accuracy = 1*(1/100); % accuracy for error threshold
 taskErrThreshold = accuracy*affStep;
 maxItr = 50; % for IK solver
@@ -43,14 +43,14 @@ taskOffset = 1;
 
 % Build the robot and plot FK to validate configuration
 [mlist, slist, thetalist0, Tsd, x1Tindex, x2Tindex, xlimits, ylimits, zlimits, tick_quantum, quiverScaler,  azimuth, elevation] = RobotBuilder(robotType, affType);
-figure(3)
+figure(1)
 if strcmpi(robotType,'UR5')
     robot = loadrobot("universalUR5","DataFormat","column");
 else
     robot = [];
 end
 screwPathMatrix = zeros(3,3,3);
-FKPlotter(mlist,slist,thetalist0, x1Tindex, x2Tindex, xlimits, ylimits, zlimits, tick_quantum, quiverScaler,  azimuth, elevation, robotType, robot, screwPathMatrix); 
+[plotrepf, plotrepl, plotrepj, plotrept, plotrepn] = FKPlotter(mlist,slist,thetalist0, x1Tindex, x2Tindex, xlimits, ylimits, zlimits, tick_quantum, quiverScaler,  azimuth, elevation, robotType, robot, screwPathMatrix); 
 
 % Specify screw axis for pure translation
 if strcmpi(affType,'pure_trans')
@@ -148,7 +148,7 @@ success = ~err; % If no error and thetalist does not have NaNs
 thetalist =[qp; qsb]; % store the very last values as thetalist
 
 %Plot errors
-figure(10)
+figure(2)
 subplot(2,1,1)
 plot(errPlotMatrix(:,1),errPlotMatrix(:,2));
 set(gca, 'YScale', 'log');
@@ -188,15 +188,26 @@ stepperItr = stepperItr +1;
 end
 
 % Plot animation
-figure(3)
+figure(1)
 disp("minimum IK iteration:");
 min(ikIterHolder)
 disp("maximum IK iteration:");
 max(ikIterHolder)
+
+% Delete the manipulator initial config plot references
+delete(plotrepf);
+delete(plotrepl);
+delete(plotrepj);
+delete(plotrept);
+if strcmpi(robotType, 'UR5')
+    delete(plotrepn);   
+end
+
+% Animate stored configurations
 for ikIter = 1:1:stepperItrSuc-1
     [plotrepf, plotrepl, plotrepj, plotrept, plotrepn] = FKPlotter(mlist,slist,animPlotMatrix(:,ikIter), x1Tindex, x2Tindex, xlimits, ylimits, zlimits, tick_quantum, quiverScaler,  azimuth, elevation, robotType, robot, screwPathMatrix); 
     drawnow;
-    pause(0.1);
+    pause(0.001);
     if ikIter~=stepperItrSuc-1
     delete(plotrepf);
     delete(plotrepl);
