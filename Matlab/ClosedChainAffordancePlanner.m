@@ -31,8 +31,9 @@ robotType = 'UR5';
 affType = 'pure_rot';
 
 % Algorithm control parameters
-taskErrThreshold = 1e-3;
-% closureErrThreshold = 1e-3;
+affStep = 0.01;
+accuracy = 1*(1/100); % accuracy for error threshold
+taskErrThreshold = accuracy*affStep;
 maxItr = 50; % for IK solver
 stepperMaxItr = 75; % for total steps
 dt = 1e-2; % time step to compute joint velocities
@@ -82,7 +83,7 @@ Ns = rJ(:,end-taskOffset+1:end); % secondary - unactuated
 % Set desired secondary task (affordance and maybe gripper orientation) as 
 % just a few radians away from the current position
 qsd = thetalist0(end-taskOffset+1:end);
-qsd(taskOffset) = qsd(taskOffset)-stepperItr*0.1;
+qsd(taskOffset) = qsd(taskOffset)+stepperItr*affStep;
 
 
 % Set starting guess for the primary joint angles and compute forward
@@ -178,7 +179,7 @@ if success
 
     %Update the guess for next iteration
     qp_guess = thetalist(1:end-taskOffset);
-    qsb_guess = qsb;
+    qsb_guess = thetalist(end-taskOffset+1:end);
     stepperItrSuc = stepperItrSuc+1;
 end
 
