@@ -43,5 +43,40 @@ int main() {
   std::cout << "\nTesting MatrixExp6" << std::endl;
   std::cout << "Input: \n" << se3mat << std::endl;
   std::cout << "Output: \n" << affordanceUtil.MatrixExp6(se3mat) << std::endl;
+
+  const Eigen::Matrix4d M =
+      (Eigen::Matrix4d() << -1, 0, 0, 0, 0, 1, 0, 6, 0, 0, -1, 2, 0, 0, 0, 1)
+          .finished();
+
+  Eigen::MatrixXd Slist(6, 3);
+  Slist << 0, 0, 0, 0, 0, 0, 1, 0, -1, 4, 0, -6, 0, 1, 0, 0, 0, -0.1;
+
+  Eigen::Vector3d thetalist =
+      (Eigen::Vector3d() << M_PI / 2, 3, M_PI).finished();
+  std::cout << "\nTesting FKinSpace" << std::endl;
+  std::cout << "Input M: \n" << M << std::endl;
+  std::cout << "Input Slist: \n" << Slist << std::endl;
+  std::cout << "Input thetalist: \n" << thetalist << std::endl;
+  std::cout << "Output: \n"
+            << affordanceUtil.FKinSpace(M, Slist, thetalist) << std::endl;
+
+  Eigen::MatrixXd Slist2(6, 4);
+
+  Slist2 << 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 2, 0, 0.2, 0.2, 0, 2, 0.3,
+      0.2, 3, 1, 0.4;
+  Eigen::VectorXd thetalist2(4);
+  thetalist2 << 0.2, 1.1, 0.1, 1.2;
+  std::cout << "\nTesting JacobianSpace" << std::endl;
+  std::cout << "Input Slist: \n" << Slist2 << std::endl;
+  std::cout << "Input thetalist: \n" << thetalist2 << std::endl;
+  std::cout << "Output: \n"
+            << affordanceUtil.JacobianSpace(Slist2, thetalist2) << std::endl;
+
+  Eigen::Matrix4d htm;
+  htm << 1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 3, 0, 0, 0, 1;
+  std::cout << "\nTesting Adjoint" << std::endl;
+  std::cout << "Input htm: \n" << htm << std::endl;
+  std::cout << "Output: \n" << affordanceUtil.Adjoint(htm) << std::endl;
+
   return 0;
 }

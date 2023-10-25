@@ -21,7 +21,7 @@ public:
    *
    * @return
    */
-  Eigen::MatrixXd Adjoint(const Eigen::Isometry3d &htm);
+  Eigen::MatrixXd Adjoint(const Eigen::Matrix4d &htm);
 
   /**
    * @brief Given a list of space-form screws and corresponding magnitudes,
@@ -88,7 +88,7 @@ public:
    * at the specified coordinates (i.t.o Space Frame)
    */
   Eigen::Matrix4d FKinSpace(const Eigen::Matrix4d &M,
-                            const std::vector<Eigen::VectorXd> &Slist,
+                            const Eigen::MatrixXd &Slist,
                             const Eigen::VectorXd &thetalist);
   /**
    * @brief Given a 6-vector (representing a spatial velocity), returns the

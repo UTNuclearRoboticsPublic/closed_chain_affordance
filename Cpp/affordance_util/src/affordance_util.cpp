@@ -1,36 +1,34 @@
 #include <affordance_util/affordance_util.hpp>
 
 AffordanceUtil::AffordanceUtil() {}
-Eigen::MatrixXd AffordanceUtil::Adjoint(const Eigen::Isometry3d &htm) {
+Eigen::MatrixXd AffordanceUtil::Adjoint(const Eigen::Matrix4d &htm) {
   Eigen::MatrixXd adjoint(6, 6); // Output
 
   // Extract the rotation matrix (3x3) and translation vector (3x1) from htm
-  Eigen::Matrix3d rotationMatrix = htm.linear();
-  Eigen::Vector3d translationVector = htm.translation();
+  Eigen::Matrix3d rotationMatrix = htm.block<3, 3>(0, 0);
+  Eigen::Vector3d translationVector = htm.block<3, 1>(0, 3);
 
-  // Construct the skew-symmetric matrix (3x3) for the translation vector
-  Eigen::Matrix3d skewSymmetricMatrix;
-  skewSymmetricMatrix << 0, -translationVector(2), translationVector(1),
-      translationVector(2), 0, -translationVector(0), -translationVector(1),
-      translationVector(0), 0;
+  // Construct the bottom-left 3x3 part
+  Eigen::Matrix3d botLeft = VecToso3(translationVector) * rotationMatrix;
 
   // Build the adjoint matrix
-  adjoint << rotationMatrix, Eigen::Matrix3d::Zero(), skewSymmetricMatrix,
-      rotationMatrix; // htm.linear() is simply the rotation part of the htm
+  adjoint << rotationMatrix, Eigen::Matrix3d::Zero(), botLeft, rotationMatrix;
 
   return adjoint;
 }
 Eigen::MatrixXd
 AffordanceUtil::JacobianSpace(const Eigen::MatrixXd &Slist,
                               const Eigen::VectorXd &thetalist) {
-  int n = Slist.cols();
-  Eigen::MatrixXd Js(6, n);
-  /* Eigen::Matrix4d T = Eigen::Matrix4d::Identity(); */
-  Eigen::Isometry3d T = Eigen::Isometry3d::Identity();
 
-  for (int i = 0; i < n; i++) {
+  const int jacColSize = thetalist.size();
+  Eigen::MatrixXd Js(6, jacColSize);
+  Js.col(0) = Slist.col(0); // first column is simply the first screw axis
+  Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+
+  // Compute the Jacobian using the POE formula and adjoint representation
+  for (int i = 1; i < jacColSize; i++) {
+    T *= MatrixExp6(VecTose3(Slist.col(i - 1) * thetalist(i - 1)));
     Js.col(i) = Adjoint(T) * Slist.col(i);
-    T *= MatrixExp6(VecTose3(Slist.col(i) * thetalist(i)));
   }
 
   return Js;
@@ -98,13 +96,14 @@ AffordanceUtil::AxisAng3(const Eigen::Vector3d &expc3) {
   return std::make_tuple(omghat, theta);
 }
 
-Eigen::Matrix4d
-AffordanceUtil::FKinSpace(const Eigen::Matrix4d &M,
-                          const std::vector<Eigen::VectorXd> &Slist,
-                          const Eigen::VectorXd &thetalist) {
+Eigen::Matrix4d AffordanceUtil::FKinSpace(const Eigen::Matrix4d &M,
+                                          const Eigen::MatrixXd &Slist,
+                                          const Eigen::VectorXd &thetalist) {
+  // Compute space-form forward kinematics using the product of exponential
+  // formula
   Eigen::Matrix4d T = M;
   for (int i = thetalist.size() - 1; i >= 0; --i) {
-    Eigen::Matrix4d expMat = MatrixExp6(VecTose3(Slist[i] * thetalist(i)));
+    Eigen::Matrix4d expMat = MatrixExp6(VecTose3(Slist.col(i) * thetalist(i)));
     T = expMat * T;
   }
   return T;
