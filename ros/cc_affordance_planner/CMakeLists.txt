@@ -11,7 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   tf2_ros
   geometry_msgs
-
+  affordance_util
 )
 
 ## System dependencies are found with CMake's conventions
