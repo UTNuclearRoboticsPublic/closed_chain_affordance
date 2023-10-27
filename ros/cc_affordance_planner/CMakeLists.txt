@@ -9,7 +9,9 @@ project(cc_affordance_planner)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   roscpp
-  urdf
+  tf2_ros
+  geometry_msgs
+
 )
 
 ## System dependencies are found with CMake's conventions

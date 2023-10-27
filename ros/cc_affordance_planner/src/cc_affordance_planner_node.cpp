@@ -1,69 +1,140 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <geometry_msgs/TransformStamped.h>
 #include <ros/ros.h>
-#include <urdf/model.h>
+#include <tf2_ros/transform_listener.h>
 
+/*
+   Author: Crasun Jans
+*/
+class CcAffordancePlanner {
+public:
+  CcAffordancePlanner(ros::NodeHandle nh)
+      : nh_(nh), tfBuffer_(), tfListener_(tfBuffer_) {}
+
+  Eigen::Isometry3d get_htm(std::string targetFrame_,
+                            std::string referenceFrame_) {
+
+    Eigen::Isometry3d htm; // Output
+    // Query the listener for the desired transformation at the latest available
+    // time ros::Time::now()
+
+    try {
+      transformStamped_ = tfBuffer_.lookupTransform(
+          targetFrame_, referenceFrame_, ros::Time(0), ros::Duration(0.3));
+    } catch (tf2::TransformException &ex) {
+      ROS_WARN("%s", ex.what());
+    }
+
+    // Convert the message to Eigen::Isometry3d type
+    // Extract translation and rotation from the TransformStamped message
+    Eigen::Vector3d translation(transformStamped_.transform.translation.x,
+                                transformStamped_.transform.translation.y,
+                                transformStamped_.transform.translation.z);
+    Eigen::Quaterniond rotation(transformStamped_.transform.rotation.w,
+                                transformStamped_.transform.rotation.x,
+                                transformStamped_.transform.rotation.y,
+                                transformStamped_.transform.rotation.z);
+
+    // Set the translation and rotation components of the HTM
+    htm.translation() = translation;
+    htm.linear() = rotation.toRotationMatrix();
+
+    return htm;
+  }
+
+  Eigen::VectorXd htmToScrew(Eigen::Isometry3d htm) {
+
+    /* std::cout << "Here is the rotation of the HTM: \n" */
+    /*           << htm.linear() << std::endl; */
+    /* std::cout << "Here is the translation of the HTM: \n" */
+    /*           << htm.translation() << std::endl; */
+    Eigen::VectorXd s(6);
+    Eigen::Vector3d w = htm.linear().block<3, 1>(0, 2);
+    s.head(3) = w;
+    s.tail(3) = -w.cross(htm.translation());
+    return s;
+  }
+
+private:
+  ros::NodeHandle nh_;
+  tf2_ros::Buffer tfBuffer_;              // buffer to hold tf data
+  tf2_ros::TransformListener tfListener_; // listener object for tf data
+  geometry_msgs::TransformStamped
+      transformStamped_; // ros message to hold transform info
+};
+/* geometry_msgs::TransformStamped */
+/*     transformStamped_; // ros message to hold transform info */
+/* Eigen::Isometry3d get_htm(tf2_ros::Buffer tfBuffer_, std::string
+ * targetFrame_, */
+/*                           std::string referenceFrame_) { */
+
+/*   Eigen::Isometry3d htm; // Output */
+/*   // Query the listener for the desired transformation at the latest
+ * available */
+/*   // time ros::Time::now() */
+/*   try { */
+/*     transformStamped_ = tfBuffer_.lookupTransform( */
+/*         targetFrame_, referenceFrame_, ros::Time(0), ros::Duration(0.2)); */
+/*   } catch (tf2::TransformException &ex) { */
+/*     ROS_WARN("%s", ex.what()); */
+/*   } */
+
+/*   // Convert the message to Eigen::Isometry3d type */
+/*   // Extract translation and rotation from the TransformStamped message */
+/*   Eigen::Vector3d translation(transformStamped_.transform.translation.x, */
+/*                               transformStamped_.transform.translation.y, */
+/*                               transformStamped_.transform.translation.z); */
+/*   Eigen::Quaterniond rotation(transformStamped_.transform.rotation.w, */
+/*                               transformStamped_.transform.rotation.x, */
+/*                               transformStamped_.transform.rotation.y, */
+/*                               transformStamped_.transform.rotation.z); */
+
+/*   // Set the translation and rotation components of the HTM */
+/*   htm.translation() = translation; */
+/*   htm.linear() = rotation.toRotationMatrix(); */
+
+/*   return htm; */
+/* } */
+
+/* Eigen::VectorXd htmToScrew(Eigen::Isometry3d htm) { */
+
+/*   /1* std::cout << "Here is the rotation of the HTM: \n" *1/ */
+/*   /1*           << htm.linear() << std::endl; *1/ */
+/*   /1* std::cout << "Here is the translation of the HTM: \n" *1/ */
+/*   /1*           << htm.translation() << std::endl; *1/ */
+/*   Eigen::VectorXd s(6); */
+/*   Eigen::Vector3d w = htm.linear().block<3, 1>(0, 2); */
+/*   s.head(3) = w; */
+/*   s.tail(3) = -w.cross(htm.translation()); */
+/*   return s; */
+/* } */
 int main(int argc, char **argv) {
   ros::init(argc, argv, "urdf_parser_example");
   ros::NodeHandle nh;
 
-  std::string urdf_string;
-  // Fetch the URDF XML from the robot_description parameter.
-  if (!nh.getParam("robot_description", urdf_string)) {
-    ROS_ERROR("Failed to retrieve URDF from the robot_description parameter.");
-    return 1;
+  CcAffordancePlanner ccAffordancePlanner(nh);
+  std::vector<std::string> joint_names;
+  joint_names.push_back("arm0_shoulder_yaw");
+  joint_names.push_back("arm0_shoulder_pitch");
+  joint_names.push_back("arm0_elbow_pitch");
+  joint_names.push_back("arm0_elbow_roll");
+  joint_names.push_back("arm0_wrist_pitch");
+  joint_names.push_back("arm0_wrist_roll");
+
+  std::string referenceFrame_ = "arm0_base_link";
+
+  std::cout << "Screw axis of the wrist roll with respect to the base_link"
+            << std::endl;
+
+  Eigen::MatrixXd screwAxes(6, joint_names.size());
+  for (int i = 0; i < joint_names.size(); i++) {
+    std::string targetFrame_ = joint_names.at(i);
+    screwAxes.col(i) << ccAffordancePlanner.htmToScrew(
+        ccAffordancePlanner.get_htm(targetFrame_, referenceFrame_));
   }
-  urdf::Model model;
-  /* if (!model.initFile("path/to/urdf")) { */ // If wanted to parse directly
-                                               // from a urdf file, use this
-  if (!model.initString(urdf_string)) {
-    ROS_ERROR("Failed to parse URDF file");
-    return 1;
-  }
 
-  urdf::LinkConstSharedPtr base_link = model.getLink("arm0_base_link");
-  urdf::LinkConstSharedPtr end_effector = model.getLink("arm0_fingers");
-
-  if (!base_link || !end_effector) {
-    ROS_ERROR("Failed to get base_link or end_effector from URDF");
-    return 1;
-  }
-
-  std::cout
-      << "Transformation matrices for joints with respect to the base joint:\n";
-
-  urdf::LinkConstSharedPtr current_link = end_effector;
-  while (current_link != base_link) {
-    urdf::JointSharedPtr joint = current_link->parent_joint;
-    if (joint) {
-      if (joint->type != urdf::Joint::FIXED) { // Skip fixed joints
-        const urdf::Pose &origin = joint->parent_to_joint_origin_transform;
-        std::cout << "Joint: " << joint->name << std::endl;
-        std::cout << "Translation (XYZ): " << origin.position.x << " "
-                  << origin.position.y << " " << origin.position.z << std::endl;
-        std::cout << "Rotation (XYZW): " << origin.rotation.x << " "
-                  << origin.rotation.y << " " << origin.rotation.z << " "
-                  << origin.rotation.w << std::endl;
-        Eigen::Quaterniond q(origin.rotation.w, origin.rotation.x,
-                             origin.rotation.y, origin.rotation.z);
-        Eigen::Matrix3d rotation_matrix = q.normalized().toRotationMatrix();
-        std::cout << "Rotation Matrix: \n" << rotation_matrix << std::endl;
-
-        Eigen::Vector3d w = rotation_matrix.block<3, 1>(0, 0);
-        Eigen::Vector3d q_vector(origin.position.x, origin.position.y,
-                                 origin.position.z);
-        Eigen::VectorXd s(6);
-        s.head(3) = w;
-        s.tail(3) = -w.cross(q_vector);
-
-        std::cout << "Screw axis: \n" << s << std::endl;
-      }
-    } else {
-      ROS_WARN("No joint found between links. Terminating.");
-      break;
-    }
-    current_link = current_link->getParent();
-  }
+  std::cout << "Here is the screwAxes matrix: \n" << screwAxes << std::endl;
 
   return 0;
 }
