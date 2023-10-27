@@ -23,15 +23,15 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# # Set the library installation path
-# install(TARGETS ${PROJECT_NAME}
-#     ARCHIVE DESTINATION lib
-# )
+# Set the library installation path
+install(TARGETS ${PROJECT_NAME}
+    ARCHIVE DESTINATION lib
+)
 
-# # Install header files
-# install(FILES include/${PROJECT_NAME}/${PROJECT_NAME}.hpp
-#     DESTINATION include/${PROJECT_NAME}
-# )
+# Install header files
+install(FILES include/${PROJECT_NAME}/${PROJECT_NAME}.hpp
+    DESTINATION include/${PROJECT_NAME}
+)
 
 # Library Tester
 add_executable(${PROJECT_NAME}_tester src/${PROJECT_NAME}_tester.cpp)
