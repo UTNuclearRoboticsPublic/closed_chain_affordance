@@ -78,5 +78,33 @@ int main() {
   std::cout << "Input htm: \n" << htm << std::endl;
   std::cout << "Output: \n" << affordanceUtil.Adjoint(htm) << std::endl;
 
+  std::cout << "\nTesting TransInv" << std::endl;
+  std::cout << "Input htm: \n" << htm << std::endl;
+  std::cout << "Output: \n" << affordanceUtil.TransInv(htm) << std::endl;
+
+  Eigen::Matrix4d se3mat2;
+  se3mat2 << 0, -3, 2, 4, 3, 0, -1, 5, -2, 1, 0, 6, 0, 0, 0, 0;
+  std::cout << "\nTesting se3ToVec" << std::endl;
+  std::cout << "Input se3mat: \n" << se3mat2 << std::endl;
+  std::cout << "Output: \n" << affordanceUtil.se3ToVec(se3mat2) << std::endl;
+
+  const Eigen::Matrix3d R =
+      (Eigen::Matrix3d() << 0, 0, 1, 1, 0, 0, 0, 1, 0).finished();
+  std::cout << "\nTesting MatrixLog3" << std::endl;
+  std::cout << "Input R: \n" << R << std::endl;
+  std::cout << "Output: \n" << affordanceUtil.MatrixLog3(R) << std::endl;
+
+  const double near = -1e-7;
+  std::cout << "\nTesting NearZero" << std::endl;
+  std::cout << "Input near: \n" << near << std::endl;
+  std::cout << "Output: \n" << affordanceUtil.NearZero(near) << std::endl;
+
+  const Eigen::Matrix4d T =
+      (Eigen::Matrix4d() << 1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 3, 0, 0, 0, 1)
+          .finished();
+  std::cout << "\nTesting MatrixLog6" << std::endl;
+  std::cout << "Input T: \n" << T << std::endl;
+  std::cout << "Output: \n" << affordanceUtil.MatrixLog6(T) << std::endl;
+
   return 0;
 }

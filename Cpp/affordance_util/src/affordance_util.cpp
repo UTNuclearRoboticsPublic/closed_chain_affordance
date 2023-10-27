@@ -43,13 +43,11 @@ Eigen::Matrix4d AffordanceUtil::MatrixExp6(const Eigen::Matrix4d &se3mat) {
   // If the norm of the 3-vector exponential coordinate form is very small,
   // return the rotation part as identity and the translation part as is from
   // se3mat
-  const double expNormThreshold = 1e-6;
-  if (omgtheta.norm() < expNormThreshold) {
+  if (AffordanceUtil::NearZero(omgtheta.norm())) {
     return (Eigen::Matrix4d() << Eigen::Matrix3d::Identity(),
             se3mat.block<3, 1>(0, 3), 0, 0, 0, 1)
         .finished();
   } else {
-
     // Else compute the HTM using the Rodriguez formula
     const auto &[ignore, theta] = AxisAng3(omgtheta);
     const Eigen::Matrix3d omgmat = so3mat / theta;
@@ -68,8 +66,7 @@ Eigen::Matrix3d AffordanceUtil::MatrixExp3(const Eigen::Matrix3d &so3mat) {
 
   // If the norm of the 3-vector exponential coordinate form is very small,
   // return rotation matrix as identity
-  const double expNormThreshold = 1e-6;
-  if (omgtheta.norm() < expNormThreshold) {
+  if (AffordanceUtil::NearZero(omgtheta.norm())) {
     return Eigen::Matrix3d::Identity();
   } else {
     // Else compute the rotation matrix using the Rodriguez formula
@@ -145,39 +142,41 @@ Eigen::Matrix4d AffordanceUtil::TransInv(const Eigen::Matrix4d &T) {
   Eigen::Matrix3d invR = R.transpose();
   Eigen::Vector3d invP = -invR * p;
   invT << invR, invP, 0, 0, 0, 1;
+
+  return invT;
 }
 
 Eigen::VectorXd AffordanceUtil::se3ToVec(const Eigen::Matrix4d &se3mat) {
-  Eigen::VectorXd V(6);
-  V << se3mat(2, 1), se3mat(0, 2), se3mat(1, 0), se3mat.block<3, 1>(0, 3);
+  // Extract and construct the vector from the skew-symmetric matrix
+  const Eigen::VectorXd V = (Eigen::VectorXd(6) << se3mat(2, 1), se3mat(0, 2),
+                             se3mat(1, 0), se3mat.block<3, 1>(0, 3))
+                                .finished();
+
   return V;
 }
 
 Eigen::Matrix3d AffordanceUtil::MatrixLog3(const Eigen::Matrix3d &R) {
-  // Define a tolerance value for being near zero
-  double nearZeroTol = 1e-6;
 
-  // Calculate the input for acos
-  double acosinput = (R.trace() - 1) / 2;
+  const double acosinput = (R.trace() - 1) / 2;
   Eigen::Matrix3d so3mat;
 
-  if (std::abs(acosinput) >= 1) {
+  if (acosinput >= 1) {
     so3mat.setZero();
-  } else if (std::abs(acosinput) <= nearZeroTol) {
+  } else if (acosinput <= -1) {
     Eigen::Vector3d omg;
-    if (std::abs(1 + R(2, 2)) >= nearZeroTol) {
+    if (!AffordanceUtil::NearZero(1 + R(2, 2))) {
       omg = (1 / sqrt(2 * (1 + R(2, 2)))) *
-            Eigen::Vector3d(R(1, 2), 1 + R(2, 2), R(3, 2));
-    } else if (std::abs(1 + R(3, 3)) >= tolerance) {
-      omg = (1 / sqrt(2 * (1 + R(3, 3)))) *
-            Eigen::Vector3d(R(1, 3), R(2, 3), 1 + R(3, 3));
-    } else {
+            Eigen::Vector3d(R(0, 2), R(1, 2), 1 + R(2, 2));
+    } else if (!AffordanceUtil::NearZero(1 + R(1, 1))) {
       omg = (1 / sqrt(2 * (1 + R(1, 1)))) *
-            Eigen::Vector3d(1 + R(1, 1), R(2, 1), R(3, 1));
+            Eigen::Vector3d(R(0, 1), 1 + R(1, 1), R(2, 1));
+    } else {
+      omg = (1 / sqrt(2 * (1 + R(0, 0)))) *
+            Eigen::Vector3d(1 + R(0, 0), R(1, 0), R(2, 0));
     }
-    so3mat = M_PI * omg;
+    so3mat = VecToso3(M_PI * omg);
   } else {
-    double theta = acos(acosinput);
+    const double theta = acos(acosinput);
     so3mat = theta * (1 / (2 * sin(theta))) * (R - R.transpose());
   }
 
@@ -185,9 +184,9 @@ Eigen::Matrix3d AffordanceUtil::MatrixLog3(const Eigen::Matrix3d &R) {
 }
 
 Eigen::Matrix4d AffordanceUtil::MatrixLog6(const Eigen::Matrix4d &T) {
-  Eigen::Matrix3d R = T.block<3, 3>(0, 0);
-  Eigen::Vector3d p = T.block<3, 1>(0, 3);
-  Eigen::Matrix3d omgmat = MatrixLog3(R);
+  const Eigen::Matrix3d R = T.block<3, 3>(0, 0);
+  const Eigen::Vector3d p = T.block<3, 1>(0, 3);
+  const Eigen::Matrix3d omgmat = MatrixLog3(R);
 
   Eigen::Matrix<double, 4, 4> expmat;
 
@@ -196,16 +195,18 @@ Eigen::Matrix4d AffordanceUtil::MatrixLog6(const Eigen::Matrix4d &T) {
     expmat.block<3, 1>(0, 3) = p;
     expmat.block<1, 4>(3, 0) = Eigen::Matrix<double, 1, 4>::Zero();
   } else {
-    double theta = acos((R.trace() - 1) / 2);
-    Eigen::Matrix3d skew = omgmat / theta;
-    Eigen::Matrix3d eye3 = Eigen::Matrix3d::Identity();
-    Eigen::Matrix3d term1 =
-        eye3 - 0.5 * skew +
-        (1.0 / (theta * theta) - 1.0 / (2 * tan(0.5 * theta))) * skew * skew;
+    const double theta = acos((R.trace() - 1) / 2);
+    const Eigen::Matrix3d eye3 = Eigen::Matrix3d::Identity();
     expmat.block<3, 3>(0, 0) = omgmat;
-    expmat.block<3, 1>(0, 3) = term1 * p;
+    expmat.block<3, 1>(0, 3) = (eye3 - 0.5 * omgmat +
+                                (1.0 / theta - 1.0 / (2 * tan(0.5 * theta))) *
+                                    omgmat * omgmat / theta) *
+                               p;
     expmat.block<1, 4>(3, 0) = Eigen::Matrix<double, 1, 4>::Zero();
   }
 
   return expmat;
+}
+bool AffordanceUtil::NearZero(const double &near) {
+  return std::abs(near) < nearZeroTol_;
 }

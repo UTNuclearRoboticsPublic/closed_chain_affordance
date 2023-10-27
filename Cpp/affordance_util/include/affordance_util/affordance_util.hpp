@@ -147,6 +147,19 @@ public:
    * @return exponential coordinate representation of the transformation matrix
    */
   Eigen::Matrix4d MatrixLog6(const Eigen::Matrix4d &T);
+
+  /**
+   * @brief Given a scalar, checks if the scalar is small enough to be
+   * neglected.
+   *
+   * @param near scalar value to be checked
+   *
+   * @return whether the scalar value is near zero
+   */
+  bool NearZero(const double &near);
+
+private:
+  const double nearZeroTol_ = 1e-6;
 };
 
 #endif // AFFORDANCE_UTIL
