@@ -11,14 +11,13 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   tf2_ros
   geometry_msgs
-  affordance_util
 )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 find_package(Eigen3 REQUIRED )
 
-
+FIND_LIBRARY(affordance_util_LIBRARIES affordance_util /usr/local/lib)
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
 ## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
@@ -118,15 +117,16 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+  include
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/cc_affordance_planner.cpp
-# )
+add_library(${PROJECT_NAME}
+  include/${PROJECT_NAME}/cc_affordance_planner.hpp
+  src/${PROJECT_NAME}/cc_affordance_planner.cpp
+)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
