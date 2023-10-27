@@ -108,5 +108,45 @@ public:
    * @return skew-symmetric representation of the passed 3-vector
    */
   Eigen::Matrix3d VecToso3(const Eigen::Vector3d &omg);
+
+  /**
+   * @brief Given a transformation matrix, computes its inverse
+   *
+   * @param T transformation matrix
+   *
+   * @return inverse of the transformation matrix
+   */
+  Eigen::Matrix4d TransInv(const Eigen::Matrix4d &T);
+
+  /**
+   * @brief Given a se3mat a 4x4 se(3) matrix, returns the corresponding
+   * 6-vector (representing spatial velocity).
+   *
+   * @param se3mat 4x4 se(3) matrix
+   *
+   * @return 6-vector respresenting spatial velocity
+   */
+  Eigen::VectorXd se3ToVec(const Eigen::Matrix4d &se3mat);
+
+  /**
+   * @brief Given R (rotation matrix), returns the corresponding so(3)
+   * representation of exponential  coordinates.
+   *
+   * @param R rotation matrix
+   *
+   * @return so(3) representation of exponential coordinates
+   */
+  Eigen::Matrix3d MatrixLog3(const Eigen::Matrix3d &R);
+
+  /**
+   * @brief Given a transformation matrix T in SE(3), returns the corresponding
+   * se(3) representation of exponential  coordinates.
+   *
+   * @param T transformation matrix
+   *
+   * @return exponential coordinate representation of the transformation matrix
+   */
+  Eigen::Matrix4d MatrixLog6(const Eigen::Matrix4d &T);
 };
+
 #endif // AFFORDANCE_UTIL

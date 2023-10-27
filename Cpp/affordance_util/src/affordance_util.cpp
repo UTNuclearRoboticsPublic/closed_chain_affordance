@@ -133,3 +133,79 @@ Eigen::Matrix3d AffordanceUtil::VecToso3(const Eigen::Vector3d &omg) {
                                      .finished();
   return so3mat;
 }
+
+Eigen::Matrix4d AffordanceUtil::TransInv(const Eigen::Matrix4d &T) {
+
+  // Extract rotation matrix and translation vector
+  Eigen::Matrix3d R = T.block<3, 3>(0, 0);
+  Eigen::Vector3d p = T.block<3, 1>(0, 3);
+
+  // Calculate the inverse transformation matrix
+  Eigen::Matrix4d invT;
+  Eigen::Matrix3d invR = R.transpose();
+  Eigen::Vector3d invP = -invR * p;
+  invT << invR, invP, 0, 0, 0, 1;
+}
+
+Eigen::VectorXd AffordanceUtil::se3ToVec(const Eigen::Matrix4d &se3mat) {
+  Eigen::VectorXd V(6);
+  V << se3mat(2, 1), se3mat(0, 2), se3mat(1, 0), se3mat.block<3, 1>(0, 3);
+  return V;
+}
+
+Eigen::Matrix3d AffordanceUtil::MatrixLog3(const Eigen::Matrix3d &R) {
+  // Define a tolerance value for being near zero
+  double nearZeroTol = 1e-6;
+
+  // Calculate the input for acos
+  double acosinput = (R.trace() - 1) / 2;
+  Eigen::Matrix3d so3mat;
+
+  if (std::abs(acosinput) >= 1) {
+    so3mat.setZero();
+  } else if (std::abs(acosinput) <= nearZeroTol) {
+    Eigen::Vector3d omg;
+    if (std::abs(1 + R(2, 2)) >= nearZeroTol) {
+      omg = (1 / sqrt(2 * (1 + R(2, 2)))) *
+            Eigen::Vector3d(R(1, 2), 1 + R(2, 2), R(3, 2));
+    } else if (std::abs(1 + R(3, 3)) >= tolerance) {
+      omg = (1 / sqrt(2 * (1 + R(3, 3)))) *
+            Eigen::Vector3d(R(1, 3), R(2, 3), 1 + R(3, 3));
+    } else {
+      omg = (1 / sqrt(2 * (1 + R(1, 1)))) *
+            Eigen::Vector3d(1 + R(1, 1), R(2, 1), R(3, 1));
+    }
+    so3mat = M_PI * omg;
+  } else {
+    double theta = acos(acosinput);
+    so3mat = theta * (1 / (2 * sin(theta))) * (R - R.transpose());
+  }
+
+  return so3mat;
+}
+
+Eigen::Matrix4d AffordanceUtil::MatrixLog6(const Eigen::Matrix4d &T) {
+  Eigen::Matrix3d R = T.block<3, 3>(0, 0);
+  Eigen::Vector3d p = T.block<3, 1>(0, 3);
+  Eigen::Matrix3d omgmat = MatrixLog3(R);
+
+  Eigen::Matrix<double, 4, 4> expmat;
+
+  if (omgmat.isApprox(Eigen::Matrix3d::Zero())) {
+    expmat.block<3, 3>(0, 0) = Eigen::Matrix3d::Zero();
+    expmat.block<3, 1>(0, 3) = p;
+    expmat.block<1, 4>(3, 0) = Eigen::Matrix<double, 1, 4>::Zero();
+  } else {
+    double theta = acos((R.trace() - 1) / 2);
+    Eigen::Matrix3d skew = omgmat / theta;
+    Eigen::Matrix3d eye3 = Eigen::Matrix3d::Identity();
+    Eigen::Matrix3d term1 =
+        eye3 - 0.5 * skew +
+        (1.0 / (theta * theta) - 1.0 / (2 * tan(0.5 * theta))) * skew * skew;
+    expmat.block<3, 3>(0, 0) = omgmat;
+    expmat.block<3, 1>(0, 3) = term1 * p;
+    expmat.block<1, 4>(3, 0) = Eigen::Matrix<double, 1, 4>::Zero();
+  }
+
+  return expmat;
+}
