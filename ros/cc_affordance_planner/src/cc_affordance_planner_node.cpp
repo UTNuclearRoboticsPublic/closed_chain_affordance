@@ -1,5 +1,6 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <cc_affordance_planner/cc_affordance_planner.hpp>
 #include <geometry_msgs/TransformStamped.h>
 #include <ros/ros.h>
 #include <tf2_ros/transform_listener.h>
@@ -7,9 +8,9 @@
 /*
    Author: Crasun Jans
 */
-class CcAffordancePlanner {
+class CcAffordancePlannerNode {
 public:
-  CcAffordancePlanner(ros::NodeHandle nh)
+  CcAffordancePlannerNode(ros::NodeHandle nh)
       : nh_(nh), tfBuffer_(), tfListener_(tfBuffer_) {}
 
   Eigen::Isometry3d get_htm(std::string targetFrame_,
@@ -67,7 +68,7 @@ int main(int argc, char **argv) {
   ros::init(argc, argv, "urdf_parser_example");
   ros::NodeHandle nh;
 
-  CcAffordancePlanner ccAffordancePlanner(nh);
+  CcAffordancePlannerNode ccAffordancePlannerNode(nh);
   std::vector<std::string> joint_names;
   joint_names.push_back("arm0_shoulder_yaw");
   joint_names.push_back("arm0_shoulder_pitch");
@@ -84,11 +85,34 @@ int main(int argc, char **argv) {
   Eigen::MatrixXd screwAxes(6, joint_names.size());
   for (int i = 0; i < joint_names.size(); i++) {
     std::string targetFrame_ = joint_names.at(i);
-    screwAxes.col(i) << ccAffordancePlanner.htmToScrew(
-        ccAffordancePlanner.get_htm(targetFrame_, referenceFrame_));
+    screwAxes.col(i) << ccAffordancePlannerNode.htmToScrew(
+        ccAffordancePlannerNode.get_htm(targetFrame_, referenceFrame_));
   }
 
+  // Affordance screw
+  Eigen::Vector3d affOffset = (Eigen::Vector3d() << 0.1, 0, 0).finished();
+  Eigen::Isometry3d affHtm = ccAffordancePlannerNode.get_htm(
+      joint_names.at(joint_names.size() - 1), referenceFrame_);
+  affHtm.translation() = affHtm.translation() + affOffset;
+  Eigen::VectorXd affScrew = ccAffordancePlannerNode.htmToScrew(affHtm);
+
+  screwAxes.conservativeResize(screwAxes.rows(), screwAxes.cols() + 1);
+  screwAxes.col(screwAxes.cols() - 1) = affScrew;
   std::cout << "Here is the screwAxes matrix: \n" << screwAxes << std::endl;
 
+  Eigen::Matrix4d mErr = affHtm.matrix();
+  Eigen::Matrix4d Tsd = Eigen::Matrix4d::Identity();
+  Eigen::VectorXd thetalist0 = Eigen::VectorXd::Zero(screwAxes.cols());
+  std::cout << "Before creating the object" << std::endl;
+  CcAffordancePlanner ccAffordancePlanner(screwAxes, mErr, thetalist0, Tsd);
+
+  std::vector<Eigen::VectorXd> solution =
+      ccAffordancePlanner.affordance_stepper();
+
+  if (solution.empty())
+    std::cout << "No solution found" << std::endl;
+  else
+    std::cout << "Here is the first point in the solution \n"
+              << solution.at(0) << std::endl;
   return 0;
 }
