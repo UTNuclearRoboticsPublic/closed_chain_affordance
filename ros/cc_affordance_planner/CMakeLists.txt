@@ -11,6 +11,9 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   tf2_ros
   geometry_msgs
+  moveit_core
+  moveit_ros_planning_interface
+  moveit_visual_tools
 )
 
 ## System dependencies are found with CMake's conventions
@@ -154,7 +157,7 @@ add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catk
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_tester
-	${PROJECT_NAME} #tester requires this packages library, that's all. Can still run the executable with rosrun. 
+	${PROJECT_NAME} #tester requires this packages library, that's all. Can still run the executable with rosrun.
 )
 target_link_libraries(${PROJECT_NAME}_node
 	${catkin_LIBRARIES} ${PROJECT_NAME} # Link this package's library against the node target
