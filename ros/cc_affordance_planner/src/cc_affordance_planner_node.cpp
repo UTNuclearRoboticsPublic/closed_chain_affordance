@@ -69,6 +69,9 @@ int main(int argc, char **argv) {
   ros::NodeHandle nh;
 
   CcAffordancePlannerNode ccAffordancePlannerNode(nh);
+  //** Creation of screw axes
+  //* Screw axis locations from base frame in home position
+  // First get HTMs from TF data
   std::vector<std::string> joint_names;
   joint_names.push_back("arm0_shoulder_yaw");
   joint_names.push_back("arm0_shoulder_pitch");
@@ -77,34 +80,61 @@ int main(int argc, char **argv) {
   joint_names.push_back("arm0_wrist_pitch");
   joint_names.push_back("arm0_wrist_roll");
 
-  std::string referenceFrame_ = "arm0_base_link";
+  std::string targetFrame_ = "arm0_base_link";
 
-  std::cout << "Screw axis of the wrist roll with respect to the base_link"
-            << std::endl;
+  Eigen::MatrixXd q(3, 10);
 
-  Eigen::MatrixXd screwAxes(6, joint_names.size());
-  for (int i = 0; i < joint_names.size(); i++) {
-    std::string targetFrame_ = joint_names.at(i);
-    screwAxes.col(i) << ccAffordancePlannerNode.htmToScrew(
-        ccAffordancePlannerNode.get_htm(targetFrame_, referenceFrame_));
+  for (size_t i = 0; i < joint_names.size(); i++) {
+    std::string referenceFrame_ = joint_names.at(i);
+    Eigen::Isometry3d htm =
+        ccAffordancePlannerNode.get_htm(targetFrame_, referenceFrame_);
+    q.col(i) = htm.translation();
+    std::cout << "Reference frame: \n" << referenceFrame_ << std::endl;
+    std::cout << "q: \n" << q.col(i) << std::endl;
   }
 
-  // Affordance screw
-  Eigen::Vector3d affOffset = (Eigen::Vector3d() << 0.1, 0, 0).finished();
-  Eigen::Isometry3d affHtm = ccAffordancePlannerNode.get_htm(
-      joint_names.at(joint_names.size() - 1), referenceFrame_);
-  affHtm.translation() = affHtm.translation() + affOffset;
-  Eigen::VectorXd affScrew = ccAffordancePlannerNode.htmToScrew(affHtm);
+  // Type and alignment of screw axes
+  Eigen::MatrixXd w(3, 10);
+  w.col(0) << 0, 0, 1;
+  w.col(1) << 0, 1, 0;
+  w.col(2) << 0, 1, 0;
+  w.col(3) << 1, 0, 0;
+  w.col(4) << 0, 1, 0;
+  w.col(5) << 1, 0, 0;
+  w.col(6) << 1, 0, 0; // Imaginary joint
+  w.col(7) << 0, 1, 0; // Imaginary joint
+  w.col(8) << 0, 0, 1; // Imaginary joint
+  w.col(9) << 1, 0, 0; // Affordance
 
-  screwAxes.conservativeResize(screwAxes.rows(), screwAxes.cols() + 1);
-  screwAxes.col(screwAxes.cols() - 1) = affScrew;
-  std::cout << "Here is the screwAxes matrix: \n" << screwAxes << std::endl;
+  Eigen::Isometry3d eeHtm =
+      ccAffordancePlannerNode.get_htm(targetFrame_, "arm0_fingers");
+  Eigen::Vector3d q_ee = eeHtm.translation();
+  Eigen::Vector3d q_aff = q_ee + Eigen::Vector3d(0.1, 0, 0);
+  q.col(6) = q_ee;  // imaginary joint
+  q.col(7) = q_ee;  // imaginary joint
+  q.col(8) = q_ee;  // imaginary joint
+  q.col(9) = q_aff; // affordance
+  std::cout << "Debug flag" << std::endl;
+  Eigen::MatrixXd slist(6, 10);
 
-  Eigen::Matrix4d mErr = affHtm.matrix();
+  // Construct screw axes and frames
+  for (int i = 0; i < w.cols(); i++) {
+    Eigen::Vector3d wcurr =
+        w.col(i); // required to convert to VectorXd type for use with cross
+    Eigen::Vector3d qcurr =
+        q.col(i); // required to convert to VectorXd type for use with cross
+    slist.col(i) << wcurr, -wcurr.cross(qcurr);
+  }
+  std::cout << "w: \n" << w << std::endl;
+  std::cout << "q: \n" << q << std::endl;
+
+  std::cout << "Here is the screwAxes matrix: \n" << slist << std::endl;
+
   Eigen::Matrix4d Tsd = Eigen::Matrix4d::Identity();
-  Eigen::VectorXd thetalist0 = Eigen::VectorXd::Zero(screwAxes.cols());
+  Eigen::Matrix4d mErr = Eigen::Matrix4d::Identity();
+  Eigen::VectorXd thetalist0 = Eigen::VectorXd::Zero(slist.cols());
   std::cout << "Before creating the object" << std::endl;
-  CcAffordancePlanner ccAffordancePlanner(screwAxes, mErr, thetalist0, Tsd);
+  CcAffordancePlanner ccAffordancePlanner(slist, mErr, thetalist0, Tsd);
 
   std::vector<Eigen::VectorXd> solution =
       ccAffordancePlanner.affordance_stepper();
@@ -114,5 +144,8 @@ int main(int argc, char **argv) {
   else
     std::cout << "Here is the first point in the solution \n"
               << solution.at(0) << std::endl;
+
+  // Send it to MoveIt for planning
+
   return 0;
 }
