@@ -191,9 +191,12 @@ int main(int argc, char **argv) {
 
   Eigen::MatrixXd selected_slist =
       slist.leftCols(ccAffordancePlannerNode.selected_joint_positions.size());
+  /* CcAffordancePlanner ccAffordancePlannerTemp( */
+  /*     slist, Eigen::Matrix4d::Identity(),
+   * Eigen::VectorXd::Zero(slist.cols()), */
+  /*     Eigen::Matrix4d::Identity()); */
   CcAffordancePlanner ccAffordancePlannerTemp(
-      slist, Eigen::Matrix4d::Identity(), Eigen::VectorXd::Zero(slist.cols()),
-      Eigen::Matrix4d::Identity());
+      slist, Eigen::VectorXd::Zero(slist.cols()), 0.3);
   Eigen::MatrixXd result = ccAffordancePlannerTemp.JacobianSpace(
       selected_slist, selected_joint_positions_eigen);
   slist.leftCols(ccAffordancePlannerNode.selected_joint_positions.size()) =
@@ -208,19 +211,23 @@ int main(int argc, char **argv) {
   Eigen::Matrix4d Tsd = Eigen::Matrix4d::Identity();
   Eigen::Matrix4d mErr = Eigen::Matrix4d::Identity();
   Eigen::VectorXd thetalist0 = Eigen::VectorXd::Zero(slist.cols());
+  const double affGoal = 0.3;
   std::cout << "Before creating the object" << std::endl;
-  CcAffordancePlanner ccAffordancePlanner(slist, mErr, thetalist0, Tsd);
+  /* CcAffordancePlanner ccAffordancePlanner(slist, mErr, thetalist0, Tsd); */
+  CcAffordancePlanner ccAffordancePlanner(slist, thetalist0, affGoal);
 
-  std::vector<Eigen::VectorXd> solution =
-      ccAffordancePlanner.affordance_stepper();
+  // Run the planner
+  PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper();
 
-  if (solution.empty())
-    std::cout << "No solution found" << std::endl;
-  else
-    std::cout << "Solution length: " << solution.size()
-              << "\nHere is the first point in the solution \n"
+  // Print the first point in the trajectory if planner succeeds
+  std::vector<Eigen::VectorXd> solution = plannerResult.jointTraj;
+  if (plannerResult.success) {
+    std::cout << "Planner succeeded with " << plannerResult.trajFullorPartial
+              << " solution. and here is the first point in the trajectory \n"
               << solution.at(0) << std::endl;
-
+  } else {
+    std::cout << "No solution found" << std::endl;
+  }
   // Send it to MoveIt for planning
   /* ros::AsyncSpinner spinner(1); */
   /* spinner.start(); */
