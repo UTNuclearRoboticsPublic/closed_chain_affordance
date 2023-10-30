@@ -13,8 +13,18 @@
 */
 class CcAffordancePlannerNode {
 public:
+  std::vector<std::string> joint_names_to_collect = {
+      "arm0_shoulder_yaw", "arm0_shoulder_pitch", "arm0_elbow_pitch",
+      "arm0_elbow_roll",   "arm0_wrist_pitch",    "arm0_wrist_roll"};
+  std::vector<double> selected_joint_positions;
+
+  ros::Subscriber joint_states_subscriber;
   CcAffordancePlannerNode(ros::NodeHandle nh)
-      : nh_(nh), tfBuffer_(), tfListener_(tfBuffer_) {}
+      : nh_(nh), tfBuffer_(), tfListener_(tfBuffer_) {
+
+    joint_states_subscriber = nh_.subscribe(
+        "joint_states", 1, &CcAffordancePlannerNode::jointStatesCallback, this);
+  }
 
   Eigen::Isometry3d get_htm(std::string targetFrame_,
                             std::string referenceFrame_) {
@@ -58,6 +68,30 @@ public:
     s.head(3) = w;
     s.tail(3) = -w.cross(htm.translation());
     return s;
+  }
+
+  // Callback function to process joint states
+  void jointStatesCallback(const sensor_msgs::JointState::ConstPtr &msg) {
+    // Collect joint state data for the specified joints in the specified order
+    for (const std::string &joint_name : joint_names_to_collect) {
+      for (size_t i = 0; i < msg->name.size(); ++i) {
+        if (msg->name[i] == joint_name) {
+          selected_joint_positions.push_back(msg->position[i]);
+          break; // Move to the next joint name
+        }
+      }
+    }
+
+    // Check if all specified joints have been collected
+    if (selected_joint_positions.size() == joint_names_to_collect.size()) {
+      // Process or use the collected joint state data here
+      // For example, you can print the selected joint positions
+      for (size_t i = 0; i < selected_joint_positions.size(); ++i) {
+        ROS_INFO("Joint Name: %s, Position: %f",
+                 joint_names_to_collect[i].c_str(),
+                 selected_joint_positions[i]);
+      }
+    }
   }
 
 private:
@@ -131,11 +165,45 @@ int main(int argc, char **argv) {
   }
 
   // Pure translation edit:
-  /* slist.col(9) = (Eigen::VectorXd(6) << 0, 0, 1, 0, 0, 0).finished(); */
+  slist.col(9) = (Eigen::VectorXd(6) << 0, 0, 0, -1, 0, 0).finished();
   std::cout << "w: \n" << w << std::endl;
   std::cout << "q: \n" << q << std::endl;
 
   std::cout << "Here is the screwAxes matrix: \n" << slist << std::endl;
+
+  std::string inp1;
+  std::string inp2;
+  std::cout << "Have the arm in the desired configuration. Done?" << std::endl;
+  ;
+  std::cin >> inp1;
+
+  if (inp1 != "y")
+    return 1;
+  ros::spinOnce(); // get joint states
+                   // Convert joint positions to Eigen::type
+  Eigen::VectorXd selected_joint_positions_eigen(
+      ccAffordancePlannerNode.selected_joint_positions.size());
+  for (size_t i = 0;
+       i < ccAffordancePlannerNode.selected_joint_positions.size(); ++i) {
+    selected_joint_positions_eigen(i) =
+        ccAffordancePlannerNode.selected_joint_positions[i];
+  }
+
+  Eigen::MatrixXd selected_slist =
+      slist.leftCols(ccAffordancePlannerNode.selected_joint_positions.size());
+  CcAffordancePlanner ccAffordancePlannerTemp(
+      slist, Eigen::Matrix4d::Identity(), Eigen::VectorXd::Zero(slist.cols()),
+      Eigen::Matrix4d::Identity());
+  Eigen::MatrixXd result = ccAffordancePlannerTemp.JacobianSpace(
+      selected_slist, selected_joint_positions_eigen);
+  slist.leftCols(ccAffordancePlannerNode.selected_joint_positions.size()) =
+      result;
+
+  std::cout << "Everything went well? Ready to proceed?" << std::endl;
+  std::cin >> inp2;
+
+  if (inp2 != "y")
+    return 1;
 
   Eigen::Matrix4d Tsd = Eigen::Matrix4d::Identity();
   Eigen::Matrix4d mErr = Eigen::Matrix4d::Identity();
@@ -343,24 +411,25 @@ int main(int argc, char **argv) {
   visual_tools.trigger();
   visual_tools.prompt("Press 'next' to plan and execute the trajectory");
   for (size_t j = 0; j < solution.size(); j++) {
-    /* moveit::core::RobotStatePtr current_state = */
-    /*     move_group_interface.getCurrentState(); */
+    moveit::core::RobotStatePtr current_state =
+        move_group_interface.getCurrentState();
     //
     // Next get the current set of joint values for the group.
-    /* std::vector<double> joint_group_positions_cur; */
-    /* current_state->copyJointGroupPositions(joint_model_group, */
-    /*                                        joint_group_positions_cur); */
+    std::vector<double> joint_group_positions_cur;
+    current_state->copyJointGroupPositions(joint_model_group,
+                                           joint_group_positions_cur);
     std::vector<double> joint_group_positions;
     const size_t armDoF = 6;
 
     /* visual_tools.trigger(); */
     /* visual_tools.prompt("Press 'next' to plan the trajectory"); */
     for (size_t i = 0; i < armDoF; i++) {
-      /* joint_group_positions.push_back(joint_group_positions_cur[i] + */
-      /*                                 solution.at(j)[i]); */
-      joint_group_positions.push_back(solution.at(j)[i]);
-      std::cout << "joint_value[" << i << "] = " << joint_group_positions[i]
-                << std::endl;
+      joint_group_positions.push_back(joint_group_positions_cur[i] +
+                                      solution.at(j)[i]);
+      /* joint_group_positions.push_back(solution.at(j)[i]); */
+      /* std::cout << "joint_value[" << i << "] = " << joint_group_positions[i]
+       */
+      /*           << std::endl; */
     }
 
     // Now, let's modify one of the joints, plan to the new joint space goal and

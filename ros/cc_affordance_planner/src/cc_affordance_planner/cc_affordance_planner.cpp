@@ -59,7 +59,7 @@ bool CcAffordancePlanner::cc_ik_solver() {
 
     // Update Jacobians
     thetalist_ << qp_, qsb_;
-    std::cout << "thetalist_\n" << thetalist_ << std::endl;
+    /* std::cout << "thetalist_\n" << thetalist_ << std::endl; */
     Eigen::MatrixXd rJ = CcAffordancePlanner::JacobianSpace(slist_, thetalist_);
     Np_ = rJ.leftCols(rJ.cols() - taskOffset);
     Ns_ = rJ.rightCols(taskOffset);
@@ -78,7 +78,7 @@ bool CcAffordancePlanner::cc_ik_solver() {
     /* if (qp_dot.isZero()) { */
     /* pinv_qp_dot = qp_dot.transpose(); */
     /* } else { */
-    std::cout << "qp_dot\n" << qp_dot << std::endl;
+    /* std::cout << "qp_dot\n" << qp_dot << std::endl; */
     pinv_qp_dot = qp_dot.completeOrthogonalDecomposition().pseudoInverse();
     /* } */
     /* std::cout << "pinv_qp_dot\n" << pinv_qp_dot << std::endl; */
@@ -106,7 +106,7 @@ bool CcAffordancePlanner::cc_ik_solver() {
     ikIter = ikIter + 1;
 
     err = ((qsd_ - qsb_).norm() > taskErrThreshold);
-    std::cout << "ikIter: " << ikIter << std::endl;
+    /* std::cout << "ikIter: " << ikIter << std::endl; */
   }
   return !err;
 }

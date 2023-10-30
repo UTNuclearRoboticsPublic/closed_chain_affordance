@@ -14,12 +14,12 @@ class CcAffordancePlanner : public AffordanceUtil {
 public:
   // Variables
   // Algorithm control parameters
-  const double affStep = 0.1;
+  const double affStep = 0.3;
   const double accuracy = 1.0 * (1.0 / 100.0); // accuracy for error threshold
   double taskErrThreshold;
-  const int maxItr = 50;        // for IK solver
-  const int stepperMaxItr = 30; // for total steps
-  const double dt = 1e-2;       // time step to compute joint velocities
+  const int maxItr = 50;       // for IK solver
+  const int stepperMaxItr = 2; // for total steps
+  const double dt = 1e-2;      // time step to compute joint velocities
   const int taskOffset = 1;
 
   CcAffordancePlanner(const Eigen::MatrixXd &slist, const Eigen::Matrix4d &mErr,
