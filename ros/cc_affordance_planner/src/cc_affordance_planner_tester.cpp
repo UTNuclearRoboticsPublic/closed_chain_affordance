@@ -61,27 +61,36 @@ int main() {
   }
 
   // Output screw axes for debugging purposes
-  for (size_t i = 0; i < nofJointsTotal; i++) {
-    std::cout << "slist.col(" << i << "):\n" << slist.col(i) << "\n";
-  }
+  /* for (size_t i = 0; i < nofJointsTotal; i++) { */
+  /*   std::cout << "slist.col(" << i << "):\n" << slist.col(i) << "\n"; */
+  /* } */
+  std::cout << "Here is the list of screws: \n" << slist << std::endl;
+  ;
 
   const Eigen::Matrix4d mErr = Eigen::Matrix4d::Identity(); // Error frame
   const Eigen::Matrix4d Tsd = mErr; // Desired closure frame is the error frame
   // Start angles
   const Eigen::VectorXd thetalist0 = Eigen::VectorXd::Zero(10);
+  const double affGoal = 0.3;
 
   // Construct the planner object
-  CcAffordancePlanner ccAffordancePlanner(slist, mErr, thetalist0, Tsd);
+  CcAffordancePlanner ccAffordancePlanner(slist, thetalist0, affGoal);
+
+  // Set algorithm parameters
+  ccAffordancePlanner.affStep = 0.1;
+  ccAffordancePlanner.accuracy = 1.0 * (1.0 / 100);
 
   // Run the planner
-  std::vector<Eigen::VectorXd> solution =
-      ccAffordancePlanner.affordance_stepper();
+  PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper();
 
   // Print the first point in the trajectory if planner succeeds
-  if (solution.empty())
-    std::cout << "No solution found" << std::endl;
-  else
-    std::cout << "Here is the first point in the solution \n"
+  if (plannerResult.success) {
+    std::vector<Eigen::VectorXd> solution = plannerResult.jointTraj;
+    std::cout << "Planner succeeded with " << plannerResult.trajFullorPartial
+              << " solution. and here is the first point in the trajectory \n"
               << solution.at(0) << std::endl;
+  } else {
+    std::cout << "No solution found" << std::endl;
+  }
   return 0;
 }

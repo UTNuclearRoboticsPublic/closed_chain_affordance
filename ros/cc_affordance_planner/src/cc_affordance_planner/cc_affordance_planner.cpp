@@ -1,147 +1,148 @@
 #include <cc_affordance_planner/cc_affordance_planner.hpp>
 CcAffordancePlanner::CcAffordancePlanner(const Eigen::MatrixXd &slist,
-                                         const Eigen::Matrix4d &mErr,
                                          const Eigen::VectorXd &thetalist0,
-                                         const Eigen::MatrixXd &Tsd)
-    : slist_(slist), mErr_(mErr), Tsd_(Tsd), thetalist0_(thetalist0) {
-  taskErrThreshold = accuracy * affStep;
+                                         const double &affGoal)
+    : slist_(slist), thetalist0_(thetalist0), affGoal_(affGoal) {
+  taskErrThreshold_ = accuracy * affStep;
 
   // Guesses
-  qsb_guess_ = thetalist0.tail(taskOffset);
-  qp_guess_ = thetalist0.head(thetalist0.size() - taskOffset);
+  qsb_guess_ = thetalist0_.tail(taskOffset);
+  qp_guess_ = thetalist0_.head(thetalist0_.size() - taskOffset);
 
   // Resizings
   thetalist_.conservativeResize(thetalist0_.size());
 }
 
-std::vector<Eigen::VectorXd> CcAffordancePlanner::affordance_stepper() {
+PlannerResult CcAffordancePlanner::affordance_stepper() {
 
-  std::vector<Eigen::VectorXd> jointTraj;
+  PlannerResult plannerResult; // Result of the planner
+
+  // Compute how many steps it takes to reach the affordance goal
+  stepperMaxItr = affGoal_ / affStep + 1;
+
+  // Stepper loop
   int stepperItr = 1;
-  while (stepperItr < stepperMaxItr) {
+  while (stepperItr <= stepperMaxItr) {
+
     // Define Network Matrices as relevant Jacobian columns
     Eigen::MatrixXd rJ = JacobianSpace(slist_, thetalist0_);
     Eigen::MatrixXd Np = rJ.leftCols(rJ.cols() - taskOffset);
     Eigen::MatrixXd Ns = rJ.rightCols(taskOffset);
 
     // Set desired secondary task (affordance and maybe gripper orientation)
-    // as just a few radians away from the current position
+    // as affStep away from the current position
+    if (stepperItr == (stepperMaxItr)) // adjust the step on the last iteration
+                                       // to reach affordance goal
+      affStep = affGoal_ - affStep * (stepperMaxItr - 1);
+
     qsd_ = thetalist0_.tail(taskOffset);
-    Eigen::VectorXd onesVector = Eigen::VectorXd::Ones(taskOffset);
-    qsd_ = qsd_ + stepperItr * affStep * onesVector;
+    qsd_ = qsd_ + stepperItr * affStep * Eigen::VectorXd::Ones(taskOffset);
 
     // Set starting guess for the primary joint angles
     qp_ = qp_guess_;
     qsb_ = qsb_guess_;
-    oldqp_ = Eigen::VectorXd::Zero(qp_.size());
+    oldqp_ =
+        Eigen::VectorXd::Zero(qp_.size()); // set old joint velocities as zero
 
-    // Set closure error to zero and pass it along with joint angles to the
-    // ik_solver
+    // Set closure error to zero to enter the IK loop
     errTwist_ = Eigen::VectorXd::Zero(twistLength_);
 
     // Call IK solver and store solution if successful
     if (CcAffordancePlanner::cc_ik_solver())
-      jointTraj.push_back(thetalist_);
+      plannerResult.jointTraj.push_back(thetalist_);
 
-    // increment counter
+    // increment stepper counter
     stepperItr = stepperItr + 1;
   }
-  return jointTraj;
+
+  if (!plannerResult.jointTraj.empty()) {
+    plannerResult.success = true;
+
+    if (stepperItr == (stepperMaxItr + 1))
+      plannerResult.trajFullorPartial = "Full";
+    else
+      plannerResult.trajFullorPartial = "Partial";
+  } else {
+    plannerResult.success = false;
+    plannerResult.trajFullorPartial = "Unset";
+  }
+  return plannerResult;
 }
 
 bool CcAffordancePlanner::cc_ik_solver() {
 
   int ikIter = 0;
 
-  // Check Newton-Raphson error
-  bool err = ((qsd_ - qsb_).norm() > taskErrThreshold);
+  // Check error
+  bool err = (((qsd_ - qsb_).norm() > taskErrThreshold_) ||
+              errTwist_.norm() > closureErrThreshold_);
   while (err && ikIter < maxItr) {
 
     // Update Jacobians
     thetalist_ << qp_, qsb_;
-    /* std::cout << "thetalist_\n" << thetalist_ << std::endl; */
     Eigen::MatrixXd rJ = CcAffordancePlanner::JacobianSpace(slist_, thetalist_);
     Np_ = rJ.leftCols(rJ.cols() - taskOffset);
     Ns_ = rJ.rightCols(taskOffset);
 
     // Compute primary joint angles
-    Eigen::MatrixXd qp_dot = (qp_ - oldqp_) / dt;
-    // Calculate the pseudo-inverse of Ns
-    Eigen::MatrixXd pinv_Ns;
-    /* if (Ns_.isZero()) { */
-    /*   pinv_Ns = Ns_.transpose(); */
-    /* } else { */
+    Eigen::MatrixXd qp_dot = (qp_ - oldqp_) / dt_;
+
+    //* Calculate constraint Jacobian, cJ
+    Eigen::MatrixXd pinv_Ns; // pseudo-inverse of Ns
     pinv_Ns = Ns_.completeOrthogonalDecomposition().pseudoInverse();
-    /* } */
-    // Calculate the pseudo-inverse of qp_dot
-    Eigen::MatrixXd pinv_qp_dot;
-    /* if (qp_dot.isZero()) { */
-    /* pinv_qp_dot = qp_dot.transpose(); */
-    /* } else { */
-    /* std::cout << "qp_dot\n" << qp_dot << std::endl; */
+    Eigen::MatrixXd pinv_qp_dot; // pseudo-inverse of qp_dot
     pinv_qp_dot = qp_dot.completeOrthogonalDecomposition().pseudoInverse();
-    /* } */
-    /* std::cout << "pinv_qp_dot\n" << pinv_qp_dot << std::endl; */
-    /* std::cout << "errTwist_\n" << errTwist_ << std::endl; */
-    /* std::cout << "Np_\n" << Np_ << std::endl; */
-    /* std::cout << "pinv_Ns_\n" << pinv_Ns << std::endl; */
-    // Calculate cJ
+
     Eigen::MatrixXd cJ = -pinv_Ns * (Np_ + errTwist_ * pinv_qp_dot);
-    oldqp_ = qp_;
-    // Calculate the pseudo-inverse of cJ
+
+    //*Calculate the update for qp
+    oldqp_ = qp_; // store last joint values first
     Eigen::MatrixXd pinv_cJ;
-    /* if (cJ.isZero()) { */
-    /* pinv_cJ = cJ.transpose(); */
-    /* } else { */
-    pinv_cJ = cJ.completeOrthogonalDecomposition().pseudoInverse();
-    /* } */
+    pinv_cJ = cJ.completeOrthogonalDecomposition()
+                  .pseudoInverse(); // pseudo-inverse of cJ
 
-    // Calculate the update for qp
-    qp_ = qp_ + pinv_cJ * (qsd_ - qsb_);
+    qp_ = qp_ + pinv_cJ * (qsd_ - qsb_); // Update using Newton-Raphson
 
-    // Optimize closure error right here
+    // Correct for closure error
     CcAffordancePlanner::closure_error_optimizer();
 
-    // Check Newton-Raphson error
+    // Update IK stepper
     ikIter = ikIter + 1;
 
-    err = ((qsd_ - qsb_).norm() > taskErrThreshold);
-    /* std::cout << "ikIter: " << ikIter << std::endl; */
+    // Check error
+    err = (((qsd_ - qsb_).norm() > taskErrThreshold_) ||
+           errTwist_.norm() > closureErrThreshold_);
   }
   return !err;
 }
 
 void CcAffordancePlanner::closure_error_optimizer() {
+
+  // Calculate the closure error using forward kinematics
   thetalist_ << qp_, qsb_;
+  Eigen::Matrix4d Tse = CcAffordancePlanner::FKinSpace(
+      mErr_, slist_, thetalist_); // HTM of actual end of ground link
+  errTwist_ =
+      CcAffordancePlanner::Adjoint(Tse) *
+      CcAffordancePlanner::se3ToVec(CcAffordancePlanner::MatrixLog6(
+          CcAffordancePlanner::TransInv(Tse) *
+          mErr_)); // mErr_ is the desired htm for the end of ground link
 
-  // Calculate the closure error
-  Eigen::Matrix4d Tse =
-      CcAffordancePlanner::FKinSpace(mErr_, slist_, thetalist_);
-  errTwist_ = CcAffordancePlanner::Adjoint(Tse) *
-              CcAffordancePlanner::se3ToVec(CcAffordancePlanner::MatrixLog6(
-                  CcAffordancePlanner::TransInv(Tse) * Tsd_));
-
-  // Adjust qp and qs based on this error;
-  // Combine Np and Ns horizontally
+  //* Adjust qp_ and qs_ based on this error;
   Eigen::MatrixXd N(Np_.rows(), Np_.cols() + Ns_.cols());
-  N << Np_, Ns_;
-  // Calculate the pseudo-inverse and compute q
-  Eigen::MatrixXd N_pseudo_inverse;
-  /* if (N.isZero()) { */
-  /* N_pseudo_inverse = N.transpose(); */
-  /* } else { */
-  N_pseudo_inverse = N.completeOrthogonalDecomposition().pseudoInverse();
-  /* } */
-  Eigen::VectorXd q = N_pseudo_inverse * errTwist_;
+  N << Np_, Ns_; // Combine Np_ and Ns_ horizontally
+  Eigen::MatrixXd pinv_N;
+  pinv_N = N.completeOrthogonalDecomposition()
+               .pseudoInverse();                // pseudo-inverse of N
+  const Eigen::VectorXd q = pinv_N * errTwist_; // correction differential
+
   qp_ = qp_ + q.head(q.size() - taskOffset);
   qsb_ = qsb_ + q.tail(taskOffset);
 
-  // Update thetalist
-  thetalist_ << qp_, qsb_;
-
   // Compute final error
+  thetalist_ << qp_, qsb_;
   Tse = CcAffordancePlanner::FKinSpace(mErr_, slist_, thetalist_);
   errTwist_ = CcAffordancePlanner::Adjoint(Tse) *
               CcAffordancePlanner::se3ToVec(CcAffordancePlanner::MatrixLog6(
-                  CcAffordancePlanner::TransInv(Tse) * Tsd_));
+                  CcAffordancePlanner::TransInv(Tse) * mErr_));
 }
