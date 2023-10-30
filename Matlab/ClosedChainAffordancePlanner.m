@@ -34,6 +34,7 @@ affType = 'pure_rot';
 affStep = 0.1;
 accuracy = 1*(1/100); % accuracy for error threshold
 taskErrThreshold = accuracy*affStep;
+closureErrThreshold = 1e-6;
 maxItr = 50; % for IK solver
 stepperMaxItr = 75; % for total steps
 dt = 1e-2; % time step to compute joint velocities
@@ -96,7 +97,7 @@ qsb = qsb_guess;
 errTwist = zeros(6,1);
 
 % Check Newton-Raphson error
-err = norm(qsd-qsb)>taskErrThreshold;
+err = norm(qsd-qsb)>taskErrThreshold|| norm(errTwist)>closureErrThreshold;
 
 % Implement Algorithm
 ikIter = 1; % IK loop iterator
@@ -133,7 +134,7 @@ while err && ikIter<maxItr
     errPlotMatrix(ikIter,3) = norm(errTwist);
     
     % Check error as loop condition
-    err = norm(qsd-qsb)>taskErrThreshold;
+err = norm(qsd-qsb)>taskErrThreshold|| norm(errTwist)>closureErrThreshold;
 
     % Increment loop iterator
     ikIter = ikIter+1;
