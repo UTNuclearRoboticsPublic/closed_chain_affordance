@@ -13,8 +13,8 @@
 // Struct to store result from planner
 /**
  * @brief Designed to contain the result of an IK planner with fields:
- * success(bool), trajFullorPartial (string values: "Full", "Partial", or
- * "Unset"), and jointTraj(std::vector<Eigen::VectorXd)
+ * success of type bool, trajFullorPartial of type string with values: "Full",
+ * "Partial", or "Unset", and jointTraj of type std::vector<Eigen::VectorXd
  */
 struct PlannerResult {
   bool success;
@@ -32,7 +32,6 @@ public:
   //* Algorithm control parameters (non-const to adjust from outside)
   // For stepper loop
   double affStep = 0.1;
-  int stepperMaxItr = 2; // public variable for ease of debugging
   // For IK loop
   double accuracy = 1.0 * (1.0 / 100.0); // accuracy for error threshold
   int maxItr = 50;
@@ -58,8 +57,8 @@ public:
    * affordance step (affStep)
    *
    * @return Struct containing the result of the planning with fields:
-   success(bool), trajFullorPartial (string values: "Full", "Partial", or
-   "Unset"), and jointTraj(std::vector<Eigen::VectorXd)
+   success of type bool, trajFullorPartial of type string with values: "Full",
+   "Partial", or "Unset", and jointTraj of type std::vector<Eigen::VectorXd
    */
   PlannerResult affordance_stepper();
 

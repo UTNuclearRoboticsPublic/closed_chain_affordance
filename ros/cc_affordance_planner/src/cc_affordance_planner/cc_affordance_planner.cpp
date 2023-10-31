@@ -18,7 +18,7 @@ PlannerResult CcAffordancePlanner::affordance_stepper() {
   PlannerResult plannerResult; // Result of the planner
 
   // Compute how many steps it takes to reach the affordance goal
-  stepperMaxItr = affGoal_ / affStep + 1;
+  const int stepperMaxItr = affGoal_ / affStep + 1;
 
   // Stepper loop
   int stepperItr = 1;
