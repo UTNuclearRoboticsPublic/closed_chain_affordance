@@ -144,7 +144,7 @@ public:
     /* slist.col(9) = (Eigen::VectorXd(6) << 0, 0, 0, -1, 0, 0).finished(); */
 
     // Pure rotation edit for affordance
-    slist.col(9) = (Eigen::VectorXd(6) << 0, 0, 1, 0, 0, 0).finished();
+    slist.col(9) = (Eigen::VectorXd(6) << 0, 0, -1, 0, 0, 0).finished();
     return slist;
   }
 
@@ -228,7 +228,7 @@ int main(int argc, char **argv) {
   // Prompt to start planning
   visual_tools.trigger();
   visual_tools.prompt("Press 'next' to plan the trajectory");
-  for (size_t j = 0; j < solution.size(); j++) {
+  for (size_t j = 0; j <= solution.size(); j++) {
     moveit::core::RobotStatePtr current_state =
         move_group_interface.getCurrentState();
     //
@@ -239,16 +239,29 @@ int main(int argc, char **argv) {
             PLANNING_GROUP);
     current_state->copyJointGroupPositions(joint_model_group,
                                            joint_group_positions_cur);
-    std::vector<double> joint_group_positions;
-    const size_t armDoF = 6;
-
-    for (size_t i = 0; i < armDoF; i++) {
-      joint_group_positions.push_back(joint_group_positions_cur[i] +
-                                      solution.at(j)[i]);
-      /* joint_group_positions.push_back(solution.at(j)[i]); */
+    std::ostringstream joint_positions_stream;
+    for (const auto &position : joint_group_positions_cur) {
+      joint_positions_stream << position << " ";
     }
+    ROS_INFO_STREAM(
+        "Here are the current joint values: " << joint_positions_stream.str());
 
-    move_group_interface.setJointValueTarget(joint_group_positions);
+    if (j == 0) {
+      std::vector<double> start_config = {
+          -0.13461518287658691, 0.03472280502319336, 1.1548473834991455,
+          -0.27599477767944336, -1.3527731895446777, 0.08957767486572266};
+      move_group_interface.setJointValueTarget(start_config);
+    } else {
+      std::vector<double> joint_group_positions;
+      const size_t armDoF = 6;
+
+      for (size_t i = 0; i < armDoF; i++) {
+        joint_group_positions.push_back(joint_group_positions_cur[i] +
+                                        solution.at(j - 1)[i]);
+        /* joint_group_positions.push_back(solution.at(j)[i]); */
+      }
+      move_group_interface.setJointValueTarget(joint_group_positions);
+    }
 
     // Lower the max acceleration and velocity to 5%. Default is 10%
     move_group_interface.setMaxVelocityScalingFactor(0.05);
@@ -273,7 +286,7 @@ int main(int argc, char **argv) {
     if (success) {
       move_group_interface.execute(my_plan);
     }
-    joint_group_positions.clear();
+    /* joint_group_positions.clear(); */
   }
 
   return 0;
