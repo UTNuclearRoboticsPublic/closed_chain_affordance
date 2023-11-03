@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   tf2_ros
   geometry_msgs
+  control_msgs
   moveit_core
   moveit_ros_planning_interface
   moveit_visual_tools
