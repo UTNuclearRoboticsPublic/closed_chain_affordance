@@ -144,7 +144,8 @@ target_link_libraries(${PROJECT_NAME} affordance_util)
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(${PROJECT_NAME}_tester src/${PROJECT_NAME}_tester.cpp)
-add_executable(${PROJECT_NAME}_node src/cc_affordance_planner_node.cpp)
+add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.cpp)
+add_executable(${PROJECT_NAME}_data_recorder src/${PROJECT_NAME}_data_recorder.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -155,12 +156,16 @@ add_executable(${PROJECT_NAME}_node src/cc_affordance_planner_node.cpp)
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(${PROJECT_NAME}_data_recorder ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_tester
 	${PROJECT_NAME} #tester requires this packages library, that's all. Can still run the executable with rosrun.
 )
 target_link_libraries(${PROJECT_NAME}_node
+	${catkin_LIBRARIES} ${PROJECT_NAME} # Link this package's library against the node target
+)
+target_link_libraries(${PROJECT_NAME}_data_recorder
 	${catkin_LIBRARIES} ${PROJECT_NAME} # Link this package's library against the node target
 )
 
