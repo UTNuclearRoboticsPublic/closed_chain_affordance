@@ -184,10 +184,10 @@ public:
     }
 
     // Pure translation edit for affordance
-    /* slist.col(9) = (Eigen::VectorXd(6) << 0, 0, 0, -1, 0, 0).finished(); */
+    slist.col(9) = (Eigen::VectorXd(6) << 0, 0, 0, -1, 0, 0).finished();
 
     // Pure rotation edit for affordance
-    slist.col(9) = (Eigen::VectorXd(6) << 0, 0, -1, 0, 0, 0).finished();
+    /* slist.col(9) = (Eigen::VectorXd(6) << 0, 0, -1, 0, 0, 0).finished(); */
     return slist;
   }
 
@@ -206,51 +206,6 @@ int main(int argc, char **argv) {
   spinner.start();
 
   CcAffordancePlannerNode capN(node_handle);
-
-  // Build robot
-  Eigen::MatrixXd slist = capN.robot_builder();
-
-  std::cout << "Here is the screwAxes matrix: \n" << slist << std::endl;
-
-  // Put robot in the affordance start configuration to read joint states
-  std::string startConfigConfirm;
-  std::cout
-      << "Put robot in the affordance start configuration to read joint states"
-      << std::endl;
-  std::cin >> startConfigConfirm;
-
-  if (startConfigConfirm != "y")
-    return 1;
-  ros::spinOnce(); // read joint states
-
-  // Compute the robot Jacobian based on the joint states. This will be the
-  // screw list we send to the robot
-  Eigen::MatrixXd robotSlist = slist.leftCols(capN.joint_states.size());
-  CcAffordancePlanner jacTool(robotSlist, Eigen::VectorXd::Zero(slist.cols()),
-                              0.3); // Meaningless constructor values just to
-                                    // create the object, temporary fix
-  Eigen::MatrixXd result = jacTool.JacobianSpace(robotSlist, capN.joint_states);
-  slist.leftCols(capN.joint_states.size()) = result;
-
-  // Define affordance goal and create planner object
-  const double affGoal = 1.57;
-  Eigen::VectorXd thetalist0 = Eigen::VectorXd::Zero(slist.cols());
-  std::cout << "Before creating the object" << std::endl;
-  CcAffordancePlanner ccAffordancePlanner(slist, thetalist0, affGoal);
-  ccAffordancePlanner.affStep = 0.02;
-
-  // Run the planner
-  PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper();
-
-  // Print the first point in the trajectory if planner succeeds
-  std::vector<Eigen::VectorXd> solution = plannerResult.jointTraj;
-  if (plannerResult.success) {
-    std::cout << "Planner succeeded with " << plannerResult.trajFullorPartial
-              << " solution. and here is the first point in the trajectory \n"
-              << solution.at(0) << std::endl;
-  } else {
-    std::cout << "No solution found" << std::endl;
-  }
 
   // MoveIt Planning
   // Before we can
@@ -348,15 +303,82 @@ int main(int argc, char **argv) {
   static const std::string PLANNING_GROUP = "arm";
   moveit::planning_interface::MoveGroupInterface move_group_interface(
       PLANNING_GROUP);
-  std::vector<double> start_config = {
-      -0.13461518287658691, 0.03472280502319336, 1.1548473834991455,
-      -0.27599477767944336, -1.3527731895446777, 0.08957767486572266};
 
-  move_group_interface.setJointValueTarget(start_config);
-  // Lower the max acceleration and velocity to 5%. Default is 10%
-  move_group_interface.setMaxVelocityScalingFactor(0.05);
-  move_group_interface.setMaxAccelerationScalingFactor(0.05);
-  move_group_interface.move();
+  // Build robot
+  Eigen::MatrixXd slist = capN.robot_builder();
+
+  std::cout << "Here is the screwAxes matrix before mod: \n"
+            << slist << std::endl;
+
+  // Put robot in the affordance start configuration to read joint states
+  std::string startConfigConfirm;
+  std::cout
+      << "Put robot in the affordance start configuration to read joint states"
+      << std::endl;
+  std::cin >> startConfigConfirm;
+
+  if (startConfigConfirm != "y")
+    return 1;
+  ros::spinOnce(); // read joint states
+
+  // Go to hard-coded start config for moving a stool
+  //----------------------------------------------------------------------------
+  /* std::vector<double> start_config = { */
+  /*     -0.13461518287658691, 0.03472280502319336, 1.1548473834991455, */
+  /*     -0.27599477767944336, -1.3527731895446777, 0.08957767486572266}; */
+  /* move_group_interface.setJointValueTarget(start_config); */
+  /* // Lower the max acceleration and velocity to 5%. Default is 10% */
+  /* move_group_interface.setMaxVelocityScalingFactor(0.05); */
+  /* move_group_interface.setMaxAccelerationScalingFactor(0.05); */
+  /* move_group_interface.move(); */
+  //----------------------------------------------------------------------------
+
+  // Compute the robot Jacobian based on the joint states. This will be the
+  // screw list we send to the robot
+  const size_t total_nof_joints = 9;
+  Eigen::MatrixXd robotSlist = slist.leftCols(total_nof_joints);
+  CcAffordancePlanner jacTool(robotSlist, Eigen::VectorXd::Zero(slist.cols()),
+                              0.3); // Meaningless constructor values just to
+                                    // create the object, temporary fix
+  Eigen::VectorXd joint_states_w_vjoints(total_nof_joints);
+  joint_states_w_vjoints.head(6) = capN.joint_states;
+  joint_states_w_vjoints.tail(3) << 0, 0, 0;
+  std::cout << "Here is the joint_states_w_vjoints: \n"
+            << joint_states_w_vjoints << std::endl;
+  std::cout << "Here is the robotSlist: \n" << robotSlist << std::endl;
+  Eigen::MatrixXd result =
+      jacTool.JacobianSpace(robotSlist, joint_states_w_vjoints);
+  slist.leftCols(joint_states_w_vjoints.size()) = result;
+  std::cout << "Here is the screwAxes matrix after mod: \n"
+            << slist << std::endl;
+
+  // Define affordance goal and create planner object
+  const double affGoal = 0.3;
+  Eigen::VectorXd thetalist0 = Eigen::VectorXd::Zero(slist.cols());
+  std::cout << "Before creating the object" << std::endl;
+  CcAffordancePlanner ccAffordancePlanner(slist, thetalist0, affGoal);
+  ccAffordancePlanner.affStep = 0.01;
+
+  // Run the planner
+  PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper();
+
+  // Print the first point in the trajectory if planner succeeds
+  std::vector<Eigen::VectorXd> solution = plannerResult.jointTraj;
+  if (plannerResult.success) {
+    std::cout
+        << "Planner succeeded with "
+        << plannerResult.trajFullorPartial
+        /* << " solution. and here is the first point in the trajectory \n" */
+        /* << solution.at(0) << std::endl; */
+        << " solution\n"
+        << std::endl;
+    /* std::cout << "Here is the trajectory \n"; */
+    /* for (size_t i = 0; i < solution.size(); i++) { */
+    /*   std::cout << solution.at(i) << std::endl; */
+    /* } */
+  } else {
+    std::cout << "No solution found" << std::endl;
+  }
 
   visual_tools.trigger();
   /* Wait for user input */
@@ -468,16 +490,17 @@ int main(int argc, char **argv) {
     visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(),
                                        joint_model_group);
   }
-  visual_tools.trigger();
-
-  /* Wait for user input */
-  visual_tools.prompt("Press next to execute the trajectory");
 
   // Send the goal directly to the follow_joint_trajectory action server
   const control_msgs::FollowJointTrajectoryGoal goal =
       capN.follow_joint_trajectory_msg_builder(solution,
                                                joint_group_positions_cur);
   ROS_INFO_STREAM("Here is the coveted ROS msg: " << goal);
+
+  visual_tools.trigger();
+
+  /* Wait for user input */
+  visual_tools.prompt("Press next to execute the trajectory");
 
   // Execute directly
   // Create the connection to the action server
