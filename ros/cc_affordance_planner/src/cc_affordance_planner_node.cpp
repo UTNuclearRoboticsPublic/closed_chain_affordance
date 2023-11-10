@@ -352,12 +352,32 @@ int main(int argc, char **argv) {
   std::cout << "Here is the screwAxes matrix after mod: \n"
             << slist << std::endl;
 
+  // Computing the rotational screw axis for affordance
+  //-------------------------------------------------------------------------
+  // Get ee q-vector from tf data
+  Eigen::Isometry3d eeHtm = capN.get_htm("arm0_base_link", "arm0_tool0");
+  Eigen::Vector3d q_ee = eeHtm.translation();
+  /* const double affOffset = -0.2; */
+  const Eigen::Vector3d q_aff(0, -0.2, 0);
+  /* const Eigen::Vector3d q_aff = */
+  /*     q_ee + Eigen::Vector3d(0, affOffset, 0); // q-vector for affordance */
+  Eigen::Vector3d wcurr(
+      -1, 0, 0); // required to convert to VectorXd type for use with cross
+  Eigen::Vector3d qcurr =
+      q_aff; // required to convert to VectorXd type for use with cross
+  Eigen::VectorXd s_aff(6);
+  s_aff << wcurr, -wcurr.cross(qcurr);
+  slist.col(9) = s_aff;
+  std::cout << "Here is the screwAxes matrix after rot mod: \n"
+            << slist << std::endl;
+  //-------------------------------------------------------------------------
+
   // Define affordance goal and create planner object
-  const double affGoal = 0.3;
+  const double affGoal = 1.57;
   Eigen::VectorXd thetalist0 = Eigen::VectorXd::Zero(slist.cols());
   std::cout << "Before creating the object" << std::endl;
   CcAffordancePlanner ccAffordancePlanner(slist, thetalist0, affGoal);
-  ccAffordancePlanner.affStep = 0.01;
+  ccAffordancePlanner.affStep = 0.1;
 
   // Run the planner
   PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper();
