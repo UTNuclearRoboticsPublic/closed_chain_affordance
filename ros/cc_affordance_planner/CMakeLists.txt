@@ -59,11 +59,11 @@ FIND_LIBRARY(affordance_util_LIBRARIES affordance_util /usr/local/lib)
 # )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+  FILES
+  MoveItPlanAndViz.srv
+  # Service2.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -73,10 +73,11 @@ FIND_LIBRARY(affordance_util_LIBRARIES affordance_util /usr/local/lib)
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  trajectory_msgs
+  std_msgs  # Or other packages containing msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -110,7 +111,7 @@ FIND_LIBRARY(affordance_util_LIBRARIES affordance_util /usr/local/lib)
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES cc_affordance_planner
-#  CATKIN_DEPENDS roscpp
+ CATKIN_DEPENDS roscpp message_runtime
 #  DEPENDS system_lib
 )
 
@@ -146,6 +147,7 @@ target_link_libraries(${PROJECT_NAME} affordance_util)
 add_executable(${PROJECT_NAME}_tester src/${PROJECT_NAME}_tester.cpp)
 add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.cpp)
 add_executable(${PROJECT_NAME}_data_recorder src/${PROJECT_NAME}_data_recorder.cpp)
+add_executable(${PROJECT_NAME}_moveit_plan_and_viz_server src/${PROJECT_NAME}_moveit_plan_and_viz_server.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -157,6 +159,7 @@ add_executable(${PROJECT_NAME}_data_recorder src/${PROJECT_NAME}_data_recorder.c
 ## same as for the library above
 add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(${PROJECT_NAME}_data_recorder ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(${PROJECT_NAME}_moveit_plan_and_viz_server ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp) # we use a custom srv from this package in this target
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_tester
@@ -166,6 +169,9 @@ target_link_libraries(${PROJECT_NAME}_node
 	${catkin_LIBRARIES} ${PROJECT_NAME} # Link this package's library against the node target
 )
 target_link_libraries(${PROJECT_NAME}_data_recorder
+	${catkin_LIBRARIES} ${PROJECT_NAME} # Link this package's library against the node target
+)
+target_link_libraries(${PROJECT_NAME}_moveit_plan_and_viz_server
 	${catkin_LIBRARIES} ${PROJECT_NAME} # Link this package's library against the node target
 )
 
