@@ -355,10 +355,16 @@ int main(int argc, char **argv) {
   // Computing the rotational screw axis for affordance
   //-------------------------------------------------------------------------
   // Get ee q-vector from tf data
-  Eigen::Isometry3d eeHtm = capN.get_htm("arm0_base_link", "arm0_tool0");
-  Eigen::Vector3d q_ee = eeHtm.translation();
+  /* Eigen::Isometry3d eeHtm = capN.get_htm("arm0_base_link", "arm0_tool0"); */
+  Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "tag7");
+  /* Eigen::Vector3d q_ee = eeHtm.translation(); */
+  Eigen::Vector3d q_tag = tagHtm.translation();
+  std::cout << "Here is the tag location: " << tagHtm.translation()
+            << std::endl;
   /* const double affOffset = -0.2; */
-  const Eigen::Vector3d q_aff(0, -0.2, 0);
+  /* const Eigen::Vector3d q_aff(0, -0.2, 0); */
+  Eigen::Vector3d q_aff;
+  q_aff = q_tag + Eigen::Vector3d(0, 0, 0);
   /* const Eigen::Vector3d q_aff = */
   /*     q_ee + Eigen::Vector3d(0, affOffset, 0); // q-vector for affordance */
   Eigen::Vector3d wcurr(
