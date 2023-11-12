@@ -21,6 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 find_package(Eigen3 REQUIRED )
+find_package(yaml-cpp REQUIRED )
 
 FIND_LIBRARY(affordance_util_LIBRARIES affordance_util /usr/local/lib)
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -149,6 +150,7 @@ add_executable(${PROJECT_NAME}_tester src/${PROJECT_NAME}_tester.cpp)
 add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.cpp)
 add_executable(${PROJECT_NAME}_data_recorder src/${PROJECT_NAME}_data_recorder.cpp)
 add_executable(${PROJECT_NAME}_moveit_plan_and_viz_server src/${PROJECT_NAME}_moveit_plan_and_viz_server.cpp)
+add_executable(${PROJECT_NAME}_robot_builder src/${PROJECT_NAME}_robot_builder.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -176,6 +178,9 @@ target_link_libraries(${PROJECT_NAME}_moveit_plan_and_viz_server
 	${catkin_LIBRARIES} ${PROJECT_NAME} # Link this package's library against the node target
 )
 
+target_link_libraries(${PROJECT_NAME}_robot_builder
+	yaml-cpp # Link this package's library against the node target
+)
 #############
 ## Install ##
 #############
