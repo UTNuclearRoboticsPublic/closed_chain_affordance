@@ -1,4 +1,6 @@
+#include <Eigen/Geometry>
 #include <cc_affordance_planner/MoveItPlanAndViz.h>
+#include <geometry_msgs/Pose.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <moveit/kinematic_constraints/utils.h>
 #include <moveit/move_group_interface/move_group_interface.h>
@@ -24,21 +26,32 @@ public:
     moveit_plan_and_viz_server_ = nh_.advertiseService(
         "/moveit_plan_and_viz_server",
         &MoveItPlanAndVizServer::moveit_plan_and_viz_server_callback_, this);
+    marker_pub = nh_.advertise<visualization_msgs::MarkerArray>(
+        "/tool_trajectory_marker", 10);
+
     // Start async spinner
     spinner_.start();
+  }
+  ~MoveItPlanAndVizServer() {
+    // Stop the spinner when the object is going out of scope
+    spinner_.stop();
+
+    // Wait for the spinner's thread to finish
+    ros::waitForShutdown();
   }
 
 private:
   /* Variables */
   ros::NodeHandle nh_;
-  ros::AsyncSpinner spinner_;             // async spinner needed for MoveIt
+  ros::AsyncSpinner
+      spinner_; // async spinner needed for move group to check robot state
   tf2_ros::Buffer tfBuffer_;              // buffer to hold tf data
   tf2_ros::TransformListener tfListener_; // listener object for tf data
   ros::ServiceServer
       moveit_plan_and_viz_server_; // server to plan joint trajectory with
                                    // moveit and visualize the tracing of a
                                    // specified frame as well
-
+  ros::Publisher marker_pub;
   /* Methods */
   // Given a target frame and reference frame, looks up and returns the tf
   geometry_msgs::TransformStamped get_htm_(std::string target_frame,
@@ -179,6 +192,8 @@ private:
 
     //**** Planning loop
     const size_t lof_joint_traj = serv_req.joint_traj.points.size();
+    /* robot_state::RobotStatePtr last_robot_state; */
+    std::vector<geometry_msgs::Pose> waypoints;
 
     for (size_t j = 0; j < lof_joint_traj; j++) {
       /* First, set the state in the planning scene to the final state of the
@@ -201,6 +216,23 @@ private:
             response.trajectory.joint_trajectory.points.back().positions);
       }
 
+      Eigen::Isometry3d eigenTransform =
+          robot_state->getGlobalLinkTransform("arm0_tool0");
+      geometry_msgs::Pose waypoint;
+      // Set the translation (position) values
+      waypoint.position.x = eigenTransform.translation().x();
+      waypoint.position.y = eigenTransform.translation().y();
+      waypoint.position.z = eigenTransform.translation().z();
+
+      // Set the rotation (orientation) values (quaternion)
+      Eigen::Quaterniond eigenQuaternion(eigenTransform.rotation());
+      waypoint.orientation.x = eigenQuaternion.x();
+      waypoint.orientation.y = eigenQuaternion.y();
+      waypoint.orientation.z = eigenQuaternion.z();
+      waypoint.orientation.w = eigenQuaternion.w();
+
+      waypoints.push_back(waypoint);
+      ROS_INFO_STREAM("Here is the pose: " << waypoint);
       // Now, setup a joint space goal based on the info from service request
       std::vector<double> joint_group_positions;
       trajectory_msgs::JointTrajectoryPoint &point =
@@ -236,15 +268,62 @@ private:
       /* Visualize the trajectory */
       ROS_INFO("Visualizing the trajectory");
       res.getMessage(response);
+      /* visual_tools.deleteAllMarkers(); */
       display_trajectory.trajectory_start = response.trajectory_start;
       display_trajectory.trajectory.push_back(response.trajectory);
       // Now you should see two planned trajectories in series
       display_publisher.publish(display_trajectory);
+      /* if (j != 0) { */
+      /*   visual_tools.publishAxisLabeled( */
+      /*       last_robot_state->getGlobalLinkTransform("arm0_fingers"), */
+      /*       "start_pose"); */
+      /*   visual_tools.publishAxisLabeled( */
+      /*       robot_state->getGlobalLinkTransform("arm0_fingers"),
+       * "target_pose"); */
+      /* } */
+      /* last_robot_state = robot_state; */
       visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(),
                                          joint_model_group);
     }
     /* -------------------------------------------------------------- */
+    /* visual_tools.deleteAllMarkers(); */
+    /* visual_tools.publishPath(waypoints, rvt::LIME_GREEN, rvt::SMALL); */
+    /* for (std::size_t i = 0; i < waypoints.size(); ++i) */
+    /*   visual_tools.publishAxisLabeled(waypoints[i], "pt" + std::to_string(i),
+     */
+    /*                                   rvt::SMALL); */
+    ros::Rate rate(4.0);
+    // Populate markers with spheres at the waypoint locations
+    int k = 0;
+    while (k < 5) {
+      visualization_msgs::MarkerArray markers;
+      for (int i = 0; i < waypoints.size(); ++i) {
+        visualization_msgs::Marker marker;
+        marker.header.frame_id =
+            "base_link"; // Replace with your robot's base frame
+        marker.header.stamp = ros::Time::now();
+        marker.ns = "trajectory";
+        marker.id = i;
+        marker.type = visualization_msgs::Marker::SPHERE;
+        marker.action = visualization_msgs::Marker::ADD;
+        marker.pose =
+            waypoints[i]; // Assuming waypoints contain Pose information
+        marker.scale.x = 0.01;
+        marker.scale.y = 0.01;
+        marker.scale.z = 0.01;
+        marker.color.a = 1.0;
+        marker.color.r = 0.0;
+        marker.color.g = 1.0;
+        marker.color.b = 0.0;
 
+        markers.markers.push_back(marker);
+      }
+
+      marker_pub.publish(markers);
+      marker_pub.publish(markers);
+      rate.sleep();
+      k++;
+    }
     return true;
   }
 };
@@ -254,8 +333,12 @@ int main(int argc, char **argv) {
   // Create server object
   MoveItPlanAndVizServer moveItPlanAndVizServer;
 
-  // Keep the node alive
-  ros::spin();
+  // Check service calls once a second
+  ros::Rate loop_rate(1);
 
+  while (ros::ok()) {
+    loop_rate.sleep();
+    ros::spinOnce();
+  }
   return 0;
 }

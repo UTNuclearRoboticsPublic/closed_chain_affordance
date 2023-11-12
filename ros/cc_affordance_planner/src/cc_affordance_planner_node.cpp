@@ -1,6 +1,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <actionlib/client/simple_action_client.h>
+#include <cc_affordance_planner/MoveItPlanAndViz.h>
 #include <cc_affordance_planner/cc_affordance_planner.hpp>
 #include <geometry_msgs/TransformStamped.h>
 #include <moveit/kinematic_constraints/utils.h>
@@ -160,7 +161,10 @@ public:
     /* std::cout << "Here is q_ee: \n" << q_ee << std::endl; */
 
     // Hard-coded ee q-vector
-    const Eigen::Vector3d q_ee(0.8605, -0.0002, 0.0818);
+    /* const Eigen::Vector3d q_ee(0.8605, -0.0002, */
+    /*                            0.0818); // location of arm0_fingers */
+    const Eigen::Vector3d q_ee(0.9383, 0.0005,
+                               0.0664); // location of arm0_tool0
 
     // Affordance and virtual joint location
     const double affOffset = 0.1;
@@ -202,101 +206,133 @@ int main(int argc, char **argv) {
   ros::init(argc, argv, "cc_affordance_planner_node");
   ros::NodeHandle node_handle;
 
-  ros::AsyncSpinner spinner(1);
+  ros::AsyncSpinner spinner(
+      1); // to get robot's state via MoveGroupInterface ros::spin needs to be
+          // running. One way to do this is to have an asyncspinner going
+          // beforehand
   spinner.start();
 
   CcAffordancePlannerNode capN(node_handle);
 
-  // MoveIt Planning
-  // Before we can
-  // load the planning_pipeline planner, we need two objects, a RobotModel and a
-  // PlanningScene.
-  //
-  // We will start by instantiating a `RobotModelLoader`_ object, which will
-  // look up the robot description on the ROS parameter server and construct a
-  // :moveit_core:`RobotModel` for us to use.
-  //
-  // .. _RobotModelLoader:
-  //     http://docs.ros.org/noetic/api/moveit_ros_planning/html/classrobot__model__loader_1_1RobotModelLoader.html
-  robot_model_loader::RobotModelLoaderPtr robot_model_loader(
-      new robot_model_loader::RobotModelLoader("robot_description"));
+  /* // MoveIt Planning */
+  /* // Before we can */
+  /* // load the planning_pipeline planner, we need two objects, a RobotModel
+   * and a */
+  /* // PlanningScene. */
+  /* // */
+  /* // We will start by instantiating a `RobotModelLoader`_ object, which will
+   */
+  /* // look up the robot description on the ROS parameter server and construct
+   * a */
+  /* // :moveit_core:`RobotModel` for us to use. */
+  /* // */
+  /* // .. _RobotModelLoader: */
+  /* //
+   * http://docs.ros.org/noetic/api/moveit_ros_planning/html/classrobot__model__loader_1_1RobotModelLoader.html
+   */
+  /* robot_model_loader::RobotModelLoaderPtr robot_model_loader( */
+  /*     new robot_model_loader::RobotModelLoader("robot_description")); */
 
-  // Using the RobotModelLoader, we can construct a planing scene monitor that
-  // will create a planning scene, monitors planning scene diffs, and apply the
-  // diffs to it's internal planning scene. We then call startSceneMonitor,
-  // startWorldGeometryMonitor and startStateMonitor to fully initialize the
-  // planning scene monitor
-  planning_scene_monitor::PlanningSceneMonitorPtr psm(
-      new planning_scene_monitor::PlanningSceneMonitor(robot_model_loader));
+  /* // Using the RobotModelLoader, we can construct a planing scene monitor
+   * that */
+  /* // will create a planning scene, monitors planning scene diffs, and apply
+   * the */
+  /* // diffs to it's internal planning scene. We then call startSceneMonitor,
+   */
+  /* // startWorldGeometryMonitor and startStateMonitor to fully initialize the
+   */
+  /* // planning scene monitor */
+  /* planning_scene_monitor::PlanningSceneMonitorPtr psm( */
+  /*     new planning_scene_monitor::PlanningSceneMonitor(robot_model_loader));
+   */
 
-  /* listen for planning scene messages on topic /XXX and apply them to
-                       the internal planning scene accordingly */
-  psm->startSceneMonitor();
-  /* listens to changes of world geometry, collision objects, and (optionally)
-   * octomaps */
-  psm->startWorldGeometryMonitor();
-  /* listen to joint state updates as well as changes in attached collision
-     objects and update the internal planning scene accordingly*/
-  psm->startStateMonitor();
+  /* /1* listen for planning scene messages on topic xxx and apply them to */
+  /*                      the internal planning scene accordingly *1/ */
+  /* psm->startSceneMonitor(); */
+  /* /1* listens to changes of world geometry, collision objects, and
+   * (optionally) */
+  /*  * octomaps *1/ */
+  /* psm->startWorldGeometryMonitor(); */
+  /* /1* listen to joint state updates as well as changes in attached collision
+   */
+  /*    objects and update the internal planning scene accordingly*/
+  /* psm->startStateMonitor(); */
 
-  /* We can also use the RobotModelLoader to get a robot model which contains
-   * the robot's kinematic information */
-  moveit::core::RobotModelPtr robot_model = robot_model_loader->getModel();
+  /* /1* We can also use the RobotModelLoader to get a robot model which
+     contains */
+  /*  * the robot's kinematic information *1/ */
+  /* moveit::core::RobotModelPtr robot_model =
+     robot_model_loader->getModel(); */
 
-  /* We can get the most up to date robot state from the PlanningSceneMonitor by
-     locking the internal planning scene for reading. This lock ensures that the
-     underlying scene isn't updated while we are reading it's state.
-     RobotState's are useful for computing the forward and inverse kinematics of
-     the robot among many other uses */
-  moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
-      planning_scene_monitor::LockedPlanningSceneRO(psm)->getCurrentState()));
+  /* /1* We can get the most up to date robot state from the
+     PlanningSceneMonitor by */
+  /*    locking the internal planning scene for reading. This lock ensures
+     that the */
+  /*    underlying scene isn't updated while we are reading it's state. */
+  /*    RobotState's are useful for computing the forward and inverse
+     kinematics of */
+  /*    the robot among many other uses *1/ */
+  /* moveit::core::RobotStatePtr robot_state(new moveit::core::RobotState(
+   */
+  /*     planning_scene_monitor::LockedPlanningSceneRO(psm)->getCurrentState()));
+   */
 
-  /* Create a JointModelGroup to keep track of the current robot pose and
-     planning group. The Joint Model
-     group is useful for dealing with one set of joints at a time such as a left
-     arm or a end effector */
-  const moveit::core::JointModelGroup *joint_model_group =
-      robot_state->getJointModelGroup("arm");
+  /* /1* Create a JointModelGroup to keep track of the current robot pose
+     and */
+  /*    planning group. The Joint Model */
+  /*    group is useful for dealing with one set of joints at a time such as
+     a left */
+  /*    arm or a end effector *1/ */
+  /* const moveit::core::JointModelGroup *joint_model_group = */
+  /*     robot_state->getJointModelGroup("arm"); */
 
-  // We can now setup the PlanningPipeline object, which will use the ROS
-  // parameter server to determine the set of request adapters and the planning
-  // plugin to use
-  planning_pipeline::PlanningPipelinePtr planning_pipeline(
-      new planning_pipeline::PlanningPipeline(
-          robot_model, node_handle, "planning_plugin", "request_adapters"));
+  /* // We can now setup the PlanningPipeline object, which will use the ROS
+   */
+  /* // parameter server to determine the set of request adapters and the
+     planning */
+  /* // plugin to use */
+  /* planning_pipeline::PlanningPipelinePtr planning_pipeline( */
+  /*     new planning_pipeline::PlanningPipeline( */
+  /*         robot_model, node_handle, "planning_plugin",
+     "request_adapters")); */
 
-  // Visualization
-  // ^^^^^^^^^^^^^
-  // The package MoveItVisualTools provides many capabilities for visualizing
-  // objects, robots, and trajectories in RViz as well as debugging tools such
-  // as step-by-step introspection of a script.
-  namespace rvt = rviz_visual_tools;
-  moveit_visual_tools::MoveItVisualTools visual_tools("arm0_base_link");
-  visual_tools.deleteAllMarkers();
+  /* // Visualization */
+  /* // ^^^^^^^^^^^^^ */
+  /* // The package MoveItVisualTools provides many capabilities for
+     visualizing */
+  /* // objects, robots, and trajectories in RViz as well as debugging tools
+     such */
+  /* // as step-by-step introspection of a script. */
+  /* namespace rvt = rviz_visual_tools; */
+  /* moveit_visual_tools::MoveItVisualTools visual_tools("arm0_base_link");
+   */
+  /* visual_tools.deleteAllMarkers(); */
 
-  /* Remote control is an introspection tool that allows users to step through a
-     high level script via buttons and keyboard shortcuts in RViz */
-  visual_tools.loadRemoteControl();
+  /* /1* Remote control is an introspection tool that allows users to step
+     through a */
+  /*    high level script via buttons and keyboard shortcuts in RViz *1/ */
+  /* visual_tools.loadRemoteControl(); */
 
-  /* RViz provides many types of markers, in this demo we will use text,
-   * cylinders, and spheres*/
-  Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
-  text_pose.translation().z() = 1.75;
-  visual_tools.publishText(text_pose, "Motion Planning Pipeline Demo",
-                           rvt::WHITE, rvt::XLARGE);
+  /* /1* RViz provides many types of markers, in this demo we will use text,
+   */
+  /*  * cylinders, and spheres*/
+  /* Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity(); */
+  /* text_pose.translation().z() = 1.75; */
+  /* visual_tools.publishText(text_pose, "Motion Planning Pipeline Demo", */
+  /*                          rvt::WHITE, rvt::XLARGE); */
 
-  // We will now create a motion plan request for the arm
-  planning_interface::MotionPlanRequest req;
-  planning_interface::MotionPlanResponse res;
-  req.group_name = "arm";
+  /* // We will now create a motion plan request for the arm */
+  /* planning_interface::MotionPlanRequest req; */
+  /* planning_interface::MotionPlanResponse res; */
+  /* req.group_name = "arm"; */
 
-  // Visualization variables
-  ros::Publisher display_publisher =
-      node_handle.advertise<moveit_msgs::DisplayTrajectory>(
-          "/move_group/display_planned_path", 1, true);
-  moveit_msgs::DisplayTrajectory display_trajectory;
+  /* // Visualization variables */
+  /* ros::Publisher display_publisher = */
+  /*     node_handle.advertise<moveit_msgs::DisplayTrajectory>( */
+  /*         "/move_group/display_planned_path", 1, true); */
+  /* moveit_msgs::DisplayTrajectory display_trajectory; */
 
-  moveit_msgs::MotionPlanResponse response;
+  /* moveit_msgs::MotionPlanResponse response; */
 
   // Go to desired configuration
   // Define planning group and move_group_interface
@@ -333,6 +369,16 @@ int main(int argc, char **argv) {
   /* move_group_interface.move(); */
   //----------------------------------------------------------------------------
 
+  // Record current state
+  const moveit::core::JointModelGroup *joint_model_group =
+      move_group_interface.getCurrentState()->getJointModelGroup(
+          PLANNING_GROUP);
+  moveit::core::RobotStatePtr current_state =
+      move_group_interface.getCurrentState();
+  std::vector<double> joint_group_positions_cur;
+  current_state->copyJointGroupPositions(joint_model_group,
+                                         joint_group_positions_cur);
+
   // Compute the robot Jacobian based on the joint states. This will be the
   // screw list we send to the robot
   const size_t total_nof_joints = 9;
@@ -356,7 +402,8 @@ int main(int argc, char **argv) {
   //-------------------------------------------------------------------------
   // Get ee q-vector from tf data
   /* Eigen::Isometry3d eeHtm = capN.get_htm("arm0_base_link", "arm0_tool0"); */
-  Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "tag7");
+  /* Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "tag7"); */
+  Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "arm0_tool0");
   /* Eigen::Vector3d q_ee = eeHtm.translation(); */
   Eigen::Vector3d q_tag = tagHtm.translation();
   std::cout << "Here is the tag location: " << tagHtm.translation()
@@ -364,7 +411,8 @@ int main(int argc, char **argv) {
   /* const double affOffset = -0.2; */
   /* const Eigen::Vector3d q_aff(0, -0.2, 0); */
   Eigen::Vector3d q_aff;
-  q_aff = q_tag + Eigen::Vector3d(0, 0, 0);
+  /* q_aff = q_tag + Eigen::Vector3d(0, 0, 0); */
+  q_aff = Eigen::Vector3d(0, -0.2, 0);
   /* const Eigen::Vector3d q_aff = */
   /*     q_ee + Eigen::Vector3d(0, affOffset, 0); // q-vector for affordance */
   Eigen::Vector3d wcurr(
@@ -374,12 +422,13 @@ int main(int argc, char **argv) {
   Eigen::VectorXd s_aff(6);
   s_aff << wcurr, -wcurr.cross(qcurr);
   slist.col(9) = s_aff;
+  /* slist.col(9) << 0, 0, 0, -1, 0, 0; // pure translation edit */
   std::cout << "Here is the screwAxes matrix after rot mod: \n"
             << slist << std::endl;
   //-------------------------------------------------------------------------
 
   // Define affordance goal and create planner object
-  const double affGoal = 1.57;
+  const double affGoal = 0.75 * M_PI;
   Eigen::VectorXd thetalist0 = Eigen::VectorXd::Zero(slist.cols());
   std::cout << "Before creating the object" << std::endl;
   CcAffordancePlanner ccAffordancePlanner(slist, thetalist0, affGoal);
@@ -406,116 +455,133 @@ int main(int argc, char **argv) {
     std::cout << "No solution found" << std::endl;
   }
 
-  visual_tools.trigger();
-  /* Wait for user input */
-  visual_tools.prompt("Press next to plan the trajectory");
+  /* visual_tools.trigger(); */
+  /* /1* Wait for user input *1/ */
+  /* visual_tools.prompt("Press next to plan the trajectory"); */
 
-  // Set the state in the planning scene to the current state of the robot
-  /* static const std::string PLANNING_GROUP = "arm"; */
-  /* moveit::planning_interface::MoveGroupInterface move_group_interface( */
-  /* PLANNING_GROUP); */
-  moveit::core::RobotStatePtr current_state =
-      move_group_interface.getCurrentState();
-  std::vector<double> joint_group_positions_cur;
-  current_state->copyJointGroupPositions(joint_model_group,
-                                         joint_group_positions_cur);
-  std::ostringstream joint_positions_stream;
-  for (const auto &position : joint_group_positions_cur) {
-    joint_positions_stream << position << " ";
-  }
-  ROS_INFO_STREAM(
-      "Here are the current joint values: " << joint_positions_stream.str());
-  std::cout << "Joint group positions cur: " << std::endl;
+  /* // Set the state in the planning scene to the current state of the robot */
+  /* /1* static const std::string PLANNING_GROUP = "arm"; *1/ */
+  /* /1* moveit::planning_interface::MoveGroupInterface move_group_interface(
+   * *1/ */
+  /* /1* PLANNING_GROUP); *1/ */
+  /* moveit::core::RobotStatePtr current_state = */
+  /*     move_group_interface.getCurrentState(); */
+  /* std::vector<double> joint_group_positions_cur; */
+  /* current_state->copyJointGroupPositions(joint_model_group, */
+  /*                                        joint_group_positions_cur); */
+  /* std::ostringstream joint_positions_stream; */
+  /* for (const auto &position : joint_group_positions_cur) { */
+  /*   joint_positions_stream << position << " "; */
+  /* } */
+  /* ROS_INFO_STREAM( */
+  /*     "Here are the current joint values: " << joint_positions_stream.str());
+   */
+  /* std::cout << "Joint group positions cur: " << std::endl; */
 
-  // Lock the planning scene and set the current state to the current robot
-  // state just to be sure
-  *robot_state =
-      planning_scene_monitor::LockedPlanningSceneRO(psm)->getCurrentState();
+  /* // Lock the planning scene and set the current state to the current robot
+   */
+  /* // state just to be sure */
+  /* *robot_state = */
+  /*     planning_scene_monitor::LockedPlanningSceneRO(psm)->getCurrentState();
+   */
 
-  //**** Planning loop
-  // Create the planner object
+  /* **** Planning loop */
+  /* // Create the planner object */
 
-  for (size_t j = 0; j < solution.size(); j++) {
-    /* First, set the state in the planning scene to the final state of the last
-     * plan */
+  /* for (size_t j = 0; j < solution.size(); j++) { */
+  /*   /1* First, set the state in the planning scene to the final state of the
+   * last */
+  /*    * plan *1/ */
 
-    if (j == 0) {
-      robot_state->setJointGroupPositions(joint_model_group,
-                                          joint_group_positions_cur);
-      moveit::core::robotStateToRobotStateMsg(*robot_state, req.start_state);
-    } else {
+  /*   if (j == 0) { */
+  /*     robot_state->setJointGroupPositions(joint_model_group, */
+  /*                                         joint_group_positions_cur); */
+  /*     moveit::core::robotStateToRobotStateMsg(*robot_state, req.start_state);
+   */
+  /*   } else { */
 
-      robot_state = planning_scene_monitor::LockedPlanningSceneRO(psm)
-                        ->getCurrentStateUpdated(response.trajectory_start);
-      robot_state->setJointGroupPositions(
-          joint_model_group,
-          response.trajectory.joint_trajectory.points.back().positions);
-      moveit::core::robotStateToRobotStateMsg(*robot_state, req.start_state);
-      robot_state->setJointGroupPositions(
-          joint_model_group,
-          response.trajectory.joint_trajectory.points.back().positions);
-    }
+  /*     robot_state = planning_scene_monitor::LockedPlanningSceneRO(psm) */
+  /*                       ->getCurrentStateUpdated(response.trajectory_start);
+   */
+  /*     robot_state->setJointGroupPositions( */
+  /*         joint_model_group, */
+  /*         response.trajectory.joint_trajectory.points.back().positions); */
+  /*     moveit::core::robotStateToRobotStateMsg(*robot_state, req.start_state);
+   */
+  /*     robot_state->setJointGroupPositions( */
+  /*         joint_model_group, */
+  /*         response.trajectory.joint_trajectory.points.back().positions); */
+  /*   } */
 
-    /*   if (j == 0) { */
-    /*     std::vector<double> start_config = { */
-    /*         -0.13461518287658691, 0.03472280502319336, 1.1548473834991455, */
-    /*         -0.27599477767944336, -1.3527731895446777, 0.08957767486572266};
-     */
-    /*     move_group_interface.setJointValueTarget(start_config); */
-    /*   } else { */
-    std::vector<double> joint_group_positions;
-    const size_t armDoF = 6;
+  /*   /1*   if (j == 0) { *1/ */
+  /*   /1*     std::vector<double> start_config = { *1/ */
+  /*   /1*         -0.13461518287658691,
+   * 0.03472280502319336, 1.1548473834991455, *1/ */
+  /*   /1*         -0.27599477767944336, -1.3527731895446777,
+   * 0.08957767486572266}; */
+  /*    *1/ */
+  /*   /1*     move_group_interface.setJointValueTarget(start_config); *1/ */
+  /*   /1*   } else { *1/ */
+  /*   std::vector<double> joint_group_positions; */
+  /*   const size_t armDoF = 6; */
 
-    for (size_t i = 0; i < armDoF; i++) {
-      joint_group_positions.push_back(joint_group_positions_cur[i] +
-                                      solution.at(j)[i]);
-      /* joint_group_positions.push_back(solution.at(j)[i]); */
-    }
-    /*     move_group_interface.setJointValueTarget(joint_group_positions); */
-    /*   } */
+  /*   for (size_t i = 0; i < armDoF; i++) { */
+  /*     joint_group_positions.push_back(joint_group_positions_cur[i] + */
+  /*                                     solution.at(j)[i]); */
+  /*     /1* joint_group_positions.push_back(solution.at(j)[i]); *1/ */
+  /*   } */
+  /*   /1*     move_group_interface.setJointValueTarget(joint_group_positions);
+   * *1/ */
+  /*   /1*   } *1/ */
 
-    // Now, setup a joint space goal
-    moveit::core::RobotState goal_state(*robot_state);
-    /* std::vector<double> joint_values = {-1.0, 0.7, 0.7, -1.5, -0.7, 2.0,
-     * 0.0};
-     */
-    std::cout << "Joint group positions: " << std::endl;
-    for (const double &value : joint_group_positions) {
-      std::cout << value << " ";
-    }
-    std::cout << std::endl;
+  /*   // Now, setup a joint space goal */
+  /*   moveit::core::RobotState goal_state(*robot_state); */
+  /*   /1* std::vector<double> joint_values = {-1.0, 0.7, 0.7, -1.5, -0.7, 2.0,
+   */
+  /*    * 0.0}; */
+  /*    *1/ */
+  /*   std::cout << "Joint group positions: " << std::endl; */
+  /*   for (const double &value : joint_group_positions) { */
+  /*     std::cout << value << " "; */
+  /*   } */
+  /*   std::cout << std::endl; */
 
-    goal_state.setJointGroupPositions(joint_model_group, joint_group_positions);
-    std::cout << "Debug flag" << std::endl;
-    moveit_msgs::Constraints joint_goal =
-        kinematic_constraints::constructGoalConstraints(goal_state,
-                                                        joint_model_group);
+  /*   goal_state.setJointGroupPositions(joint_model_group,
+   * joint_group_positions); */
+  /*   std::cout << "Debug flag" << std::endl; */
+  /*   moveit_msgs::Constraints joint_goal = */
+  /*       kinematic_constraints::constructGoalConstraints(goal_state, */
+  /*                                                       joint_model_group);
+   */
 
-    req.goal_constraints.clear();
-    req.goal_constraints.push_back(joint_goal);
+  /*   req.goal_constraints.clear(); */
+  /*   req.goal_constraints.push_back(joint_goal); */
 
-    // Before planning, we will need a Read Only lock on the planning scene so
-    // that it does not modify the world representation while planning
-    {
-      planning_scene_monitor::LockedPlanningSceneRO lscene(psm);
-      /* Now, call the pipeline and check whether planning was successful. */
-      planning_pipeline->generatePlan(lscene, req, res);
-    }
-    /* Check that the planning was successful */
-    if (res.error_code_.val != res.error_code_.SUCCESS) {
-      ROS_ERROR("Could not compute plan successfully");
-      return 0;
-    }
-    /* Visualize the trajectory */
-    ROS_INFO("Visualizing the trajectory");
-    res.getMessage(response);
-    display_trajectory.trajectory_start = response.trajectory_start;
-    display_trajectory.trajectory.push_back(response.trajectory);
-    // Now you should see two planned trajectories in series
-    display_publisher.publish(display_trajectory);
-    visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(),
-                                       joint_model_group);
-  }
+  /*   // Before planning, we will need a Read Only lock on the planning scene
+   * so */
+  /*   // that it does not modify the world representation while planning */
+  /*   { */
+  /*     planning_scene_monitor::LockedPlanningSceneRO lscene(psm); */
+  /*     /1* Now, call the pipeline and check whether planning was successful.
+   * *1/ */
+  /*     planning_pipeline->generatePlan(lscene, req, res); */
+  /*   } */
+  /*   /1* Check that the planning was successful *1/ */
+  /*   if (res.error_code_.val != res.error_code_.SUCCESS) { */
+  /*     ROS_ERROR("Could not compute plan successfully"); */
+  /*     return 0; */
+  /*   } */
+  /*   /1* Visualize the trajectory *1/ */
+  /*   ROS_INFO("Visualizing the trajectory"); */
+  /*   res.getMessage(response); */
+  /*   display_trajectory.trajectory_start = response.trajectory_start; */
+  /*   display_trajectory.trajectory.push_back(response.trajectory); */
+  /*   // Now you should see two planned trajectories in series */
+  /*   display_publisher.publish(display_trajectory); */
+  /*   visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(),
+   */
+  /*                                      joint_model_group); */
+  /* } */
 
   // Send the goal directly to the follow_joint_trajectory action server
   const control_msgs::FollowJointTrajectoryGoal goal =
@@ -523,19 +589,50 @@ int main(int argc, char **argv) {
                                                joint_group_positions_cur);
   ROS_INFO_STREAM("Here is the coveted ROS msg: " << goal);
 
-  visual_tools.trigger();
+  // Send to move_plan_and_viz_server to visualize planning
+  std::string plan_and_viz_service_name = "/moveit_plan_and_viz_server";
+  ros::ServiceClient moveit_plan_and_viz_client =
+      node_handle.serviceClient<cc_affordance_planner::MoveItPlanAndViz>(
+          plan_and_viz_service_name);
 
-  /* Wait for user input */
-  visual_tools.prompt("Press next to execute the trajectory");
+  cc_affordance_planner::MoveItPlanAndViz moveit_plan_and_viz_goal;
+  moveit_plan_and_viz_goal.request.joint_traj = goal.trajectory;
 
-  // Execute directly
-  // Create the connection to the action server
-  actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction>
-      client("/spot_arm/arm_controller/follow_joint_trajectory", true);
-  client.waitForServer(); // Waits until the action server is up and running
+  ROS_INFO_STREAM("Waiting for " << plan_and_viz_service_name
+                                 << " service to be available");
+  ros::Duration timeout(60.0);
+  if (!ros::service::waitForService(plan_and_viz_service_name)) {
+    ROS_INFO_STREAM(plan_and_viz_service_name
+                    << " service isn't available. Timed out waiting");
+  } else {
+    ROS_INFO_STREAM(plan_and_viz_service_name
+                    << " service found. Now sending goal.");
+  }
 
-  client.sendGoal(goal);
-  client.waitForResult();
+  if (moveit_plan_and_viz_client.call(moveit_plan_and_viz_goal)) {
+    ROS_INFO_STREAM("Calling " << plan_and_viz_service_name
+                               << " service was successful.");
+    std::string executionConfirm;
+    std::cout << "Ready to execute the trajectory? y to confirm" << std::endl;
+    std::cin >> executionConfirm;
+
+    if (executionConfirm != "y")
+      return 1;
+
+    // Execute directly
+    // Create the connection to the action server
+    actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction>
+        client("/spot_arm/arm_controller/follow_joint_trajectory", true);
+    client.waitForServer(); // Waits until the action server is up and running
+
+    client.sendGoal(goal);
+    client.waitForResult();
+  }
+
+  else {
+    ROS_INFO_STREAM("Failed to call " << plan_and_viz_service_name
+                                      << " service.");
+  }
 
   return 0;
 }

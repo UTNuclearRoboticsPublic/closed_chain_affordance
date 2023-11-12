@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   control_msgs
   moveit_core
   moveit_ros_planning_interface
+  visualization_msgs
   moveit_visual_tools
 )
 
