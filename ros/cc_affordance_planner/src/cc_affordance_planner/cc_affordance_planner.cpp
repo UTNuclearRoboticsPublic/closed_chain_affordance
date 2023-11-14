@@ -5,10 +5,6 @@ CcAffordancePlanner::CcAffordancePlanner(const Eigen::MatrixXd &slist,
     : slist_(slist), thetalist0_(thetalist0), affGoal_(affGoal) {
   taskErrThreshold_ = accuracy * affStep;
 
-  // Guesses
-  qsb_guess_ = thetalist0_.tail(taskOffset);
-  qp_guess_ = thetalist0_.head(thetalist0_.size() - taskOffset);
-
   // Resizings
   thetalist_.conservativeResize(thetalist0_.size());
 }
@@ -16,6 +12,11 @@ CcAffordancePlanner::CcAffordancePlanner(const Eigen::MatrixXd &slist,
 PlannerResult CcAffordancePlanner::affordance_stepper() {
 
   PlannerResult plannerResult; // Result of the planner
+
+  // Initial guesses
+  qsb_guess_ = thetalist0_.tail(taskOffset);
+  qp_guess_ = thetalist0_.head(thetalist0_.size() - taskOffset);
+  std::cout << "qsb_guess_" << qsb_guess_ << std::endl;
 
   // Compute how many steps it takes to reach the affordance goal
   const int stepperMaxItr = affGoal_ / affStep + 1;
@@ -36,7 +37,10 @@ PlannerResult CcAffordancePlanner::affordance_stepper() {
       affStep = affGoal_ - affStep * (stepperMaxItr - 1);
 
     qsd_ = thetalist0_.tail(taskOffset);
-    qsd_ = qsd_ + stepperItr * affStep * Eigen::VectorXd::Ones(taskOffset);
+    /* qsd_ = qsd_ + stepperItr * affStep * Eigen::VectorXd::Ones(taskOffset);
+     */
+    qsd_(taskOffset - 1) = qsd_(taskOffset - 1) +
+                           stepperItr * affStep; // end element is affordance
 
     // Set starting guess for the primary joint angles
     qp_ = qp_guess_;
@@ -48,8 +52,13 @@ PlannerResult CcAffordancePlanner::affordance_stepper() {
     errTwist_ = Eigen::VectorXd::Zero(twistLength_);
 
     // Call IK solver and store solution if successful
-    if (CcAffordancePlanner::cc_ik_solver())
+    if (CcAffordancePlanner::cc_ik_solver()) {
       plannerResult.jointTraj.push_back(thetalist_);
+
+      // Update guesses for next iteration
+      qsb_guess_ = thetalist_.tail(taskOffset);
+      qp_guess_ = thetalist_.head(thetalist0_.size() - taskOffset);
+    }
 
     // increment stepper counter
     stepperItr = stepperItr + 1;
@@ -73,6 +82,9 @@ bool CcAffordancePlanner::cc_ik_solver() {
 
   int ikIter = 0;
 
+  std::cout << "Planner debug flag" << std::endl;
+  std::cout << "qsd_" << qsd_ << std::endl;
+  std::cout << "qsb_" << qsb_ << std::endl;
   // Check error
   bool err = (((qsd_ - qsb_).norm() > taskErrThreshold_) ||
               errTwist_.norm() > closureErrThreshold_);
