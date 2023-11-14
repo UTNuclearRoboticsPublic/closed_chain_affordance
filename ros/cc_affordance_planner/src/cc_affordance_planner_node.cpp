@@ -335,6 +335,37 @@ int main(int argc, char **argv) {
 
   /* moveit_msgs::MotionPlanResponse response; */
 
+  // Computing the rotational screw axis for affordance
+  std::string affCapConfigConfirm;
+  std::cout << "Put robot in the aff capture configuration " << std::endl;
+  std::cin >> affCapConfigConfirm;
+
+  if (affCapConfigConfirm != "y")
+    return 1;
+  //-------------------------------------------------------------------------
+  // Get ee q-vector from tf data
+  /* Eigen::Isometry3d eeHtm = capN.get_htm("arm0_base_link", "arm0_tool0"); */
+  /* Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "tag_7"); */
+  Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "affordance_frame");
+  /* Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "arm0_tool0"); */
+  /* Eigen::Vector3d q_ee = eeHtm.translation(); */
+  Eigen::Vector3d q_tag = tagHtm.translation();
+  std::cout << "Here is the tag location: " << q_tag << std::endl;
+  /* const double affOffset = -0.2; */
+  /* const Eigen::Vector3d q_aff(0, -0.2, 0); */
+  Eigen::Vector3d q_aff;
+  /* q_aff = q_tag + Eigen::Vector3d(0, 0, 0.410); */
+  /* q_aff = Eigen::Vector3d(0, -0.2, 0); */
+  q_aff = q_tag;
+  /* const Eigen::Vector3d q_aff = */
+  /*     q_ee + Eigen::Vector3d(0, affOffset, 0); // q-vector for affordance */
+  Eigen::Vector3d wcurr(
+      -1, 0, 0); // required to convert to VectorXd type for use with cross
+  Eigen::Vector3d qcurr =
+      q_aff; // required to convert to VectorXd type for use with cross
+  Eigen::VectorXd s_aff(6);
+  s_aff << wcurr, -wcurr.cross(qcurr);
+  //-------------------------------------------------------------------------
   // Go to desired configuration
   // Define planning group and move_group_interface
   static const std::string PLANNING_GROUP = "arm";
@@ -347,20 +378,27 @@ int main(int argc, char **argv) {
   std::cout << "Here is the screwAxes matrix before mod: \n"
             << slist << std::endl;
 
+  std::string preStartConfigConfirm;
+  std::cout << "Put robot in the prestart configuration " << std::endl;
+  std::cin >> preStartConfigConfirm;
+
+  if (preStartConfigConfirm != "y")
+    return 1;
+
   // Go to hard-coded start config for moving a stool
   //----------------------------------------------------------------------------
   /* std::vector<double> stool_start_config = { */
   /*     -0.13461518287658691, 0.03472280502319336, 1.1548473834991455, */
   /*     -0.27599477767944336, -1.3527731895446777, 0.08957767486572266}; */
-  /* std::vector<double> valve_start_config = { */
-  /*     0.047744035720825195, -1.341575026512146,  1.8094418048858643, */
-  /*     0.3722493648529053,   -0.5287699699401855, 0.8416392803192139}; */
-  /* std::vector<double> start_config = valve_start_config; */
-  /* move_group_interface.setJointValueTarget(start_config); */
+  std::vector<double> valve_start_config = {
+      -0.002530813217163086, -0.9516636729240417, 1.6752504110336304,
+      0.0010259151458740234, -0.680487871170044,  -0.009893417358398438};
+  std::vector<double> start_config = valve_start_config;
+  move_group_interface.setJointValueTarget(start_config);
   /* /1* // Lower the max acceleration and velocity to 5%. Default is 10% *1/ */
-  /* move_group_interface.setMaxVelocityScalingFactor(0.05); */
-  /* move_group_interface.setMaxAccelerationScalingFactor(0.05); */
-  /* move_group_interface.move(); */
+  move_group_interface.setMaxVelocityScalingFactor(0.05);
+  move_group_interface.setMaxAccelerationScalingFactor(0.05);
+  move_group_interface.move();
   //----------------------------------------------------------------------------
   // Put robot in the affordance start configuration to read joint states
 
@@ -408,25 +446,26 @@ int main(int argc, char **argv) {
   // Get ee q-vector from tf data
   /* Eigen::Isometry3d eeHtm = capN.get_htm("arm0_base_link", "arm0_tool0"); */
   /* Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "tag_7"); */
-  Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "affordance_frame");
+  /* Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link",
+   * "affordance_frame"); */
   /* Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "arm0_tool0"); */
   /* Eigen::Vector3d q_ee = eeHtm.translation(); */
-  Eigen::Vector3d q_tag = tagHtm.translation();
-  std::cout << "Here is the tag location: " << q_tag << std::endl;
+  /* Eigen::Vector3d q_tag = tagHtm.translation(); */
+  /* std::cout << "Here is the tag location: " << q_tag << std::endl; */
   /* const double affOffset = -0.2; */
   /* const Eigen::Vector3d q_aff(0, -0.2, 0); */
-  Eigen::Vector3d q_aff;
-  q_aff = q_tag + Eigen::Vector3d(0, 0, 0.410);
+  /* Eigen::Vector3d q_aff; */
+  /* q_aff = q_tag + Eigen::Vector3d(0, 0, 0.410); */
   /* q_aff = Eigen::Vector3d(0, -0.2, 0); */
   /* q_aff = q_tag; */
   /* const Eigen::Vector3d q_aff = */
   /*     q_ee + Eigen::Vector3d(0, affOffset, 0); // q-vector for affordance */
-  Eigen::Vector3d wcurr(
-      -1, 0, 0); // required to convert to VectorXd type for use with cross
-  Eigen::Vector3d qcurr =
-      q_aff; // required to convert to VectorXd type for use with cross
-  Eigen::VectorXd s_aff(6);
-  s_aff << wcurr, -wcurr.cross(qcurr);
+  /* Eigen::Vector3d wcurr( */
+  /* -1, 0, 0); // required to convert to VectorXd type for use with cross */
+  /* Eigen::Vector3d qcurr = */
+  /* q_aff; // required to convert to VectorXd type for use with cross */
+  /* Eigen::VectorXd s_aff(6); */
+  /* s_aff << wcurr, -wcurr.cross(qcurr); */
   slist.col(9) = s_aff;
   /* slist.col(9) << 0, 0, 0, -1, 0, 0; // pure translation edit */
   std::cout << "Here is the screwAxes matrix after rot mod: \n"
@@ -434,12 +473,13 @@ int main(int argc, char **argv) {
   //-------------------------------------------------------------------------
 
   // Define affordance goal and create planner object
-  const double affGoal = 0.75 * M_PI;
+  const double affGoal = 1.0 * M_PI;
   /* const double affGoal = 0.1; */
   Eigen::VectorXd thetalist0 = Eigen::VectorXd::Zero(slist.cols());
   std::cout << "Before creating the object" << std::endl;
   CcAffordancePlanner ccAffordancePlanner(slist, thetalist0, affGoal);
   ccAffordancePlanner.affStep = 0.1;
+  ccAffordancePlanner.taskOffset = 3;
   /* ccAffordancePlanner.affStep = 0.01; */
 
   // Run the planner
