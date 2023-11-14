@@ -360,7 +360,7 @@ int main(int argc, char **argv) {
   /* const Eigen::Vector3d q_aff = */
   /*     q_ee + Eigen::Vector3d(0, affOffset, 0); // q-vector for affordance */
   Eigen::Vector3d wcurr(
-      -1, 0, 0); // required to convert to VectorXd type for use with cross
+      1, 0, 0); // required to convert to VectorXd type for use with cross
   Eigen::Vector3d qcurr =
       q_aff; // required to convert to VectorXd type for use with cross
   Eigen::VectorXd s_aff(6);
@@ -479,7 +479,7 @@ int main(int argc, char **argv) {
   std::cout << "Before creating the object" << std::endl;
   CcAffordancePlanner ccAffordancePlanner(slist, thetalist0, affGoal);
   ccAffordancePlanner.affStep = 0.1;
-  ccAffordancePlanner.taskOffset = 3;
+  ccAffordancePlanner.taskOffset = 2;
   /* ccAffordancePlanner.affStep = 0.01; */
 
   // Run the planner

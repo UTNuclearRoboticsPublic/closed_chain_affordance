@@ -23,6 +23,7 @@ PlannerResult CcAffordancePlanner::affordance_stepper() {
 
   // Stepper loop
   int stepperItr = 1;
+  int successStepperItr = 1;
   while (stepperItr <= stepperMaxItr) {
 
     // Define Network Matrices as relevant Jacobian columns
@@ -58,6 +59,7 @@ PlannerResult CcAffordancePlanner::affordance_stepper() {
       // Update guesses for next iteration
       qsb_guess_ = thetalist_.tail(taskOffset);
       qp_guess_ = thetalist_.head(thetalist0_.size() - taskOffset);
+      successStepperItr = successStepperItr + 1;
     }
 
     // increment stepper counter
@@ -67,7 +69,7 @@ PlannerResult CcAffordancePlanner::affordance_stepper() {
   if (!plannerResult.jointTraj.empty()) {
     plannerResult.success = true;
 
-    if (stepperItr == (stepperMaxItr + 1))
+    if (stepperItr == successStepperItr)
       plannerResult.trajFullorPartial = "Full";
     else
       plannerResult.trajFullorPartial = "Partial";
