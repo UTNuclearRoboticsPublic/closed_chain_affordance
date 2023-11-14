@@ -26,7 +26,8 @@ standalone_tags:
     # {id: 7, size: 0.105, name: tag_7},
     # {id: 1, size: 0.057, name: tag_1},
     # {id: 2, size: 0.057, name: tag_2},
-    {id: 7, size: 0.057, name: tag_7},
+    # {id: 7, size: 0.057, name: tag_7},
+    {id: 7, size: 0.057, name: affordance_frame},
   ]
 # ## Tag bundle definitions
 # ### Remarks
