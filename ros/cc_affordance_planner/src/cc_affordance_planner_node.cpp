@@ -51,6 +51,7 @@ public:
     } catch (tf2::TransformException &ex) {
       ROS_WARN("%s", ex.what());
     }
+    ROS_INFO_STREAM("Here is transformStamped_: " << transformStamped_);
 
     // Convert the message to Eigen::Isometry3d type
     // Extract translation and rotation from the TransformStamped message
@@ -346,7 +347,23 @@ int main(int argc, char **argv) {
   std::cout << "Here is the screwAxes matrix before mod: \n"
             << slist << std::endl;
 
+  // Go to hard-coded start config for moving a stool
+  //----------------------------------------------------------------------------
+  /* std::vector<double> stool_start_config = { */
+  /*     -0.13461518287658691, 0.03472280502319336, 1.1548473834991455, */
+  /*     -0.27599477767944336, -1.3527731895446777, 0.08957767486572266}; */
+  /* std::vector<double> valve_start_config = { */
+  /*     0.047744035720825195, -1.341575026512146,  1.8094418048858643, */
+  /*     0.3722493648529053,   -0.5287699699401855, 0.8416392803192139}; */
+  /* std::vector<double> start_config = valve_start_config; */
+  /* move_group_interface.setJointValueTarget(start_config); */
+  /* /1* // Lower the max acceleration and velocity to 5%. Default is 10% *1/ */
+  /* move_group_interface.setMaxVelocityScalingFactor(0.05); */
+  /* move_group_interface.setMaxAccelerationScalingFactor(0.05); */
+  /* move_group_interface.move(); */
+  //----------------------------------------------------------------------------
   // Put robot in the affordance start configuration to read joint states
+
   std::string startConfigConfirm;
   std::cout
       << "Put robot in the affordance start configuration to read joint states"
@@ -356,18 +373,6 @@ int main(int argc, char **argv) {
   if (startConfigConfirm != "y")
     return 1;
   ros::spinOnce(); // read joint states
-
-  // Go to hard-coded start config for moving a stool
-  //----------------------------------------------------------------------------
-  /* std::vector<double> start_config = { */
-  /*     -0.13461518287658691, 0.03472280502319336, 1.1548473834991455, */
-  /*     -0.27599477767944336, -1.3527731895446777, 0.08957767486572266}; */
-  /* move_group_interface.setJointValueTarget(start_config); */
-  /* // Lower the max acceleration and velocity to 5%. Default is 10% */
-  /* move_group_interface.setMaxVelocityScalingFactor(0.05); */
-  /* move_group_interface.setMaxAccelerationScalingFactor(0.05); */
-  /* move_group_interface.move(); */
-  //----------------------------------------------------------------------------
 
   // Record current state
   const moveit::core::JointModelGroup *joint_model_group =
@@ -402,17 +407,18 @@ int main(int argc, char **argv) {
   //-------------------------------------------------------------------------
   // Get ee q-vector from tf data
   /* Eigen::Isometry3d eeHtm = capN.get_htm("arm0_base_link", "arm0_tool0"); */
-  /* Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "tag7"); */
-  Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "arm0_tool0");
+  /* Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "tag_7"); */
+  Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "affordance_frame");
+  /* Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "arm0_tool0"); */
   /* Eigen::Vector3d q_ee = eeHtm.translation(); */
   Eigen::Vector3d q_tag = tagHtm.translation();
-  std::cout << "Here is the tag location: " << tagHtm.translation()
-            << std::endl;
+  std::cout << "Here is the tag location: " << q_tag << std::endl;
   /* const double affOffset = -0.2; */
   /* const Eigen::Vector3d q_aff(0, -0.2, 0); */
   Eigen::Vector3d q_aff;
-  /* q_aff = q_tag + Eigen::Vector3d(0, 0, 0); */
-  q_aff = Eigen::Vector3d(0, -0.2, 0);
+  q_aff = q_tag + Eigen::Vector3d(0, 0, 0.410);
+  /* q_aff = Eigen::Vector3d(0, -0.2, 0); */
+  /* q_aff = q_tag; */
   /* const Eigen::Vector3d q_aff = */
   /*     q_ee + Eigen::Vector3d(0, affOffset, 0); // q-vector for affordance */
   Eigen::Vector3d wcurr(
@@ -429,10 +435,12 @@ int main(int argc, char **argv) {
 
   // Define affordance goal and create planner object
   const double affGoal = 0.75 * M_PI;
+  /* const double affGoal = 0.1; */
   Eigen::VectorXd thetalist0 = Eigen::VectorXd::Zero(slist.cols());
   std::cout << "Before creating the object" << std::endl;
   CcAffordancePlanner ccAffordancePlanner(slist, thetalist0, affGoal);
   ccAffordancePlanner.affStep = 0.1;
+  /* ccAffordancePlanner.affStep = 0.01; */
 
   // Run the planner
   PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper();
@@ -586,7 +594,7 @@ int main(int argc, char **argv) {
   // Send the goal directly to the follow_joint_trajectory action server
   const control_msgs::FollowJointTrajectoryGoal goal =
       capN.follow_joint_trajectory_msg_builder(solution,
-                                               joint_group_positions_cur);
+                                               joint_group_positions_cur, 0.5);
   ROS_INFO_STREAM("Here is the coveted ROS msg: " << goal);
 
   // Send to move_plan_and_viz_server to visualize planning

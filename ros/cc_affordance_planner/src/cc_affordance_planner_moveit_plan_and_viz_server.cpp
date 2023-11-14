@@ -21,7 +21,7 @@
 */
 class MoveItPlanAndVizServer {
 public:
-  MoveItPlanAndVizServer() : spinner_(1), tfBuffer_(), tfListener_(tfBuffer_) {
+  MoveItPlanAndVizServer() : spinner_(2), tfBuffer_(), tfListener_(tfBuffer_) {
     // Initialize service
     moveit_plan_and_viz_server_ = nh_.advertiseService(
         "/moveit_plan_and_viz_server",
