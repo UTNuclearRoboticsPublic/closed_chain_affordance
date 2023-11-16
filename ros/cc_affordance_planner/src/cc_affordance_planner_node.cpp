@@ -28,6 +28,7 @@ public:
       "arm0_shoulder_yaw", "arm0_shoulder_pitch", "arm0_elbow_pitch",
       "arm0_elbow_roll",   "arm0_wrist_pitch",    "arm0_wrist_roll"};
   Eigen::VectorXd joint_states;
+  double joint_states_timestamp;
 
   ros::Subscriber joint_states_subscriber;
   CcAffordancePlannerNode(ros::NodeHandle nh)
@@ -360,7 +361,7 @@ int main(int argc, char **argv) {
   /* const Eigen::Vector3d q_aff = */
   /*     q_ee + Eigen::Vector3d(0, affOffset, 0); // q-vector for affordance */
   Eigen::Vector3d wcurr(
-      1, 0, 0); // required to convert to VectorXd type for use with cross
+      -1, 0, 0); // required to convert to VectorXd type for use with cross
   Eigen::Vector3d qcurr =
       q_aff; // required to convert to VectorXd type for use with cross
   Eigen::VectorXd s_aff(6);
@@ -390,15 +391,15 @@ int main(int argc, char **argv) {
   /* std::vector<double> stool_start_config = { */
   /*     -0.13461518287658691, 0.03472280502319336, 1.1548473834991455, */
   /*     -0.27599477767944336, -1.3527731895446777, 0.08957767486572266}; */
-  std::vector<double> valve_start_config = {
-      -0.002530813217163086, -0.9516636729240417, 1.6752504110336304,
-      0.0010259151458740234, -0.680487871170044,  -0.009893417358398438};
-  std::vector<double> start_config = valve_start_config;
-  move_group_interface.setJointValueTarget(start_config);
+  /* std::vector<double> valve_start_config = { */
+  /*     -0.002530813217163086, -0.9516636729240417, 1.6752504110336304, */
+  /*     0.0010259151458740234, -0.680487871170044,  -0.009893417358398438}; */
+  /* std::vector<double> start_config = valve_start_config; */
+  /* move_group_interface.setJointValueTarget(start_config); */
   /* /1* // Lower the max acceleration and velocity to 5%. Default is 10% *1/ */
-  move_group_interface.setMaxVelocityScalingFactor(0.05);
-  move_group_interface.setMaxAccelerationScalingFactor(0.05);
-  move_group_interface.move();
+  /* move_group_interface.setMaxVelocityScalingFactor(0.05); */
+  /* move_group_interface.setMaxAccelerationScalingFactor(0.05); */
+  /* move_group_interface.move(); */
   //----------------------------------------------------------------------------
   // Put robot in the affordance start configuration to read joint states
 
@@ -467,19 +468,20 @@ int main(int argc, char **argv) {
   /* Eigen::VectorXd s_aff(6); */
   /* s_aff << wcurr, -wcurr.cross(qcurr); */
   slist.col(9) = s_aff;
-  /* slist.col(9) << 0, 0, 0, -1, 0, 0; // pure translation edit */
+  slist.col(9) << 0, 0, 0, 1, 0, 0; // pure translation edit
   std::cout << "Here is the screwAxes matrix after rot mod: \n"
             << slist << std::endl;
   //-------------------------------------------------------------------------
 
   // Define affordance goal and create planner object
-  const double affGoal = 1.0 * M_PI;
+  /* const double affGoal = 1.0 * M_PI; */
+  const double affGoal = 0.2;
   /* const double affGoal = 0.1; */
   Eigen::VectorXd thetalist0 = Eigen::VectorXd::Zero(slist.cols());
   std::cout << "Before creating the object" << std::endl;
   CcAffordancePlanner ccAffordancePlanner(slist, thetalist0, affGoal);
-  ccAffordancePlanner.affStep = 0.1;
-  ccAffordancePlanner.taskOffset = 2;
+  ccAffordancePlanner.affStep = 0.01;
+  ccAffordancePlanner.taskOffset = 1;
   /* ccAffordancePlanner.affStep = 0.01; */
 
   // Run the planner
@@ -503,6 +505,58 @@ int main(int argc, char **argv) {
     std::cout << "No solution found" << std::endl;
   }
 
+  // Write the solution onto a file
+  // Open a CSV file for writing
+  std::ofstream csvFile("pred_tf_and_joint_states_data.csv");
+  // Check if the file was opened successfully
+  if (!csvFile.is_open()) {
+    std::cerr << "Failed to open the CSV file for writing. " << std::endl;
+    return 1;
+  }
+
+  for (const std::string &joint_name : capN.joint_names) {
+    csvFile << joint_name << ",";
+  }
+  csvFile << "Pred EE x, Pred EE y, Pred EE z,"; // CSV header
+  csvFile << "timestamp" << std::endl;
+  std::cout << "Start recording predicted data? ";
+  std::string writePredConf;
+  std::cin >> writePredConf;
+
+  if (writePredConf != "y") {
+    std::cout << "You indicated you are not ready to record data. Exiting."
+              << std::endl;
+    return 1;
+  }
+  // Build robot
+  Eigen::MatrixXd fkinSlist(6, 6);
+  fkinSlist = slist.leftCols(6).eval();
+  Eigen::MatrixXd M = Eigen::Matrix4d::Identity();
+  // Set the translation part
+  M(0, 3) = 0.9383;
+  M(1, 3) = 0.0005;
+  M(2, 3) = 0.0664;
+  double timestamp = 0.0;
+  const double traj_time_step = 0.3;
+
+  for (const Eigen::VectorXd &solPoint : solution) {
+    Eigen::VectorXd writeThetaList = solPoint.head(6);
+
+    // Write joint_states data to file
+    for (int i = 0; i < writeThetaList.size(); ++i) {
+      csvFile << writeThetaList[i] << ",";
+    }
+
+    // Write computed predicted ee htm to file
+    Eigen::MatrixXd pred_ee_htm =
+        jacTool.FKinSpace(M, fkinSlist, writeThetaList);
+    csvFile << pred_ee_htm(0, 3) << "," << pred_ee_htm(1, 3) << ","
+            << pred_ee_htm(2, 3) << ",";
+
+    // Write timestamp to file
+    csvFile << timestamp << std::endl;
+    timestamp += traj_time_step;
+  }
   /* visual_tools.trigger(); */
   /* /1* Wait for user input *1/ */
   /* visual_tools.prompt("Press next to plan the trajectory"); */
@@ -633,8 +687,8 @@ int main(int argc, char **argv) {
 
   // Send the goal directly to the follow_joint_trajectory action server
   const control_msgs::FollowJointTrajectoryGoal goal =
-      capN.follow_joint_trajectory_msg_builder(solution,
-                                               joint_group_positions_cur, 0.5);
+      capN.follow_joint_trajectory_msg_builder(
+          solution, joint_group_positions_cur, traj_time_step);
   ROS_INFO_STREAM("Here is the coveted ROS msg: " << goal);
 
   // Send to move_plan_and_viz_server to visualize planning

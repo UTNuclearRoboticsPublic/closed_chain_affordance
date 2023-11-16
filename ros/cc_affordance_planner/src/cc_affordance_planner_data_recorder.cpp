@@ -151,30 +151,32 @@ public:
     w.col(3) << 1, 0, 0;
     w.col(4) << 0, 1, 0;
     w.col(5) << 1, 0, 0;
-    w.col(6) << 1, 0, 0;  // Imaginary joint
-    w.col(7) << 0, 1, 0;  // Imaginary joint
-    w.col(8) << 0, 0, 1;  // Imaginary joint
-    w.col(9) << -1, 0, 0; // Affordance
+    /* w.col(6) << 1, 0, 0;  // Imaginary joint */
+    /* w.col(7) << 0, 1, 0;  // Imaginary joint */
+    /* w.col(8) << 0, 0, 1;  // Imaginary joint */
+    /* w.col(9) << -1, 0, 0; // Affordance */
 
     // Get ee q-vector from tf data
     /* Eigen::Isometry3d eeHtm = get_htm(targetFrame_, "arm0_fingers"); */
     /* Eigen::Vector3d q_ee = eeHtm.translation(); */
     /* std::cout << "Here is q_ee: \n" << q_ee << std::endl; */
 
-    // Hard-coded ee q-vector
-    const Eigen::Vector3d q_ee(0.8605, -0.0002, 0.0818);
+    /* // Hard-coded ee q-vector */
+    /* const Eigen::Vector3d q_ee(0.8605, -0.0002, 0.0818); */
 
-    // Affordance and virtual joint location
-    const double affOffset = 0.1;
-    const Eigen::Vector3d q_aff =
-        q_ee + Eigen::Vector3d(0, affOffset, 0); // q-vector for affordance
-    q.col(6) = q_ee;                             // imaginary joint
-    q.col(7) = q_ee;                             // imaginary joint
-    q.col(8) = q_ee;                             // imaginary joint
-    q.col(9) = q_aff;                            // affordance
+    /* // Affordance and virtual joint location */
+    /* const double affOffset = 0.1; */
+    /* const Eigen::Vector3d q_aff = */
+    /*     q_ee + Eigen::Vector3d(0, affOffset, 0); // q-vector for affordance
+     */
+    /* q.col(6) = q_ee;                             // imaginary joint */
+    /* q.col(7) = q_ee;                             // imaginary joint */
+    /* q.col(8) = q_ee;                             // imaginary joint */
+    /* q.col(9) = q_aff;                            // affordance */
 
     // Compute screw axes
-    Eigen::MatrixXd slist(6, 10);
+    /* Eigen::MatrixXd slist(6, 10); */
+    Eigen::MatrixXd slist(6, 6);
 
     // Construct screw axes and frames
     for (int i = 0; i < w.cols(); i++) {
@@ -189,7 +191,7 @@ public:
     /* slist.col(9) = (Eigen::VectorXd(6) << 0, 0, 0, -1, 0, 0).finished(); */
 
     // Pure rotation edit for affordance
-    slist.col(9) = (Eigen::VectorXd(6) << 0, 0, -1, 0, 0, 0).finished();
+    /* slist.col(9) = (Eigen::VectorXd(6) << 0, 0, -1, 0, 0, 0).finished(); */
     return slist;
   }
 
@@ -208,26 +210,27 @@ int main(int argc, char **argv) {
   ros::Rate loop_rate(4);
 
   std::string target_frame = "arm0_base_link";
-  std::string source_frame = "arm0_fingers";
+  /* std::string source_frame = "arm0_fingers"; */
+  std::string source_frame = "arm0_tool0";
 
   // Open a CSV file for writing
-  std::ofstream csvFile("tf_and_joint_states_data.csv");
+  std::ofstream csvFile("act_tf_and_joint_states_data.csv");
 
   // Check if the file was opened successfully
   if (!csvFile.is_open()) {
     std::cerr << "Failed to open the CSV file for writing. " << std::endl;
     return 1;
   }
-  csvFile << "EE x,EE y, EE z,"; // CSV header
 
   for (const std::string &joint_name : cAPN.joint_names) {
     csvFile << joint_name << ",";
   }
+  csvFile << "EE x,EE y, EE z,"; // CSV header
   csvFile << "timestamp" << std::endl;
 
   // Ask if we should start recording data
 
-  std::cout << "Start recording data? ";
+  std::cout << "Start recording actual data? ";
   std::string conf;
   std::cin >> conf;
 
@@ -239,25 +242,23 @@ int main(int argc, char **argv) {
 
   while (ros::ok()) {
 
-    // Write TF data to file
-    Eigen::Isometry3d ee_htm = cAPN.get_htm(target_frame, source_frame);
-    csvFile << ee_htm.translation().x() << "," << ee_htm.translation().y()
-            << "," << ee_htm.translation().z();
-
     // Write joint_states data to file
     for (int i = 0; i < cAPN.joint_states.size(); ++i) {
       csvFile << cAPN.joint_states[i] << ",";
     }
 
+    // Write TF data to file
+    Eigen::Isometry3d ee_htm = cAPN.get_htm(target_frame, source_frame);
+    csvFile << ee_htm.translation().x() << "," << ee_htm.translation().y()
+            << "," << ee_htm.translation().z() << ",";
+
     // Write timestamp to file
     csvFile << cAPN.joint_states_timestamp << std::endl;
-    std::cout << "Writing data" << std::endl;
 
     //
     loop_rate.sleep();
     ros::spinOnce();
   }
 
-  //
   return 0;
 }
