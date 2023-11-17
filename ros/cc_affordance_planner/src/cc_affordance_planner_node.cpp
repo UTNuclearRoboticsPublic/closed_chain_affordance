@@ -347,7 +347,9 @@ int main(int argc, char **argv) {
   // Get ee q-vector from tf data
   /* Eigen::Isometry3d eeHtm = capN.get_htm("arm0_base_link", "arm0_tool0"); */
   /* Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "tag_7"); */
-  Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "affordance_frame");
+  /* Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link",
+   * "affordance_frame"); */
+  Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "arm0_tool0");
   /* Eigen::Isometry3d tagHtm = capN.get_htm("arm0_base_link", "arm0_tool0"); */
   /* Eigen::Vector3d q_ee = eeHtm.translation(); */
   Eigen::Vector3d q_tag = tagHtm.translation();
@@ -442,6 +444,22 @@ int main(int argc, char **argv) {
   std::cout << "Here is the screwAxes matrix after mod: \n"
             << slist << std::endl;
 
+  // Compute the virtual gripper screw axes
+  Eigen::Isometry3d newEEHtm = capN.get_htm("arm0_base_link", "arm0_tool0");
+  Eigen::Vector3d new_qee = tagHtm.translation();
+  Eigen::MatrixXd new_wee(3, 3);
+  new_wee.col(0) << 1, 0, 0; // Imaginary joint
+  new_wee.col(1) << 0, 1, 0; // Imaginary joint
+  new_wee.col(2) << 0, 0, 1; // Imaginary joint
+  Eigen::MatrixXd vir_slist(6, 4);
+  // Construct screw axes and frames
+  for (int i = 0; i < new_wee.cols(); i++) {
+    Eigen::Vector3d new_wcurr = new_wee.col(
+        i); // required to convert to VectorXd type for use with cross
+    vir_slist.col(i) << new_wcurr, -new_wcurr.cross(new_qee);
+  }
+  vir_slist.rightCols(1) << 0, 0, 0, -1, 0, 0; // pure translation edit
+  slist.rightCols(4) = vir_slist;
   // Computing the rotational screw axis for affordance
   //-------------------------------------------------------------------------
   // Get ee q-vector from tf data
@@ -467,9 +485,9 @@ int main(int argc, char **argv) {
   /* q_aff; // required to convert to VectorXd type for use with cross */
   /* Eigen::VectorXd s_aff(6); */
   /* s_aff << wcurr, -wcurr.cross(qcurr); */
-  slist.col(9) = s_aff;
-  slist.col(9) << 0, 0, 0, 1, 0, 0; // pure translation edit
-  std::cout << "Here is the screwAxes matrix after rot mod: \n"
+  /* slist.col(9) = s_aff; */
+  /* slist.col(9) << 0, 0, 0, 1, 0, 0; // pure translation edit */
+  std::cout << "Here is the screwAxes matrix after vir mod: \n"
             << slist << std::endl;
   //-------------------------------------------------------------------------
 
@@ -505,58 +523,6 @@ int main(int argc, char **argv) {
     std::cout << "No solution found" << std::endl;
   }
 
-  // Write the solution onto a file
-  // Open a CSV file for writing
-  std::ofstream csvFile("pred_tf_and_joint_states_data.csv");
-  // Check if the file was opened successfully
-  if (!csvFile.is_open()) {
-    std::cerr << "Failed to open the CSV file for writing. " << std::endl;
-    return 1;
-  }
-
-  for (const std::string &joint_name : capN.joint_names) {
-    csvFile << joint_name << ",";
-  }
-  csvFile << "Pred EE x, Pred EE y, Pred EE z,"; // CSV header
-  csvFile << "timestamp" << std::endl;
-  std::cout << "Start recording predicted data? ";
-  std::string writePredConf;
-  std::cin >> writePredConf;
-
-  if (writePredConf != "y") {
-    std::cout << "You indicated you are not ready to record data. Exiting."
-              << std::endl;
-    return 1;
-  }
-  // Build robot
-  Eigen::MatrixXd fkinSlist(6, 6);
-  fkinSlist = slist.leftCols(6).eval();
-  Eigen::MatrixXd M = Eigen::Matrix4d::Identity();
-  // Set the translation part
-  M(0, 3) = 0.9383;
-  M(1, 3) = 0.0005;
-  M(2, 3) = 0.0664;
-  double timestamp = 0.0;
-  const double traj_time_step = 0.3;
-
-  for (const Eigen::VectorXd &solPoint : solution) {
-    Eigen::VectorXd writeThetaList = solPoint.head(6);
-
-    // Write joint_states data to file
-    for (int i = 0; i < writeThetaList.size(); ++i) {
-      csvFile << writeThetaList[i] << ",";
-    }
-
-    // Write computed predicted ee htm to file
-    Eigen::MatrixXd pred_ee_htm =
-        jacTool.FKinSpace(M, fkinSlist, writeThetaList);
-    csvFile << pred_ee_htm(0, 3) << "," << pred_ee_htm(1, 3) << ","
-            << pred_ee_htm(2, 3) << ",";
-
-    // Write timestamp to file
-    csvFile << timestamp << std::endl;
-    timestamp += traj_time_step;
-  }
   /* visual_tools.trigger(); */
   /* /1* Wait for user input *1/ */
   /* visual_tools.prompt("Press next to plan the trajectory"); */
@@ -686,10 +652,71 @@ int main(int argc, char **argv) {
   /* } */
 
   // Send the goal directly to the follow_joint_trajectory action server
+  const double traj_time_step = 0.3;
   const control_msgs::FollowJointTrajectoryGoal goal =
       capN.follow_joint_trajectory_msg_builder(
           solution, joint_group_positions_cur, traj_time_step);
   ROS_INFO_STREAM("Here is the coveted ROS msg: " << goal);
+
+  // Write the solution onto a file
+  // Open a CSV file for writing
+  std::ofstream csvFile("pred_tf_and_joint_states_data.csv");
+  // Check if the file was opened successfully
+  if (!csvFile.is_open()) {
+    std::cerr << "Failed to open the CSV file for writing. " << std::endl;
+    return 1;
+  }
+
+  for (const std::string &joint_name : capN.joint_names) {
+    csvFile << joint_name << ",";
+  }
+  csvFile << "Pred EE x, Pred EE y, Pred EE z,"; // CSV header
+  csvFile << "timestamp" << std::endl;
+  std::cout << "Start recording predicted data? ";
+  std::string writePredConf;
+  std::cin >> writePredConf;
+
+  if (writePredConf != "y") {
+    std::cout << "You indicated you are not ready to record data. Exiting."
+              << std::endl;
+    return 1;
+  }
+  // Build robot
+  Eigen::MatrixXd fkinSlist(6, 6);
+  Eigen::MatrixXd orgSlist = capN.robot_builder();
+  fkinSlist = orgSlist.leftCols(6).eval();
+  Eigen::MatrixXd M = Eigen::Matrix4d::Identity();
+  // Set the translation part
+  /* M(0, 3) = 0.9383; */
+  M(0, 3) = 0.94;
+  /* M(1, 3) = 0.0005; */
+  M(1, 3) = -0.0004;
+  /* M(2, 3) = 0.0664; */
+  M(2, 3) = 0.0656;
+  double timestamp = 0.0;
+
+  for (const auto &solPoint : goal.trajectory.points) {
+    const auto &writeThetaList = solPoint.positions;
+
+    // Write joint_states data to file
+    for (int i = 0; i < writeThetaList.size(); ++i) {
+      csvFile << writeThetaList[i] << ",";
+    }
+
+    // Write computed predicted ee htm to file
+    Eigen::VectorXd writeThetaListVec(6);
+    writeThetaListVec << writeThetaList[0], writeThetaList[1],
+        writeThetaList[2], writeThetaList[3], writeThetaList[4],
+        writeThetaList[5];
+    Eigen::MatrixXd pred_ee_htm =
+        jacTool.FKinSpace(M, fkinSlist, writeThetaListVec);
+    csvFile << pred_ee_htm(0, 3) << "," << pred_ee_htm(1, 3) << ","
+            << pred_ee_htm(2, 3) << ",";
+
+    // Write timestamp to file
+    csvFile << timestamp << std::endl;
+    timestamp += traj_time_step;
+  }
 
   // Send to move_plan_and_viz_server to visualize planning
   std::string plan_and_viz_service_name = "/moveit_plan_and_viz_server";
