@@ -458,7 +458,13 @@ int main(int argc, char **argv) {
         i); // required to convert to VectorXd type for use with cross
     vir_slist.col(i) << new_wcurr, -new_wcurr.cross(new_qee);
   }
-  vir_slist.rightCols(1) << 0, 0, 0, -1, 0, 0; // pure translation edit
+  /* vir_slist.rightCols(1) << 0, 0, 0, -1, 0, 0; // pure translation edit */
+  // pure rotation edit
+  Eigen::Vector3d rot_w(1, 0, 0);
+  Eigen::Vector3d rot_q(0, -0.2, 0);
+  Eigen::VectorXd rot_S(6);
+  rot_S << rot_w, -rot_w.cross(rot_q);
+  vir_slist.rightCols(1) = rot_S;
   slist.rightCols(4) = vir_slist;
   // Computing the rotational screw axis for affordance
   //-------------------------------------------------------------------------
@@ -493,7 +499,7 @@ int main(int argc, char **argv) {
 
   // Define affordance goal and create planner object
   /* const double affGoal = 1.0 * M_PI; */
-  const double affGoal = 0.2;
+  const double affGoal = 1.57;
   /* const double affGoal = 0.1; */
   Eigen::VectorXd thetalist0 = Eigen::VectorXd::Zero(slist.cols());
   std::cout << "Before creating the object" << std::endl;
