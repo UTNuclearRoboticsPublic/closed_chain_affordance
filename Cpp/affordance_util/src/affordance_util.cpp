@@ -1,7 +1,6 @@
 #include <affordance_util/affordance_util.hpp>
 
 namespace YAML {
-
 template <int N>
 bool convert<Eigen::Matrix<double, N, 1>>::decode(
     const Node &node, Eigen::Matrix<double, N, 1> &vec) {
@@ -17,7 +16,22 @@ bool convert<Eigen::Matrix<double, N, 1>>::decode(
   return true; // Successfully decoded Eigen::VectorXd
 }
 
+template <int N>
+Node convert<Eigen::Matrix<double, N, 1>>::encode(
+    const Eigen::Matrix<double, N, 1> &vec) {
+  Node node;
+  if (vec.size() != N) {
+    // Handle the case where the vector size doesn't match the expected size
+    throw std::invalid_argument("Invalid vector size for encoding.");
+  }
+
+  for (int i = 0; i < N; ++i) {
+    node.push_back(vec(i));
+  }
+  return node;
+}
 } // namespace YAML
+
 namespace AffordanceUtil {
 RobotConfig robot_builder(const std::string &config_file_path) {
   try {

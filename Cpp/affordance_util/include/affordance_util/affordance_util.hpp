@@ -8,8 +8,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-#include <iostream> // to print errors and warnings
-#include <optional>
+#include <iostream> // to print errors
 #include <vector>
 #include <yaml-cpp/yaml.h> // to read yaml files
 
@@ -18,7 +17,7 @@ template <int N> struct convert<Eigen::Matrix<double, N, 1>> {
   /**
    * @brief This template function is a custom addition to the YAML namespace
    * to decode a YAML node as an Eigen::VectorXd type. By default, the yaml-cpp
-   * does not support Eigen-type decoding.
+   * library does not support Eigen-type decoding.
    *
    * @param node YAML node
    * @param vec An Eigen::VectorXd type
@@ -26,6 +25,16 @@ template <int N> struct convert<Eigen::Matrix<double, N, 1>> {
    * @return Boolean indicating whether decoding was successful
    */
   static bool decode(const Node &node, Eigen::Matrix<double, N, 1> &vec);
+  /**
+   * @brief This template function is a custom addition to the YAML namespace to
+   * encode an Eigen::VectorXd type as a YAML node. By default, the yaml-cpp
+   * library does not support Eigen-type encoding.
+   *
+   * @param vec An Eigen::VectorXd type
+   *
+   * @return YAML node
+   */
+  static Node encode(const Eigen::Matrix<double, N, 1> &vec);
 };
 } // namespace YAML
 
