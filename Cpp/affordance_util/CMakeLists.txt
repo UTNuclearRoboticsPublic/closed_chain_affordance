@@ -13,10 +13,16 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(EIGEN3_INCLUDE_DIR "/usr/include/eigen3")
 include_directories(${EIGEN3_INCLUDE_DIR})
 
+# Find the yaml library
+find_package(yaml-cpp REQUIRED )
+
 # Create the library with source files
 add_library(${PROJECT_NAME} STATIC
     src/${PROJECT_NAME}.cpp
 )
+
+# Link the library we are creating against yaml-cpp
+target_link_libraries(${PROJECT_NAME} yaml-cpp)
 
 # Add include directories
 target_include_directories(${PROJECT_NAME} PUBLIC

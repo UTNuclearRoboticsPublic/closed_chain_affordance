@@ -1,7 +1,110 @@
 #include <affordance_util/affordance_util.hpp>
 
-AffordanceUtil::AffordanceUtil() {}
-Eigen::MatrixXd AffordanceUtil::Adjoint(const Eigen::Matrix4d &htm) {
+namespace YAML {
+
+template <int N>
+bool convert<Eigen::Matrix<double, N, 1>>::decode(
+    const Node &node, Eigen::Matrix<double, N, 1> &vec) {
+  if (!node.IsSequence() || node.size() != N) {
+    return false; // Invalid YAML node for Eigen::VectorXd
+  }
+
+  // Fill out the elements of the Eigen::Vector one-by-one
+  for (std::size_t i = 0; i < N; ++i) {
+    vec(i) = node[i].as<double>();
+  }
+
+  return true; // Successfully decoded Eigen::VectorXd
+}
+
+} // namespace YAML
+namespace AffordanceUtil {
+RobotConfig robot_builder(const std::string &config_file_path) {
+  try {
+
+    RobotConfig robotConfig; // Output of the function
+
+    // Load the YAML file
+    const YAML::Node config = YAML::LoadFile(config_file_path);
+
+    // Access the reference frame info
+    const YAML::Node &refFrameNode = config["ref_frame"];
+    const std::string &ref_frame_name =
+        refFrameNode[0]["name"].as<std::string>(); // access with [0] since only
+                                                   // one reference frame
+
+    // Access the 'joints' array
+    const YAML::Node &jointsNode = config["joints"];
+
+    // Parse each joint
+    std::vector<JointData> jointsData;
+    for (const YAML::Node &jointNode : jointsNode) {
+      JointData joint;
+      joint.name = jointNode["name"].as<std::string>();
+      joint.w = jointNode["w"].as<Eigen::Vector3d>();
+      joint.q = jointNode["q"].as<Eigen::Vector3d>();
+      jointsData.push_back(joint);
+    }
+
+    // Access the tool info
+    const YAML::Node &toolNode = config["tool"];
+    const std::string &tool_name =
+        toolNode[0]["name"]
+            .as<std::string>(); // access with [0] since only one tool
+    Eigen::Vector3d toolLocation = toolNode[0]["q"].as<Eigen::Vector3d>();
+
+    // Amend the imaginary joints. We model a virtual spherical located on
+    // the tool
+    JointData imX, imY, imZ;
+    imX.name = "imaginary_x";
+    imX.w = (Eigen::Vector3d() << 1, 0, 0).finished();
+    imX.q = toolLocation;
+    jointsData.push_back(imX);
+    imY.name = "imaginary_y";
+    imY.w = (Eigen::Vector3d() << 0, 1, 0).finished();
+    imY.q = toolLocation;
+    jointsData.push_back(imY);
+    imZ.name = "imaginary_z";
+    imZ.w = (Eigen::Vector3d() << 0, 0, 1).finished();
+    imZ.q = toolLocation;
+    jointsData.push_back(imZ);
+
+    // Compute screw axes
+    const size_t screwSize = 6;
+    const size_t &totalNofJoints = jointsData.size();
+    Eigen::MatrixXd Slist(screwSize, totalNofJoints);
+
+    for (size_t i = 0; i < totalNofJoints; i++) {
+      const JointData &joint = jointsData[i];
+      Slist.col(i) << joint.w, -joint.w.cross(joint.q);
+      /* Start setting the output of the function */
+      // Joint names
+      robotConfig.joint_names.push_back(joint.name);
+    }
+
+    /* Fill out the remaining members of the output and return it*/
+    // Screw list
+    robotConfig.Slist = Slist;
+
+    // EE homogenous transformation matrix
+    Eigen::Matrix4d M = Eigen::Matrix4d::Identity();
+    M.block<3, 1>(0, 3) = toolLocation;
+    robotConfig.M = M;
+
+    // Reference frame name
+    robotConfig.ref_frame_name = ref_frame_name;
+
+    // Tool name
+    robotConfig.tool_name = tool_name;
+
+    return robotConfig;
+
+  } catch (const YAML::Exception &e) {
+    std::cerr << "Error reading YAML file: " << e.what() << std::endl;
+    /* return std::nullopt; */
+  }
+}
+Eigen::MatrixXd Adjoint(const Eigen::Matrix4d &htm) {
   Eigen::MatrixXd adjoint(6, 6); // Output
 
   // Extract the rotation matrix (3x3) and translation vector (3x1) from htm
@@ -16,8 +119,7 @@ Eigen::MatrixXd AffordanceUtil::Adjoint(const Eigen::Matrix4d &htm) {
 
   return adjoint;
 }
-Eigen::MatrixXd
-AffordanceUtil::JacobianSpace(const Eigen::MatrixXd &Slist,
+Eigen::MatrixXd JacobianSpace(const Eigen::MatrixXd &Slist,
                               const Eigen::VectorXd &thetalist) {
 
   const int jacColSize = thetalist.size();
@@ -34,7 +136,7 @@ AffordanceUtil::JacobianSpace(const Eigen::MatrixXd &Slist,
   return Js;
 }
 
-Eigen::Matrix4d AffordanceUtil::MatrixExp6(const Eigen::Matrix4d &se3mat) {
+Eigen::Matrix4d MatrixExp6(const Eigen::Matrix4d &se3mat) {
 
   // Compute the 3-vector exponential coordinate form of the rotation matrix
   const Eigen::Matrix3d so3mat = se3mat.block<3, 3>(0, 0);
@@ -43,7 +145,7 @@ Eigen::Matrix4d AffordanceUtil::MatrixExp6(const Eigen::Matrix4d &se3mat) {
   // If the norm of the 3-vector exponential coordinate form is very small,
   // return the rotation part as identity and the translation part as is from
   // se3mat
-  if (AffordanceUtil::NearZero(omgtheta.norm())) {
+  if (NearZero(omgtheta.norm())) {
     return (Eigen::Matrix4d() << Eigen::Matrix3d::Identity(),
             se3mat.block<3, 1>(0, 3), 0, 0, 0, 1)
         .finished();
@@ -59,14 +161,14 @@ Eigen::Matrix4d AffordanceUtil::MatrixExp6(const Eigen::Matrix4d &se3mat) {
     return (Eigen::Matrix4d() << R, p, 0, 0, 0, 1).finished();
   }
 }
-Eigen::Matrix3d AffordanceUtil::MatrixExp3(const Eigen::Matrix3d &so3mat) {
+Eigen::Matrix3d MatrixExp3(const Eigen::Matrix3d &so3mat) {
   // Compute the 3-vector exponential coordinate form of the 3x3 skew-symmetric
   // matrix so3mat
   const Eigen::Vector3d &omgtheta = so3ToVec(so3mat);
 
   // If the norm of the 3-vector exponential coordinate form is very small,
   // return rotation matrix as identity
-  if (AffordanceUtil::NearZero(omgtheta.norm())) {
+  if (NearZero(omgtheta.norm())) {
     return Eigen::Matrix3d::Identity();
   } else {
     // Else compute the rotation matrix using the Rodriguez formula
@@ -76,13 +178,12 @@ Eigen::Matrix3d AffordanceUtil::MatrixExp3(const Eigen::Matrix3d &so3mat) {
            (1 - cos(theta)) * omgmat * omgmat;
   }
 }
-Eigen::Vector3d AffordanceUtil::so3ToVec(const Eigen::Matrix3d &so3mat) {
+Eigen::Vector3d so3ToVec(const Eigen::Matrix3d &so3mat) {
   // Extract and return the vector from the skew-symmetric matrix so3mat
   return Eigen::Vector3d(so3mat(2, 1), so3mat(0, 2), so3mat(1, 0));
 }
 
-std::tuple<Eigen::Vector3d, double>
-AffordanceUtil::AxisAng3(const Eigen::Vector3d &expc3) {
+std::tuple<Eigen::Vector3d, double> AxisAng3(const Eigen::Vector3d &expc3) {
   // Angle is simply the norm of the 3-vector exponential coordinates of
   // rotation
   const double theta = expc3.norm();
@@ -93,9 +194,9 @@ AffordanceUtil::AxisAng3(const Eigen::Vector3d &expc3) {
   return std::make_tuple(omghat, theta);
 }
 
-Eigen::Matrix4d AffordanceUtil::FKinSpace(const Eigen::Matrix4d &M,
-                                          const Eigen::MatrixXd &Slist,
-                                          const Eigen::VectorXd &thetalist) {
+Eigen::Matrix4d FKinSpace(const Eigen::Matrix4d &M,
+                          const Eigen::MatrixXd &Slist,
+                          const Eigen::VectorXd &thetalist) {
   // Compute space-form forward kinematics using the product of exponential
   // formula
   Eigen::Matrix4d T = M;
@@ -106,7 +207,7 @@ Eigen::Matrix4d AffordanceUtil::FKinSpace(const Eigen::Matrix4d &M,
   return T;
 }
 
-Eigen::Matrix4d AffordanceUtil::VecTose3(const Eigen::VectorXd &V) {
+Eigen::Matrix4d VecTose3(const Eigen::VectorXd &V) {
   // Extract the rotation part of the vector, V and get it's skew-symmetric form
   const Eigen::Matrix3d omgmat = VecToso3(V.segment<3>(0));
 
@@ -122,7 +223,7 @@ Eigen::Matrix4d AffordanceUtil::VecTose3(const Eigen::VectorXd &V) {
   return se3mat;
 }
 
-Eigen::Matrix3d AffordanceUtil::VecToso3(const Eigen::Vector3d &omg) {
+Eigen::Matrix3d VecToso3(const Eigen::Vector3d &omg) {
   // Fill out the 3x3 so3 matrix as the skew-symmetric form of the passed
   // 3-vector, omg
   const Eigen::Matrix3d so3mat = (Eigen::Matrix3d() << 0, -omg(2), omg(1),
@@ -131,7 +232,7 @@ Eigen::Matrix3d AffordanceUtil::VecToso3(const Eigen::Vector3d &omg) {
   return so3mat;
 }
 
-Eigen::Matrix4d AffordanceUtil::TransInv(const Eigen::Matrix4d &T) {
+Eigen::Matrix4d TransInv(const Eigen::Matrix4d &T) {
 
   // Extract rotation matrix and translation vector
   Eigen::Matrix3d R = T.block<3, 3>(0, 0);
@@ -146,7 +247,7 @@ Eigen::Matrix4d AffordanceUtil::TransInv(const Eigen::Matrix4d &T) {
   return invT;
 }
 
-Eigen::VectorXd AffordanceUtil::se3ToVec(const Eigen::Matrix4d &se3mat) {
+Eigen::VectorXd se3ToVec(const Eigen::Matrix4d &se3mat) {
   // Extract and construct the vector from the skew-symmetric matrix
   const Eigen::VectorXd V = (Eigen::VectorXd(6) << se3mat(2, 1), se3mat(0, 2),
                              se3mat(1, 0), se3mat.block<3, 1>(0, 3))
@@ -155,7 +256,7 @@ Eigen::VectorXd AffordanceUtil::se3ToVec(const Eigen::Matrix4d &se3mat) {
   return V;
 }
 
-Eigen::Matrix3d AffordanceUtil::MatrixLog3(const Eigen::Matrix3d &R) {
+Eigen::Matrix3d MatrixLog3(const Eigen::Matrix3d &R) {
 
   const double acosinput = (R.trace() - 1) / 2;
   Eigen::Matrix3d so3mat;
@@ -164,10 +265,10 @@ Eigen::Matrix3d AffordanceUtil::MatrixLog3(const Eigen::Matrix3d &R) {
     so3mat.setZero();
   } else if (acosinput <= -1) {
     Eigen::Vector3d omg;
-    if (!AffordanceUtil::NearZero(1 + R(2, 2))) {
+    if (!NearZero(1 + R(2, 2))) {
       omg = (1 / sqrt(2 * (1 + R(2, 2)))) *
             Eigen::Vector3d(R(0, 2), R(1, 2), 1 + R(2, 2));
-    } else if (!AffordanceUtil::NearZero(1 + R(1, 1))) {
+    } else if (!NearZero(1 + R(1, 1))) {
       omg = (1 / sqrt(2 * (1 + R(1, 1)))) *
             Eigen::Vector3d(R(0, 1), 1 + R(1, 1), R(2, 1));
     } else {
@@ -183,7 +284,7 @@ Eigen::Matrix3d AffordanceUtil::MatrixLog3(const Eigen::Matrix3d &R) {
   return so3mat;
 }
 
-Eigen::Matrix4d AffordanceUtil::MatrixLog6(const Eigen::Matrix4d &T) {
+Eigen::Matrix4d MatrixLog6(const Eigen::Matrix4d &T) {
   const Eigen::Matrix3d R = T.block<3, 3>(0, 0);
   const Eigen::Vector3d p = T.block<3, 1>(0, 3);
   const Eigen::Matrix3d omgmat = MatrixLog3(R);
@@ -207,6 +308,8 @@ Eigen::Matrix4d AffordanceUtil::MatrixLog6(const Eigen::Matrix4d &T) {
 
   return expmat;
 }
-bool AffordanceUtil::NearZero(const double &near) {
+bool NearZero(const double &near) {
+  const double nearZeroTol_ = 1e-6;
   return std::abs(near) < nearZeroTol_;
 }
+} // namespace AffordanceUtil
