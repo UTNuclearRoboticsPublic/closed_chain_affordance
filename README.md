@@ -3,8 +3,8 @@
 `mkdir build` </br>
 `cd build`
 ## Configure the Build
-Run CMake to configure the build process. This will generate the build system files in the build directory.</br>
-`cmake ..`
+Run CMake to configure the build process. This will generate the build system files in the build directory. Also turn the PIC flag on so the ROS packages that use this can make shared objects.</br>
+`cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON`
 ## Build the project
 `cmake --build .`
 ## Install the Project
