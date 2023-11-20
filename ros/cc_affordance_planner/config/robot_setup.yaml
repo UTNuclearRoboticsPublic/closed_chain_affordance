@@ -29,5 +29,5 @@ joints:
     q: [0.7428, -0.0003, 0.0693]
 
 tool:
-  - name: arm0_shoulder_yaw
+  - name: arm0_tool0
     q: [0.9383, 0.0005, 0.0664]
