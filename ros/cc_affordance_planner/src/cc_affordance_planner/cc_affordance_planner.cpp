@@ -30,7 +30,7 @@ PlannerResult CcAffordancePlanner::affordance_stepper() {
   while (stepperItr <= stepperMaxItr) {
 
     // Define Network Matrices as relevant Jacobian columns
-    Eigen::MatrixXd rJ = JacobianSpace(slist_, thetalist0_);
+    Eigen::MatrixXd rJ = AffordanceUtil::JacobianSpace(slist_, thetalist0_);
     Eigen::MatrixXd Np = rJ.leftCols(rJ.cols() - taskOffset);
     Eigen::MatrixXd Ns = rJ.rightCols(taskOffset);
 
@@ -96,7 +96,7 @@ bool CcAffordancePlanner::cc_ik_solver() {
 
     // Update Jacobians
     thetalist_ << qp_, qsb_;
-    Eigen::MatrixXd rJ = CcAffordancePlanner::JacobianSpace(slist_, thetalist_);
+    Eigen::MatrixXd rJ = AffordanceUtil::JacobianSpace(slist_, thetalist_);
     Np_ = rJ.leftCols(rJ.cols() - taskOffset);
     Ns_ = rJ.rightCols(taskOffset);
 
@@ -136,12 +136,12 @@ void CcAffordancePlanner::closure_error_optimizer() {
 
   // Calculate the closure error using forward kinematics
   thetalist_ << qp_, qsb_;
-  Eigen::Matrix4d Tse = CcAffordancePlanner::FKinSpace(
+  Eigen::Matrix4d Tse = AffordanceUtil::FKinSpace(
       mErr_, slist_, thetalist_); // HTM of actual end of ground link
   errTwist_ =
-      CcAffordancePlanner::Adjoint(Tse) *
-      CcAffordancePlanner::se3ToVec(CcAffordancePlanner::MatrixLog6(
-          CcAffordancePlanner::TransInv(Tse) *
+      AffordanceUtil::Adjoint(Tse) *
+      AffordanceUtil::se3ToVec(AffordanceUtil::MatrixLog6(
+          AffordanceUtil::TransInv(Tse) *
           mErr_)); // mErr_ is the desired htm for the end of ground link
 
   //* Adjust qp_ and qs_ based on this error;
@@ -157,8 +157,8 @@ void CcAffordancePlanner::closure_error_optimizer() {
 
   // Compute final error
   thetalist_ << qp_, qsb_;
-  Tse = CcAffordancePlanner::FKinSpace(mErr_, slist_, thetalist_);
-  errTwist_ = CcAffordancePlanner::Adjoint(Tse) *
-              CcAffordancePlanner::se3ToVec(CcAffordancePlanner::MatrixLog6(
-                  CcAffordancePlanner::TransInv(Tse) * mErr_));
+  Tse = AffordanceUtil::FKinSpace(mErr_, slist_, thetalist_);
+  errTwist_ = AffordanceUtil::Adjoint(Tse) *
+              AffordanceUtil::se3ToVec(AffordanceUtil::MatrixLog6(
+                  AffordanceUtil::TransInv(Tse) * mErr_));
 }

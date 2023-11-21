@@ -27,7 +27,7 @@ struct PlannerResult {
  * angles, and affordance goal, this planner computes the inverse kinematics
  * joint trajectory solution.
  */
-class CcAffordancePlanner : public AffordanceUtil {
+class CcAffordancePlanner {
 public:
   //* Algorithm control parameters (non-const to adjust from outside)
   // For stepper loop

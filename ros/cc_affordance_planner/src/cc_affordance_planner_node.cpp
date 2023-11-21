@@ -1,6 +1,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <actionlib/client/simple_action_client.h>
+#include <affordance_util/affordance_util.hpp>
 #include <cc_affordance_planner/MoveItPlanAndViz.h>
 #include <cc_affordance_planner/cc_affordance_planner.hpp>
 #include <geometry_msgs/TransformStamped.h>
@@ -429,9 +430,6 @@ int main(int argc, char **argv) {
   // screw list we send to the robot
   const size_t total_nof_joints = 9;
   Eigen::MatrixXd robotSlist = slist.leftCols(total_nof_joints);
-  CcAffordancePlanner jacTool(robotSlist, Eigen::VectorXd::Zero(slist.cols()),
-                              0.3); // Meaningless constructor values just to
-                                    // create the object, temporary fix
   Eigen::VectorXd joint_states_w_vjoints(total_nof_joints);
   joint_states_w_vjoints.head(6) = capN.joint_states;
   joint_states_w_vjoints.tail(3) << 0, 0, 0;
@@ -439,7 +437,7 @@ int main(int argc, char **argv) {
             << joint_states_w_vjoints << std::endl;
   std::cout << "Here is the robotSlist: \n" << robotSlist << std::endl;
   Eigen::MatrixXd result =
-      jacTool.JacobianSpace(robotSlist, joint_states_w_vjoints);
+      AffordanceUtil::JacobianSpace(robotSlist, joint_states_w_vjoints);
   slist.leftCols(joint_states_w_vjoints.size()) = result;
   std::cout << "Here is the screwAxes matrix after mod: \n"
             << slist << std::endl;
@@ -715,7 +713,7 @@ int main(int argc, char **argv) {
         writeThetaList[2], writeThetaList[3], writeThetaList[4],
         writeThetaList[5];
     Eigen::MatrixXd pred_ee_htm =
-        jacTool.FKinSpace(M, fkinSlist, writeThetaListVec);
+        AffordanceUtil::FKinSpace(M, fkinSlist, writeThetaListVec);
     csvFile << pred_ee_htm(0, 3) << "," << pred_ee_htm(1, 3) << ","
             << pred_ee_htm(2, 3) << ",";
 

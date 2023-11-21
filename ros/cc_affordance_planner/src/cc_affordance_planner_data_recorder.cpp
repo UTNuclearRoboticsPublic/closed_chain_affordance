@@ -1,6 +1,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <actionlib/client/simple_action_client.h>
+#include <affordance_util/affordance_util.hpp>
 #include <cc_affordance_planner/cc_affordance_planner.hpp>
 #include <geometry_msgs/TransformStamped.h>
 #include <moveit/kinematic_constraints/utils.h>
@@ -241,8 +242,6 @@ int main(int argc, char **argv) {
   }
 
   Eigen::MatrixXd slist = cAPN.robot_builder();
-  CcAffordancePlanner fkinSpaceTool(slist, Eigen::VectorXd::Zero(slist.cols()),
-                                    0.3); // Meaningless constructor values just
   Eigen::MatrixXd fkinSlist(6, 6);
   fkinSlist = slist.leftCols(6).eval();
   Eigen::MatrixXd M = Eigen::Matrix4d::Identity();
@@ -267,7 +266,7 @@ int main(int argc, char **argv) {
             << "," << ee_htm.translation().z() << ",";
     // Write computed predicted ee htm to file
     /* Eigen::MatrixXd act_ee_htm = */
-    /*     fkinSpaceTool.FKinSpace(M, fkinSlist, cAPN.joint_states); */
+    /*     AffordanceUtil::FKinSpace(M, fkinSlist, cAPN.joint_states); */
     /* csvFile << act_ee_htm(0, 3) << "," << act_ee_htm(1, 3) << "," */
     /*         << act_ee_htm(2, 3) << ","; */
 
