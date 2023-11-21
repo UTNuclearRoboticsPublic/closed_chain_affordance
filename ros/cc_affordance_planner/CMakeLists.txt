@@ -166,13 +166,13 @@ add_dependencies(${PROJECT_NAME}_moveit_plan_and_viz_server ${${PROJECT_NAME}_EX
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_tester
-	${PROJECT_NAME} #tester requires this packages library, that's all. Can still run the executable with rosrun.
+	${PROJECT_NAME} yaml-cpp #tester requires this packages library, that's all. Can still run the executable with rosrun.
 )
 target_link_libraries(${PROJECT_NAME}_node
-	${catkin_LIBRARIES} ${PROJECT_NAME} # Link this package's library against the node target
+	${catkin_LIBRARIES} ${PROJECT_NAME} affordance_util yaml-cpp# Link this package's library against the node target
 )
 target_link_libraries(${PROJECT_NAME}_data_recorder
-	${catkin_LIBRARIES} ${PROJECT_NAME} # Link this package's library against the node target
+	${catkin_LIBRARIES} ${PROJECT_NAME} affordance_util# Link this package's library against the node target
 )
 target_link_libraries(${PROJECT_NAME}_moveit_plan_and_viz_server
 	${catkin_LIBRARIES} ${PROJECT_NAME} # Link this package's library against the node target
