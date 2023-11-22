@@ -382,6 +382,14 @@ int main(int argc, char **argv) {
   std::cout << "Here is the screwAxes matrix before mod: \n"
             << slist << std::endl;
 
+  AffordanceUtil::RobotConfig robotConfig;
+  robotConfig = AffordanceUtil::robot_builder(
+      "/home/crasun/spot_ws/src/cc_affordance_planner/config/"
+      "robot_setup.yaml");
+  std::cout << "Here is the screwAxes matrix from the AffordanceUtil library: "
+               "\n"
+            << robotConfig.Slist << std::endl;
+
   std::string preStartConfigConfirm;
   std::cout << "Put robot in the prestart configuration " << std::endl;
   std::cin >> preStartConfigConfirm;
