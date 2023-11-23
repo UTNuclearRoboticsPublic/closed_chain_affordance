@@ -3,6 +3,7 @@ project(joint_traj_and_tf_recorder)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
+set(CMAKE_CXX_STANDARD 17)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -10,12 +11,17 @@ project(joint_traj_and_tf_recorder)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
+  tf2_ros
+  control_msgs
+  sensor_msgs
+  geometry_msgs
 )
 
 ## System dependencies are found with CMake's conventions
 find_package(Eigen3 REQUIRED )
+find_package(yaml-cpp REQUIRED )
+find_package(Boost REQUIRED COMPONENTS system)
 FIND_LIBRARY(affordance_util_LIBRARIES affordance_util /usr/local/lib)
-# find_package(Boost REQUIRED COMPONENTS system)
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -119,6 +125,7 @@ catkin_package(
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -148,7 +155,7 @@ add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catk
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node
-  ${catkin_LIBRARIES} affordance_util
+  ${catkin_LIBRARIES} affordance_util yaml-cpp
 )
 
 #############

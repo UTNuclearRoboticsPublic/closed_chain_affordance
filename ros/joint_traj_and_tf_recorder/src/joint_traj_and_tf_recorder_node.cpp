@@ -3,6 +3,7 @@
 #include <affordance_util/affordance_util.hpp>
 #include <boost/thread.hpp>
 #include <control_msgs/FollowJointTrajectoryAction.h>
+#include <filesystem>
 #include <fstream>
 #include <geometry_msgs/TransformStamped.h>
 #include <ros/ros.h>
@@ -17,11 +18,16 @@ public:
   JointTrajAndTfRecorder(const std::string &robot_config_file_path,
                          const std::string &joint_traj_topic)
       : tfBuffer_(), tfListener_(tfBuffer_) {
+
+    // Subscribers
     joint_traj_sub_ = nh_.subscribe(
         joint_traj_topic, 1, &JointTrajAndTfRecorder::joint_traj_sub_cb_, this);
-    joint_states_ = Eigen::VectorXd::Zero(6);
-    joint_states_subscriber_ = nh_.subscribe(
+    joint_states_sub_ = nh_.subscribe(
         "joint_states", 1, &JointTrajAndTfRecorder::joint_states_cb_, this);
+
+    // Get path to the config directory
+    filepath_prefix_ = get_config_directory_path();
+
     // Extract robot config info
     const AffordanceUtil::RobotConfig &robotConfig =
         AffordanceUtil::robot_builder(robot_config_file_path);
@@ -32,6 +38,10 @@ public:
                         robotConfig.joint_names.begin() + noFJoints);
     M_ = robotConfig.M;
     tool_name_ = robotConfig.tool_name;
+    ref_frame_name_ = robotConfig.ref_frame_name;
+
+    // Initialize joint_states to the same size as joint_names_
+    joint_states_ = Eigen::VectorXd::Zero(joint_names_.size());
 
     // Concurrently, while writing predicted data, we'll write actual data as
     // well, because while predicted data is being written, action server is
@@ -48,14 +58,15 @@ public:
 private:
   ros::NodeHandle nh_;
   ros::Subscriber joint_traj_sub_; // subscriber to the joint trajectory topic
-  tf2_ros::Buffer tfBuffer_;       // buffer to hold tf data
+  ros::Subscriber joint_states_sub_;
+  tf2_ros::Buffer tfBuffer_;              // buffer to hold tf data
   tf2_ros::TransformListener tfListener_; // listener object for tf data
   geometry_msgs::TransformStamped
       transformStamped_; // ros message to hold transform info
   Eigen::MatrixXd slist_;
   Eigen::MatrixXd M_;
   bool act_write_flag_ = false;
-  trajectory_msgs::JointTrajectory &pred_traj_;
+  trajectory_msgs::JointTrajectory pred_traj_;
   std::vector<std::string> joint_names_;
   std::string tool_name_;
   boost::thread pred_data_writer_thread_;
@@ -64,6 +75,16 @@ private:
   bool cb_called_ = false;
   Eigen::VectorXd joint_states_;
   double joint_states_timestamp_;
+  std::string filepath_prefix_;
+  std::string ref_frame_name_;
+
+  // returns path to config directory
+  std::string get_config_directory_path() {
+    std::string fullPath = __FILE__;
+    std::filesystem::path sourceFilePath(fullPath);
+    const std::string filepath_prefix = sourceFilePath.string() + "/../config/";
+    return filepath_prefix;
+  }
 
   void joint_traj_sub_cb_(
       const control_msgs::FollowJointTrajectoryGoal::ConstPtr &goal) {
@@ -132,10 +153,12 @@ private:
 
     // Write predicted data to file
     // Open a CSV file for writing
-    std::ofstream csvFile("pred_tf_and_joint_states_data.csv");
+    std::ofstream csvFile(filepath_prefix_ +
+                          "pred_tf_and_joint_states_data.csv");
     // Check if the file was opened successfully
     if (!csvFile.is_open()) {
-      std::cerr << "Failed to open the CSV file for writing. " << std::endl;
+      std::cerr << "Failed to open the predicted data CSV file for writing. "
+                << std::endl;
       return;
     }
 
@@ -149,7 +172,7 @@ private:
     csvFile << "Timestamp" << std::endl;
 
     /* Data */
-    for (const auto &goalPoint : pred_traj_) {
+    for (const auto &goalPoint : pred_traj_.points) {
       const auto &thetalist = goalPoint.positions;
 
       // Joint positions
@@ -174,92 +197,63 @@ private:
     }
   }
   void write_act_data_() {
+
     while (ros::ok()) {
 
-      if (callback_called_) {
+      if (cb_called_) {
 
         // Write actual joint_states and tool TF data to file
-        std::string target_frame = "arm0_base_link";
-        /* std::string source_frame = "arm0_fingers"; */
-        std::string source_frame = "arm0_tool0";
+        const std::string &target_frame = ref_frame_name_;
+        const std::string &source_frame = tool_name_;
 
         // Open a CSV file for writing
-        std::ofstream csvFile("act_tf_and_joint_states_data.csv");
+        std::ofstream csvFile(filepath_prefix_ +
+                              "act_tf_and_joint_states_data.csv");
 
         // Check if the file was opened successfully
         if (!csvFile.is_open()) {
-          std::cerr << "Failed to open the CSV file for writing. " << std::endl;
-          return 1;
+          std::cerr << "Failed to open the actual data CSV file for writing. "
+                    << std::endl;
+          continue; // throw error but don't kill the function or thread
         }
 
-        for (const std::string &joint_name : cAPN.joint_names) {
+        for (const std::string &joint_name : joint_names_) {
           csvFile << joint_name << ",";
         }
         csvFile << "EE x,EE y, EE z,"; // CSV header
         csvFile << "timestamp" << std::endl;
 
-        // Ask if we should start recording data
-
-        std::cout << "Start recording actual data? ";
-        std::string conf;
-        std::cin >> conf;
-
-        if (conf != "y") {
-          std::cout
-              << "You indicated you are not ready to record data. Exiting."
-              << std::endl;
-          return 1;
-        }
-
-        Eigen::MatrixXd slist = cAPN.robot_builder();
-        CcAffordancePlanner fkinSpaceTool(
-            slist, Eigen::VectorXd::Zero(slist.cols()),
-            0.3); // Meaningless constructor values just
-        Eigen::MatrixXd fkinSlist(6, 6);
-        fkinSlist = slist.leftCols(6).eval();
-        Eigen::MatrixXd M = Eigen::Matrix4d::Identity();
-        // Set the translation part
-        /* M(0, 3) = 0.9383; */
-        M(0, 3) = 0.94;
-        /* M(1, 3) = 0.0005; */
-        M(1, 3) = -0.0004;
-        /* M(2, 3) = 0.0664; */
-        M(2, 3) = 0.0656;
         auto start_time = std::chrono::steady_clock::now();
+        auto elapsed_time = std::chrono::seconds(0).count();
 
-        while (elapsed_time <= 10) {
+        while (elapsed_time <= std::chrono::seconds(10).count()) {
 
           // Write joint_states data to file
-          for (int i = 0; i < cAPN.joint_states.size(); ++i) {
-            csvFile << cAPN.joint_states[i] << ",";
+          for (int i = 0; i < joint_states_.size(); ++i) {
+            csvFile << joint_states_[i] << ",";
           }
 
-          /* /1* // Write TF data to file *1/ */
+          // Write TF data to file
           Eigen::Isometry3d ee_htm = get_htm_(target_frame, source_frame);
           csvFile << ee_htm.translation().x() << "," << ee_htm.translation().y()
                   << "," << ee_htm.translation().z() << ",";
-          // Write computed predicted ee htm to file
-          /* Eigen::MatrixXd act_ee_htm = */
-          /*     fkinSpaceTool.FKinSpace(M, fkinSlist, cAPN.joint_states); */
-          /* csvFile << act_ee_htm(0, 3) << "," << act_ee_htm(1, 3) << "," */
-          /*         << act_ee_htm(2, 3) << ","; */
 
           // Write timestamp to file
-          csvFile << cAPN.joint_states_timestamp << std::endl;
+          csvFile << joint_states_timestamp_ << std::endl;
 
           //
           auto current_time = std::chrono::steady_clock::now();
-          auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(
-                                  current_time - start_time)
-                                  .count();
+          elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(
+                             current_time - start_time)
+                             .count();
         }
 
         {
           // Create a lock_guard and lock the mutex
           boost::lock_guard<boost::mutex> lock(mutex_);
           // Reset the callback flag
+          cb_called_ = false;
         } // scope for mutex
-        callback_called_ = false;
       }
 
       // Sleep for a little to avoid busy-waiting
