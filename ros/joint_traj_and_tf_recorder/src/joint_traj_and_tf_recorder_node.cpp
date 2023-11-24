@@ -14,9 +14,9 @@
 /*
 Description: This node listens to a specified follow_joint_trajectory action
 server goal and writes onto separate csv files predicted and actual joint states
-Input: Action server topic where the joint trajectory is sent, and the path to
-the config file that contains robot config info to compute forward kinematics
-and EE location. Author: Crasun Jans
+as well as the corresponding EE positions. Input: Action server topic where the
+joint trajectory is sent, and the path to the config file that contains robot
+config info to compute forward kinematics and EE location. Author: Crasun Jans
 */
 
 struct JointTrajPoint {
@@ -32,13 +32,13 @@ public:
 
     // Subscribers
     joint_traj_sub_ =
-        nh_.subscribe(joint_traj_topic + "/goal", 1,
+        nh_.subscribe(joint_traj_topic + "/goal", 10,
                       &JointTrajAndTfRecorder::joint_traj_sub_cb_, this);
     joint_traj_result_sub_ =
-        nh_.subscribe(joint_traj_topic + "/result", 1,
+        nh_.subscribe(joint_traj_topic + "/result", 10,
                       &JointTrajAndTfRecorder::joint_traj_result_sub_cb_, this);
     joint_states_sub_ = nh_.subscribe(
-        "/joint_states", 1, &JointTrajAndTfRecorder::joint_states_cb_, this);
+        "/joint_states", 1000, &JointTrajAndTfRecorder::joint_states_cb_, this);
 
     // Get path to the config directory
     filepath_prefix_ = get_config_directory_path();
@@ -102,7 +102,7 @@ private:
   double joint_states_timestamp_;
   std::string filepath_prefix_;
   std::string ref_frame_name_;
-  bool as_active_ = true;
+  bool as_active_ = false;
 
   // returns path to config directory
   std::string get_config_directory_path() {
@@ -123,6 +123,7 @@ private:
     {
       boost::lock_guard<boost::mutex> lock(mutex_);
       cb_called_ = true;
+      as_active_ = true;
     } // scope for mutex
 
     // Extract the predicted trajectory and write to file
@@ -140,8 +141,11 @@ private:
       const control_msgs::FollowJointTrajectoryActionResult::ConstPtr &msg) {
 
     boost::lock_guard<boost::mutex> lock(mutex_);
-    ros::Rate cb_sleep(0.2);
-    cb_sleep.sleep();
+    // Sleep for a little to empty out ssh-delayed data before saying action is
+    // complete
+    /* ros::Rate cb_sleep(0.5); */
+    /* ros::Rate cb_sleep(0.2); */
+    /* cb_sleep.sleep(); */
     /* boost::this_thread::sleep_for(boost::chrono::seconds(5)); */
     as_active_ = false; // If the result callback is called then, it means the
                         // action server is done
@@ -171,6 +175,10 @@ private:
     /* } */
     joint_states_ = order_joint_states(msg, joint_names_);
     /* joint_states_timestamp_ = msg->header.stamp.toSec(); */
+    if (as_active_) {
+      ROS_INFO_STREAM("Here are the joint_states: " << joint_states_.positions
+                                                    << std::endl);
+    }
   }
 
   std::vector<JointTrajPoint>
@@ -360,6 +368,7 @@ private:
     }
   }
   void write_act_data_() {
+    ros::Rate loop_rate(10);
     // Open a CSV file for writing
     std::ofstream csvFile(filepath_prefix_ +
                           "act_tf_and_joint_states_data.csv");
@@ -373,7 +382,12 @@ private:
 
     while (ros::ok()) {
 
-      if (cb_called_) {
+      bool cb_called_copy;
+      {
+        boost::lock_guard<boost::mutex> lock(mutex_);
+        cb_called_copy = cb_called_;
+      }
+      if (cb_called_copy) {
         std::cout << "Writing actual data now" << std::endl;
 
         // Write actual joint_states and tool TF data to file
@@ -384,28 +398,51 @@ private:
           csvFile << joint_name << ",";
         }
         csvFile << "Act EE x,Act EE y,Act EE z,"; // CSV header
-        csvFile << "timestamp" << std::endl;
+        csvFile << "timestamp"
+                << "\n";
 
-        while (as_active_) {
+        bool as_active_copy;
+        {
+          boost::lock_guard<boost::mutex> lock(mutex_);
+          as_active_copy = as_active_;
+        }
+        /* while (as_active_copy) { */
+        while (ros::ok()) {
+          JointTrajPoint joint_states_copy;
+          {
+            boost::lock_guard<boost::mutex> lock(mutex_);
+            joint_states_copy = joint_states_;
+          }
           // Write joint_states data to file
-          for (int i = 0; i < joint_states_.positions.size(); ++i) {
-            csvFile << joint_states_.positions[i] << ",";
+          for (int i = 0; i < joint_states_copy.positions.size(); ++i) {
+            csvFile << joint_states_copy.positions[i] << ",";
           }
 
           // Write TF data to file
-          Eigen::Isometry3d ee_htm = get_htm_(target_frame, source_frame);
+          /* Eigen::Isometry3d ee_htm = get_htm_(target_frame, source_frame);
+           */
 
-          csvFile << ee_htm.translation().x() << "," << ee_htm.translation().y()
-                  << "," << ee_htm.translation().z() << ",";
+          /* csvFile << ee_htm.translation().x() << "," <<
+           * ee_htm.translation().y() */
+          /*         << "," << ee_htm.translation().z() << ","; */
           // EE position
-          /* Eigen::MatrixXd ee_htm = */
-          /*     AffordanceUtil::FKinSpace(M_, slist_, joint_states_); */
-          /* csvFile << ee_htm(0, 3) << "," << ee_htm(1, 3) << "," */
-          /*         << ee_htm(2, 3) << ","; */
+          Eigen::MatrixXd ee_htm = AffordanceUtil::FKinSpace(
+              M_, slist_, joint_states_copy.positions);
+
+          csvFile << ee_htm(0, 3) << "," << ee_htm(1, 3) << "," << ee_htm(2, 3)
+                  << ",";
 
           // Write timestamp to file
-          csvFile << joint_states_.timestamp << std::endl;
-          boost::this_thread::sleep_for(boost::chrono::milliseconds(10));
+          csvFile << joint_states_copy.timestamp << "\n";
+          std::cout << "Joint states: " << joint_states_copy.positions
+                    << std::endl;
+          // Check the as_active_ flag again
+          {
+            boost::lock_guard<boost::mutex> lock(mutex_);
+            as_active_copy = as_active_;
+          }
+          /* boost::this_thread::sleep_for(boost::chrono::milliseconds(1)); */
+          loop_rate.sleep();
         }
 
         {
@@ -420,7 +457,8 @@ private:
       }
 
       // Sleep for a little to avoid busy-waiting
-      boost::this_thread::sleep_for(boost::chrono::milliseconds(10));
+      /* boost::this_thread::sleep_for(boost::chrono::milliseconds(1)); */
+      loop_rate.sleep();
     }
   }
 };
