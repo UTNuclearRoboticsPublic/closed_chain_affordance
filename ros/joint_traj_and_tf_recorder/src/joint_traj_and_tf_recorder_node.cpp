@@ -9,6 +9,7 @@
 #include <ros/ros.h>
 #include <sensor_msgs/JointState.h>
 #include <tf2_ros/transform_listener.h>
+#include <unordered_map>
 /*
 Description: This node listens to a specified follow_joint_trajectory action
 server goal and writes onto separate csv files predicted and actual joint states
@@ -84,7 +85,7 @@ private:
   Eigen::MatrixXd slist_;
   Eigen::MatrixXd M_;
   bool act_write_flag_ = false;
-  trajectory_msgs::JointTrajectory pred_traj_;
+  std::vector<Eigen::VectorXd> pred_traj_;
   std::vector<std::string> joint_names_;
   std::string tool_name_;
   boost::thread pred_data_writer_thread_;
@@ -119,7 +120,10 @@ private:
     } // scope for mutex
 
     // Extract the predicted trajectory and write to file
-    pred_traj_ = msg->goal.trajectory;
+    ROS_INFO_STREAM(
+        "Here is the predicted trajectory: " << msg->goal.trajectory);
+    const auto &unordered_pred_traj_ = msg->goal.trajectory;
+    pred_traj_ = order_joint_states(unordered_pred_traj_, joint_names_);
     std::cout << "Writing predicted data now" << std::endl;
     write_pred_data(pred_traj_);
     std::cout << "Finished writing predicted data" << std::endl;
@@ -128,42 +132,144 @@ private:
   void joint_traj_result_sub_cb_(
       const control_msgs::FollowJointTrajectoryActionResult::ConstPtr &msg) {
 
-    /* ROS_INFO_STREAM("Inside action server result callback"); */
-    /* if (msg->status.status == actionlib_msgs::GoalStatus::SUCCEEDED) { */
-    /*   ROS_INFO_STREAM("Action server succeeded"); */
+    /* { */
+    /* boost::lock_guard<boost::mutex> lock(mutex_); */
+    ros::Rate cb_sleep(0.2);
+    cb_sleep.sleep();
+    /* boost::this_thread::sleep_for(boost::chrono::seconds(5)); */
     as_active_ = false; // If the result callback is called then, it means the
                         // action server is done
-    /* } else { */
-    /* } */
+    /* }                     // scope for mutex */
   }
   // Callback function to process joint states
   void joint_states_cb_(const sensor_msgs::JointState::ConstPtr &msg) {
-    // Collect joint state data for the specified joints in the specified order
-    int j = 0; // index for selected_joint_positions_eigen
-    joint_states_timestamp_ = msg->header.stamp.toSec();
-    /* std::cout << "MoveIt joint names: \n"; */
-    /* for (auto &moveit_joint_name : msg->name) { */
-    /*   std::cout << moveit_joint_name << " "; */
-    /* } */
-    /* std::cout << std::endl; */
-    for (const std::string &joint_name : joint_names_) {
-      for (size_t i = 0; i < msg->name.size(); ++i) {
-        if (msg->name[i] == joint_name) {
-          /* selected_joint_positions.push_back(msg->position[i]); */
-          joint_states_[j] = msg->position[i];
-          j++;
-          break; // Move to the next joint name
-        }
+    {
+      boost::lock_guard<boost::mutex> lock(mutex_);
+      /* // Collect joint state data for the specified joints in the specified
+       */
+      /* // order */
+      /* int j = 0; // index for selected_joint_positions_eigen */
+      /* joint_states_timestamp_ = msg->header.stamp.toSec(); */
+      /* /1* std::cout << "MoveIt joint names: \n"; *1/ */
+      /* /1* for (auto &moveit_joint_name : msg->name) { *1/ */
+      /* /1*   std::cout << moveit_joint_name << " "; *1/ */
+      /* /1* } *1/ */
+      /* /1* std::cout << std::endl; *1/ */
+      /* for (const std::string &joint_name : joint_names_) { */
+      /*   for (size_t i = 0; i < msg->name.size(); ++i) { */
+      /*     if (msg->name[i] == joint_name) { */
+      /*       /1* selected_joint_positions.push_back(msg->position[i]); *1/ */
+      /*       joint_states_[j] = msg->position[i]; */
+      /*       j++; */
+      /*       break; // Move to the next joint name */
+      /*     } */
+      /*   } */
+      /* } */
+      joint_states_ = order_joint_states(msg, joint_names_);
+      joint_states_timestamp_ = msg->header.stamp.toSec();
+    }
+  }
+
+  std::vector<Eigen::VectorXd>
+  order_joint_states(const trajectory_msgs::JointTrajectory &traj,
+                     const std::vector<std::string> &joint_name_order) {
+
+    std::vector<Eigen::VectorXd> ordered_traj;
+
+    size_t nof_joints =
+        joint_name_order
+            .size(); // this is the relevant number of joints. Even if the
+                     // trajectory contains more joints, we'll only extract
+                     // relevant joint positions and in order
+
+    // First, we determine the order that the indices need to be in to match the
+    // joint_name_order.
+    //  Store unordered joint names in a map and assign indices
+    std::unordered_map<std::string, size_t> joint_index_map;
+    for (size_t i = 0; i < traj.joint_names.size(); ++i) {
+      joint_index_map[traj.joint_names[i]] = i;
+    }
+
+    // Determine the correct index order of the unordered joint names to match
+    // ordered joint names
+    std::vector<size_t> index_order(nof_joints);
+    for (size_t i = 0; i < nof_joints; ++i) {
+      const std::string &joint_name = joint_name_order[i];
+
+      auto it = joint_index_map.find(joint_name);
+      if (it != joint_index_map.end()) {
+        index_order[i] = it->second;
+      } else {
+        // Handle the case where the joint name is not found
+        std::cerr << "Joint name not found: " << joint_name << std::endl;
       }
     }
+
+    // Iterate through each trajectory point and extract joint states in the
+    // correct order
+    for (const auto &point : traj.points) {
+
+      Eigen::VectorXd ordered_point(joint_name_order.size());
+
+      // Extract the joint positions in correct order
+      for (size_t i = 0; i < joint_name_order.size(); ++i) {
+        ordered_point[i] = point.positions[index_order[i]];
+      }
+
+      // Add the ordered point to the result
+      ordered_traj.push_back(ordered_point);
+    }
+
+    return ordered_traj;
+  }
+
+  Eigen::VectorXd
+  order_joint_states(const sensor_msgs::JointState::ConstPtr &joint_states,
+                     const std::vector<std::string> &joint_name_order) {
+
+    size_t nof_joints =
+        joint_name_order
+            .size(); // this is the relevant number of joints. Even if the
+                     // trajectory contains more joints, we'll only extract
+                     // relevant joint positions and in order
+    Eigen::VectorXd ordered_joint_states(nof_joints);
+
+    // First, we determine the order that the indices need to be in to match the
+    // joint_name_order.
+    //  Store unordered joint names in a map and assign indices
+    // Create a mapping between joint names and indices
+    std::unordered_map<std::string, size_t> joint_index_map;
+    for (size_t i = 0; i < joint_states->name.size(); ++i) {
+      joint_index_map[joint_states->name[i]] = i;
+    }
+
+    // Determine the index order
+    std::vector<size_t> index_order(nof_joints);
+    for (size_t i = 0; i < nof_joints; ++i) {
+      const std::string &joint_name = joint_name_order[i];
+      auto it = joint_index_map.find(joint_name);
+      if (it != joint_index_map.end()) {
+        index_order[i] = it->second;
+      } else {
+        // Handle the case where the joint name is not found
+        std::cerr << "Joint name not found: " << joint_name << std::endl;
+      }
+    }
+
+    // Extract the joint positions in correct order
+    for (size_t i = 0; i < nof_joints; ++i) {
+      ordered_joint_states[i] = joint_states->position[index_order[i]];
+    }
+
+    return ordered_joint_states;
   }
 
   Eigen::Isometry3d get_htm_(std::string targetFrame_,
                              std::string referenceFrame_) {
 
     Eigen::Isometry3d htm; // Output
-    // Query the listener for the desired transformation at the latest available
-    // time ros::Time::now()
+    // Query the listener for the desired transformation at the latest
+    // available time ros::Time::now()
 
     try {
       transformStamped_ = tfBuffer_.lookupTransform(
@@ -189,7 +295,7 @@ private:
     return htm;
   }
 
-  void write_pred_data(const trajectory_msgs::JointTrajectory &pred_traj_) {
+  void write_pred_data(const std::vector<Eigen::VectorXd> &pred_traj_) {
 
     // Write predicted data to file
     // Open a CSV file for writing
@@ -214,32 +320,50 @@ private:
     csvFile << "Pred EE x,Pred EE y,Pred EE z,"; // CSV header
     csvFile << "Timestamp" << std::endl;
 
+    /* std::cout << "Here is the trajectory: " << pred_traj_ << std::endl; */
     /* Data */
-    for (const auto &goalPoint : pred_traj_.points) {
-      const auto &thetalist = goalPoint.positions;
+    /* for (const auto &goalPoint : pred_traj_) { */
+    for (const auto &thetalist : pred_traj_) {
+      /* const auto &thetalist = goalPoint.positions; */
+      std::cout << "Here is predicted thetalist: " << thetalist << std::endl;
 
       // Joint positions
       for (size_t i = 0; i < thetalist.size(); ++i) {
         csvFile << thetalist[i] << ",";
       }
 
-      // Store thetalist as an Eigen::VectorXd type to use it with the FkinSpace
-      // function
-      Eigen::VectorXd thetalist_vec =
-          Eigen::Map<const Eigen::VectorXd>(thetalist.data(), thetalist.size());
+      // Store thetalist as an Eigen::VectorXd type to use it with the
+      // FkinSpace function
+      /* Eigen::VectorXd thetalist_vec = */
+      /*     Eigen::Map<const Eigen::VectorXd>(thetalist.data(),
+       * thetalist.size()); */
 
       // EE position
       Eigen::MatrixXd ee_htm =
-          AffordanceUtil::FKinSpace(M_, slist_, thetalist_vec);
+          /* AffordanceUtil::FKinSpace(M_, slist_, thetalist_vec); */
+          AffordanceUtil::FKinSpace(M_, slist_, thetalist);
       csvFile << ee_htm(0, 3) << "," << ee_htm(1, 3) << "," << ee_htm(2, 3)
               << ",";
 
       // Timestamp
-      double timestamp = goalPoint.time_from_start.toSec();
-      csvFile << timestamp << std::endl;
+      /* double timestamp = goalPoint.time_from_start.toSec(); */
+      /* csvFile << timestamp << std::endl; */
+      csvFile << std::endl;
     }
   }
   void write_act_data_() {
+    // Open a CSV file for writing
+    std::ofstream csvFile(filepath_prefix_ +
+                          "act_tf_and_joint_states_data.csv");
+    // Check if the file was opened successfully
+    if (!csvFile.is_open()) {
+      std::cerr << "Failed to open the actual data CSV file for writing."
+
+                << std::endl;
+      return;
+    }
+
+    ros::Rate loop_rate(4);
 
     while (ros::ok()) {
 
@@ -250,17 +374,6 @@ private:
         const std::string &target_frame = ref_frame_name_;
         const std::string &source_frame = tool_name_;
 
-        // Open a CSV file for writing
-        std::ofstream csvFile(filepath_prefix_ +
-                              "act_tf_and_joint_states_data.csv");
-
-        // Check if the file was opened successfully
-        if (!csvFile.is_open()) {
-          std::cerr << "Failed to open the actual data CSV file for writing."
-                    << std::endl;
-          continue; // throw error but don't kill the function or thread
-        }
-
         for (const std::string &joint_name : joint_names_) {
           csvFile << joint_name << ",";
         }
@@ -268,26 +381,30 @@ private:
         csvFile << "timestamp" << std::endl;
 
         while (as_active_) {
+          {
+            boost::lock_guard<boost::mutex> lock(mutex_);
+            // Write joint_states data to file
+            for (int i = 0; i < joint_states_.size(); ++i) {
+              csvFile << joint_states_[i] << ",";
+            }
 
-          // Write joint_states data to file
-          for (int i = 0; i < joint_states_.size(); ++i) {
-            csvFile << joint_states_[i] << ",";
+            // Write TF data to file
+            Eigen::Isometry3d ee_htm = get_htm_(target_frame, source_frame);
+
+            csvFile << ee_htm.translation().x() << ","
+                    << ee_htm.translation().y() << ","
+                    << ee_htm.translation().z() << ",";
+            // EE position
+            /* Eigen::MatrixXd ee_htm = */
+            /*     AffordanceUtil::FKinSpace(M_, slist_, joint_states_); */
+            /* csvFile << ee_htm(0, 3) << "," << ee_htm(1, 3) << "," */
+            /*         << ee_htm(2, 3) << ","; */
+
+            // Write timestamp to file
+            csvFile << joint_states_timestamp_ << std::endl;
           }
-
-          // Write TF data to file
-          /* Eigen::Isometry3d ee_htm = get_htm_(target_frame, source_frame); */
-          /* csvFile << ee_htm.translation().x() << "," <<
-           * ee_htm.translation().y() */
-          /*         << "," << ee_htm.translation().z() << ","; */
-          // EE position
-          Eigen::MatrixXd ee_htm =
-              AffordanceUtil::FKinSpace(M_, slist_, joint_states_);
-          csvFile << ee_htm(0, 3) << "," << ee_htm(1, 3) << "," << ee_htm(2, 3)
-                  << ",";
-
-          // Write timestamp to file
-          csvFile << joint_states_timestamp_ << std::endl;
-          boost::this_thread::sleep_for(boost::chrono::milliseconds(100));
+          boost::this_thread::sleep_for(boost::chrono::milliseconds(1));
+          /* loop_rate.sleep(); */
         }
 
         {
@@ -297,11 +414,13 @@ private:
           cb_called_ = false;
         } // scope for mutex
 
+        csvFile.close();
         std::cout << "Finished writing actual data" << std::endl;
       }
 
       // Sleep for a little to avoid busy-waiting
-      boost::this_thread::sleep_for(boost::chrono::milliseconds(100));
+      boost::this_thread::sleep_for(boost::chrono::milliseconds(1));
+      /* loop_rate.sleep(); */
     }
   }
 };
@@ -312,12 +431,18 @@ int main(int argc, char **argv) {
   // supply the topic where the goal topic for the
   // follow_joint_trajectory_action_server
   const std::string robot_config_file_path =
-      "/home/crasun/spot_ws/src/cc_affordance_planner/config/robot_setup.yaml";
+      "/home/crasun/spot_ws/src/cc_affordance_planner/config/"
+      "robot_setup.yaml";
   const std::string joint_traj_topic =
       "/spot_arm/arm_controller/follow_joint_trajectory";
   JointTrajAndTfRecorder jointTrajAndTfRecorder(robot_config_file_path,
                                                 joint_traj_topic);
-  ros::spin();
+  /* ros::spin(); */
+  ros::Rate loop_rate(10);
+  while (ros::ok()) {
+    loop_rate.sleep();
+    ros::spinOnce();
+  }
 
   return 0;
 }
