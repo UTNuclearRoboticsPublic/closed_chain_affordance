@@ -226,7 +226,8 @@ int main(int argc, char **argv) {
   for (const std::string &joint_name : cAPN.joint_names) {
     csvFile << joint_name << ",";
   }
-  csvFile << "EE x,EE y, EE z,"; // CSV header
+  /* csvFile << "EE x,EE y, EE z,"; // CSV header */
+  csvFile << "Act EE x,Act EE y,Act EE z,"; // CSV header
   csvFile << "timestamp" << std::endl;
 
   // Ask if we should start recording data
@@ -261,14 +262,14 @@ int main(int argc, char **argv) {
     }
 
     /* /1* // Write TF data to file *1/ */
-    Eigen::Isometry3d ee_htm = cAPN.get_htm(target_frame, source_frame);
-    csvFile << ee_htm.translation().x() << "," << ee_htm.translation().y()
-            << "," << ee_htm.translation().z() << ",";
+    /* Eigen::Isometry3d ee_htm = cAPN.get_htm(target_frame, source_frame); */
+    /* csvFile << ee_htm.translation().x() << "," << ee_htm.translation().y() */
+    /*         << "," << ee_htm.translation().z() << ","; */
     // Write computed predicted ee htm to file
-    /* Eigen::MatrixXd act_ee_htm = */
-    /*     AffordanceUtil::FKinSpace(M, fkinSlist, cAPN.joint_states); */
-    /* csvFile << act_ee_htm(0, 3) << "," << act_ee_htm(1, 3) << "," */
-    /*         << act_ee_htm(2, 3) << ","; */
+    Eigen::MatrixXd act_ee_htm =
+        AffordanceUtil::FKinSpace(M, fkinSlist, cAPN.joint_states);
+    csvFile << act_ee_htm(0, 3) << "," << act_ee_htm(1, 3) << ","
+            << act_ee_htm(2, 3) << ",";
 
     // Write timestamp to file
     csvFile << cAPN.joint_states_timestamp << std::endl;
