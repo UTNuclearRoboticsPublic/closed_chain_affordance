@@ -1,6 +1,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <affordance_util/affordance_util.hpp>
+#include <affordance_util_ros/affordance_util_ros.hpp>
 #include <boost/thread.hpp>
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <filesystem>
@@ -12,11 +13,7 @@
 #include <tuple>
 #include <unordered_map>
 /*
-Description: This node listens to a specified follow_joint_trajectory action
-server goal and writes onto separate csv files predicted and actual joint states
-as well as the corresponding EE positions. Input: Action server topic where the
-joint trajectory is sent, and the path to the config file that contains robot
-config info to compute forward kinematics and EE location. Author: Crasun Jans
+Author: Crasun Jans
 */
 
 struct JointTrajPoint {
