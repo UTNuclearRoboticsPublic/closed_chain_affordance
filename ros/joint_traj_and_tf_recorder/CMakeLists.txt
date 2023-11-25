@@ -155,12 +155,12 @@ add_executable(${PROJECT_NAME}_node src/joint_traj_and_tf_recorder_node.cpp)
 ## same as for the library above
 add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-# Explicit call to look in the devel lib folder for the affordance_util_ros library
+# # Explicit call to look in the devel lib folder for the affordance_util_ros library
 link_directories(${catkin_LIBRARY_DIRS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node
-  ${catkin_LIBRARIES} affordance_util affordance_util_ros yaml-cpp
+  ${catkin_LIBRARIES} affordance_util yaml-cpp
 )
 
 #############

@@ -4,22 +4,13 @@
 #include <affordance_util_ros/affordance_util_ros.hpp>
 #include <boost/thread.hpp>
 #include <control_msgs/FollowJointTrajectoryAction.h>
-#include <filesystem>
 #include <fstream>
-#include <geometry_msgs/TransformStamped.h>
 #include <ros/ros.h>
 #include <sensor_msgs/JointState.h>
 #include <tf2_ros/transform_listener.h>
-#include <tuple>
-#include <unordered_map>
 /*
 Author: Crasun Jans
 */
-
-struct JointTrajPoint {
-  Eigen::VectorXd positions;
-  double timestamp; // In seconds
-};
 
 class JointTrajAndTfRecorder {
 public:
@@ -37,8 +28,9 @@ public:
     joint_states_sub_ = nh_.subscribe(
         "/joint_states", 1000, &JointTrajAndTfRecorder::joint_states_cb_, this);
 
-    // Get path to the config directory
-    filepath_prefix_ = get_config_directory_path();
+    // Get path to the directory where we wills av
+    filepath_prefix_ =
+        AffordanceUtilROS::get_abs_path_to_rel_dir(__FILE__, "/../data/");
 
     // Extract robot config info
     const AffordanceUtil::RobotConfig &robotConfig =
@@ -51,17 +43,6 @@ public:
     M_ = robotConfig.M;
     tool_name_ = robotConfig.tool_name;
     ref_frame_name_ = robotConfig.ref_frame_name;
-    std::cout << "Tool name: " << tool_name_ << std::endl;
-    std::cout << "Ref frame name: " << ref_frame_name_ << std::endl;
-    std::cout << " Joint names: ";
-    for (auto &joint_name : joint_names_) {
-      std::cout << joint_name << " ";
-    }
-    std::cout << std::endl;
-    std::cout << "M: \n" << M_ << std::endl;
-
-    // Initialize joint_states to the same size as joint_names_
-    /* joint_states_ = Eigen::VectorXd::Zero(joint_names_.size()); */
 
     // Concurrently, while writing predicted data, we'll write actual data as
     // well, because while predicted data is being written, action server is
@@ -94,23 +75,11 @@ private:
   boost::thread act_data_writer_thread_;
   boost::mutex mutex_;
   bool cb_called_ = false;
-  /* Eigen::VectorXd joint_states_; */
-  JointTrajPoint joint_states_;
+  AffordanceUtilROS::JointTrajPoint joint_states_;
   double joint_states_timestamp_;
   std::string filepath_prefix_;
   std::string ref_frame_name_;
   bool as_active_ = false;
-
-  // returns path to config directory
-  std::string get_config_directory_path() {
-    std::string full_path = __FILE__;
-    std::filesystem::path source_file_path(full_path);
-    std::filesystem::path source_file_parent_path =
-        source_file_path.parent_path(); // directory containing the source file
-    const std::string filepath_prefix =
-        source_file_parent_path.string() + "/../data/";
-    return filepath_prefix;
-  }
 
   void joint_traj_sub_cb_(
       const control_msgs::FollowJointTrajectoryActionGoal::ConstPtr &msg) {
@@ -127,8 +96,9 @@ private:
     ROS_INFO_STREAM(
         "Here is the predicted trajectory: " << msg->goal.trajectory);
     const auto &unordered_pred_traj_ = msg->goal.trajectory;
-    std::vector<JointTrajPoint> pred_traj_ =
-        order_joint_states(unordered_pred_traj_, joint_names_);
+    std::vector<AffordanceUtilROS::JointTrajPoint> pred_traj_ =
+        AffordanceUtilROS::get_ordered_joint_traj(unordered_pred_traj_,
+                                                  joint_names_);
     std::cout << "Writing predicted data now" << std::endl;
     write_pred_data(pred_traj_);
     std::cout << "Finished writing predicted data" << std::endl;
@@ -138,12 +108,6 @@ private:
       const control_msgs::FollowJointTrajectoryActionResult::ConstPtr &msg) {
 
     boost::lock_guard<boost::mutex> lock(mutex_);
-    // Sleep for a little to empty out ssh-delayed data before saying action is
-    // complete
-    /* ros::Rate cb_sleep(0.5); */
-    /* ros::Rate cb_sleep(0.2); */
-    /* cb_sleep.sleep(); */
-    /* boost::this_thread::sleep_for(boost::chrono::seconds(5)); */
     as_active_ = false; // If the result callback is called then, it means the
                         // action server is done
   }
@@ -152,164 +116,12 @@ private:
     boost::lock_guard<boost::mutex> lock(mutex_);
     /* // Collect joint state data for the specified joints in the specified
      */
-    /* // order */
-    /* int j = 0; // index for selected_joint_positions_eigen */
-    /* joint_states_timestamp_ = msg->header.stamp.toSec(); */
-    /* /1* std::cout << "MoveIt joint names: \n"; *1/ */
-    /* /1* for (auto &moveit_joint_name : msg->name) { *1/ */
-    /* /1*   std::cout << moveit_joint_name << " "; *1/ */
-    /* /1* } *1/ */
-    /* /1* std::cout << std::endl; *1/ */
-    /* for (const std::string &joint_name : joint_names_) { */
-    /*   for (size_t i = 0; i < msg->name.size(); ++i) { */
-    /*     if (msg->name[i] == joint_name) { */
-    /*       /1* selected_joint_positions.push_back(msg->position[i]); *1/ */
-    /*       joint_states_[j] = msg->position[i]; */
-    /*       j++; */
-    /*       break; // Move to the next joint name */
-    /*     } */
-    /*   } */
-    /* } */
-    joint_states_ = order_joint_states(msg, joint_names_);
-    /* joint_states_timestamp_ = msg->header.stamp.toSec(); */
-    if (as_active_) {
-      ROS_INFO_STREAM("Here are the joint_states: " << joint_states_.positions
-                                                    << std::endl);
-    }
+    joint_states_ =
+        AffordanceUtilROS::get_ordered_joint_states(msg, joint_names_);
   }
 
-  std::vector<JointTrajPoint>
-  order_joint_states(const trajectory_msgs::JointTrajectory &traj,
-                     const std::vector<std::string> &joint_name_order) {
-
-    std::vector<JointTrajPoint> ordered_traj;
-
-    size_t nof_joints =
-        joint_name_order
-            .size(); // this is the relevant number of joints. Even if the
-                     // trajectory contains more joints, we'll only extract
-                     // relevant joint positions and in order
-
-    // First, we determine the order that the indices need to be in to match the
-    // joint_name_order.
-    //  Store unordered joint names in a map and assign indices
-    std::unordered_map<std::string, size_t> joint_index_map;
-    for (size_t i = 0; i < traj.joint_names.size(); ++i) {
-      joint_index_map[traj.joint_names[i]] = i;
-    }
-
-    // Determine the correct index order of the unordered joint names to match
-    // ordered joint names
-    std::vector<size_t> index_order(nof_joints);
-    for (size_t i = 0; i < nof_joints; ++i) {
-      const std::string &joint_name = joint_name_order[i];
-
-      auto it = joint_index_map.find(joint_name);
-      if (it != joint_index_map.end()) {
-        index_order[i] = it->second;
-      } else {
-        // Handle the case where the joint name is not found
-        std::cerr << "Joint name not found: " << joint_name << std::endl;
-      }
-    }
-
-    // Iterate through each trajectory point and extract joint states in the
-    // correct order as well as timestamps
-    for (const auto &point : traj.points) {
-      JointTrajPoint ordered_traj_point;
-      ordered_traj_point.positions.conservativeResize(nof_joints);
-
-      // Extract the joint positions in correct order and fill it in the result
-      for (size_t i = 0; i < joint_name_order.size(); ++i) {
-        ordered_traj_point.positions[i] = point.positions[index_order[i]];
-      }
-
-      // Retrieve timestamp as well and push it into the result vector
-      ordered_traj_point.timestamp = point.time_from_start.toSec();
-      ordered_traj.push_back(ordered_traj_point);
-    }
-
-    return ordered_traj;
-  }
-
-  JointTrajPoint
-  order_joint_states(const sensor_msgs::JointState::ConstPtr &joint_states,
-                     const std::vector<std::string> &joint_name_order) {
-
-    size_t nof_joints =
-        joint_name_order
-            .size(); // this is the relevant number of joints. Even if the
-                     // trajectory contains more joints, we'll only extract
-                     // relevant joint positions and in order
-    JointTrajPoint ordered_joint_states;
-    ordered_joint_states.positions.conservativeResize(nof_joints);
-
-    // First, we determine the order that the indices need to be in to match the
-    // joint_name_order.
-    //  Store unordered joint names in a map and assign indices
-    // Create a mapping between joint names and indices
-    std::unordered_map<std::string, size_t> joint_index_map;
-    for (size_t i = 0; i < joint_states->name.size(); ++i) {
-      joint_index_map[joint_states->name[i]] = i;
-    }
-
-    // Determine the index order
-    std::vector<size_t> index_order(nof_joints);
-    for (size_t i = 0; i < nof_joints; ++i) {
-      const std::string &joint_name = joint_name_order[i];
-      auto it = joint_index_map.find(joint_name);
-      if (it != joint_index_map.end()) {
-        index_order[i] = it->second;
-      } else {
-        // Handle the case where the joint name is not found
-        std::cerr << "Joint name not found: " << joint_name << std::endl;
-      }
-    }
-
-    // Extract the joint positions in correct order
-    for (size_t i = 0; i < nof_joints; ++i) {
-      ordered_joint_states.positions[i] =
-          joint_states->position[index_order[i]];
-    }
-
-    // Extract and set the timestamp as well
-    ordered_joint_states.timestamp = joint_states->header.stamp.toSec();
-
-    return ordered_joint_states;
-  }
-
-  Eigen::Isometry3d get_htm_(std::string targetFrame_,
-                             std::string referenceFrame_) {
-
-    Eigen::Isometry3d htm; // Output
-    // Query the listener for the desired transformation at the latest
-    // available time ros::Time::now()
-
-    try {
-      transformStamped_ = tfBuffer_.lookupTransform(
-          targetFrame_, referenceFrame_, ros::Time(0), ros::Duration(0.3));
-    } catch (tf2::TransformException &ex) {
-      ROS_WARN("%s", ex.what());
-    }
-
-    // Convert the message to Eigen::Isometry3d type
-    // Extract translation and rotation from the TransformStamped message
-    Eigen::Vector3d translation(transformStamped_.transform.translation.x,
-                                transformStamped_.transform.translation.y,
-                                transformStamped_.transform.translation.z);
-    Eigen::Quaterniond rotation(transformStamped_.transform.rotation.w,
-                                transformStamped_.transform.rotation.x,
-                                transformStamped_.transform.rotation.y,
-                                transformStamped_.transform.rotation.z);
-
-    // Set the translation and rotation components of the HTM
-    htm.translation() = translation;
-    htm.linear() = rotation.toRotationMatrix();
-
-    return htm;
-  }
-
-  void write_pred_data(const std::vector<JointTrajPoint> &pred_traj_) {
+  void write_pred_data(
+      const std::vector<AffordanceUtilROS::JointTrajPoint> &pred_traj_) {
 
     // Write predicted data to file
     // Open a CSV file for writing
@@ -405,7 +217,7 @@ private:
         }
         /* while (as_active_copy) { */
         while (ros::ok()) {
-          JointTrajPoint joint_states_copy;
+          AffordanceUtilROS::JointTrajPoint joint_states_copy;
           {
             boost::lock_guard<boost::mutex> lock(mutex_);
             joint_states_copy = joint_states_;
