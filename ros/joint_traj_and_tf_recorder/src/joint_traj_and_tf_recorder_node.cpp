@@ -33,7 +33,7 @@ public:
     // Extract robot config info
     const AffordanceUtil::RobotConfig &robotConfig =
         AffordanceUtil::robot_builder(robot_config_file_path);
-    const size_t &noFJoints =
+    const size_t noFJoints =
         robotConfig.joint_names.size() - 3; // Disregard appended virtual joints
     slist_ = robotConfig.Slist.leftCols(noFJoints);
     joint_names_.assign(robotConfig.joint_names.begin(),
@@ -210,7 +210,7 @@ private:
         joint_states_ready_ = false;
       }
       // Write joint_states data to file
-      for (int i = 0; i < joint_states_copy.positions.size(); ++i) {
+      for (size_t i = 0; i < joint_states_copy.positions.size(); ++i) {
         csvFile << joint_states_copy.positions[i] << ",";
       }
 
