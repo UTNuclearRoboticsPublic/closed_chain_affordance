@@ -11,7 +11,6 @@ set(CMAKE_CXX_STANDARD 17)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
-  tf2_ros
   control_msgs
   sensor_msgs
   geometry_msgs
