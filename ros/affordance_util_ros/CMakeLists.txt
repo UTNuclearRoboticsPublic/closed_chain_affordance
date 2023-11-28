@@ -130,6 +130,10 @@ add_library(${PROJECT_NAME}
   src/${PROJECT_NAME}/affordance_util_ros.cpp
 )
 
+# Link this library against catkin libraries such as tf2_ros
+target_link_libraries(${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+)
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
