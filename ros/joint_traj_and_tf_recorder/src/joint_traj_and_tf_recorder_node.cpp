@@ -4,6 +4,7 @@
 #include <affordance_util_ros/affordance_util_ros.hpp>
 #include <condition_variable>
 #include <control_msgs/FollowJointTrajectoryAction.h>
+#include <csignal>
 #include <fstream>
 #include <ros/ros.h>
 #include <sensor_msgs/JointState.h>
@@ -12,6 +13,7 @@
 Author: Crasun Jans
 */
 
+static bool g_exit_flag_ = false;
 class JointTrajAndTfRecorder {
 public:
   JointTrajAndTfRecorder(const std::string &robot_config_file_path,
@@ -46,12 +48,27 @@ public:
     // probably executing joint movement already
     act_data_writer_thread_ =
         std::thread(&JointTrajAndTfRecorder::write_act_data_, this);
+    sentinel_thread_ = std::thread([this]() {
+      while (!g_exit_flag_) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      }
+      joint_states_cv_.notify_all();
+      follow_joint_traj_cv_.notify_all();
+      std::cout << "Reached eof sentinel lambda\n";
+    });
   }
 
   ~JointTrajAndTfRecorder() {
 
     // Join the threads before exiting
     act_data_writer_thread_.join();
+  }
+  static void signal_callback_handler(int signum) {
+    std::cout << "Caught signal " << signum << std::endl;
+    // Terminate program
+    g_exit_flag_ = true;
+
+    /* exit(signum); */
   }
 
 private:
@@ -67,6 +84,7 @@ private:
   std::string tool_name_;
   // Multithreading and data-sync tools
   std::mutex mutex_;
+  std::thread sentinel_thread_;
   std::thread act_data_writer_thread_;
   std::condition_variable joint_states_cv_;
   std::condition_variable follow_joint_traj_cv_;
@@ -164,7 +182,7 @@ private:
   // Function to write actual data to file
   void write_act_data_() {
 
-    ros::Rate loop_rate(4); // Rate for the writing loop
+    ros::Rate loop_rate(10); // Rate for the writing loop
 
     const std::string filename = "act_tf_and_joint_states_data.csv";
     const std::string filepath = abs_data_save_path_ + filename;
@@ -183,7 +201,16 @@ private:
     // set it to false and move on.
     {
       std::unique_lock<std::mutex> lock(mutex_);
-      follow_joint_traj_cv_.wait(lock, [this] { return cb_called_; });
+      follow_joint_traj_cv_.wait(
+          lock, [this] { return (cb_called_ || g_exit_flag_); });
+      if (g_exit_flag_) {
+        // Close the file when done
+        csvFile.close();
+        std::cout << "Exited without writing actual data" << std::endl;
+        ros::shutdown();
+        /* return; */
+      }
+
       cb_called_ = false;
     }
 
@@ -197,7 +224,7 @@ private:
             << "\n";
 
     // Write data to file until ros is interrupted (likely with ctrl-c)
-    while (ros::ok()) {
+    while (true) {
       // Wait for joint states data to be ready routinely checking it while
       // putting the thread to sleep at other times and releasing the mutex.
       // When it is ready, copy it, set data-ready flag to false, release the
@@ -205,7 +232,10 @@ private:
       AffordanceUtilROS::JointTrajPoint joint_states_copy;
       {
         std::unique_lock<std::mutex> lock(mutex_);
-        joint_states_cv_.wait(lock, [this] { return joint_states_ready_; });
+        joint_states_cv_.wait(
+            lock, [this] { return (joint_states_ready_ || g_exit_flag_); });
+        if (g_exit_flag_)
+          break;
         joint_states_copy = joint_states_;
         joint_states_ready_ = false;
       }
@@ -232,10 +262,16 @@ private:
     csvFile.close();
 
     std::cout << "Finished writing actual data" << std::endl;
+    ros::shutdown();
+    /* return; */
   }
 };
 int main(int argc, char **argv) {
-  ros::init(argc, argv, "joint_traj_and_tf_recorder");
+  ros::init(argc, argv,
+            "joint_traj_and_tf_recorder"); // FYI, send this additional argument
+                                           // to tell ROS signal handling will
+                                           // be taken care of separately:
+                                           // ros::init_options::NoSigintHandler
 
   // Furnish the filepath where the robot config yaml file is located and
   // supply the action server name whose goal to listen to
@@ -247,6 +283,7 @@ int main(int argc, char **argv) {
       "/spot_arm/arm_controller/follow_joint_trajectory";
   JointTrajAndTfRecorder jointTrajAndTfRecorder(robot_config_file_path,
                                                 as_server_name);
+  signal(SIGINT, JointTrajAndTfRecorder::signal_callback_handler);
   ROS_INFO("Joint_traj_and_tf_recorder is active");
   ros::spin();
 
