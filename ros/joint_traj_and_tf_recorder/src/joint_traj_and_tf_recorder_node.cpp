@@ -13,7 +13,15 @@
 Author: Crasun Jans
 */
 
-static bool g_exit_flag_ = false;
+/****************** Signal handling ********************************/
+static bool g_exit_flag = false; // signal to shutdown ROS on ctrl+c
+
+// Function to handle ctrl+c signal
+static void signal_callback_handler(int signum) { g_exit_flag = true; }
+
+/****************** EOF Signal handling ****************************/
+
+/***** Joint Trajectory and EE TF Recorder class ******************/
 class JointTrajAndTfRecorder {
 public:
   JointTrajAndTfRecorder(const std::string &robot_config_file_path,
@@ -48,27 +56,15 @@ public:
     // probably executing joint movement already
     act_data_writer_thread_ =
         std::thread(&JointTrajAndTfRecorder::write_act_data_, this);
-    sentinel_thread_ = std::thread([this]() {
-      while (!g_exit_flag_) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-      }
-      joint_states_cv_.notify_all();
-      follow_joint_traj_cv_.notify_all();
-      std::cout << "Reached eof sentinel lambda\n";
-    });
+    sentinel_cleanup_thread_ =
+        std::thread(&JointTrajAndTfRecorder::cleanup_post_interruption_,
+                    this); // post-signal cleanup thread
   }
 
   ~JointTrajAndTfRecorder() {
 
     // Join the threads before exiting
     act_data_writer_thread_.join();
-  }
-  static void signal_callback_handler(int signum) {
-    std::cout << "Caught signal " << signum << std::endl;
-    // Terminate program
-    g_exit_flag_ = true;
-
-    /* exit(signum); */
   }
 
 private:
@@ -86,12 +82,35 @@ private:
   std::mutex mutex_;
   std::thread sentinel_thread_;
   std::thread act_data_writer_thread_;
+  std::thread sentinel_cleanup_thread_; // thread to ensure cleanup after ctrl+c
+                                        // interruption
   std::condition_variable joint_states_cv_;
   std::condition_variable follow_joint_traj_cv_;
+  std::condition_variable cleanup_cv_; // CV to wake thread up after successful
+                                       // cleanup in act_data_writer_thread_
   bool cb_called_ = false;
   bool joint_states_ready_ = false;
   // Other variables
   std::string abs_data_save_path_;
+
+  // Function to handle cleanup on signal interruption
+  void cleanup_post_interruption_() {
+    // Wait until signal interruption is received
+    while (!g_exit_flag) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    // Wake up act_data_writer_thread_
+    joint_states_cv_.notify_all();
+    follow_joint_traj_cv_.notify_all();
+    {
+      std::unique_lock<std::mutex> lock(mutex_);
+      cleanup_cv_.wait(lock); // Wait until act_data_writer_ thread is
+                              // successfully cleaned up
+    }
+    std::cout << "Successfully exited program because of ctrl+c interruption\n";
+    ros::shutdown(); // Shutdown ROS
+  }
 
   // Callback function for the follow_joint_trajectory goal subscriber
   void follow_joint_traj_sub_cb_(
@@ -182,7 +201,7 @@ private:
   // Function to write actual data to file
   void write_act_data_() {
 
-    ros::Rate loop_rate(10); // Rate for the writing loop
+    ros::Rate loop_rate(15); // Rate for the writing loop
 
     const std::string filename = "act_tf_and_joint_states_data.csv";
     const std::string filepath = abs_data_save_path_ + filename;
@@ -202,13 +221,12 @@ private:
     {
       std::unique_lock<std::mutex> lock(mutex_);
       follow_joint_traj_cv_.wait(
-          lock, [this] { return (cb_called_ || g_exit_flag_); });
-      if (g_exit_flag_) {
+          lock, [this] { return (cb_called_ || g_exit_flag); });
+      if (g_exit_flag) {
         // Close the file when done
         csvFile.close();
         std::cout << "Exited without writing actual data" << std::endl;
-        ros::shutdown();
-        /* return; */
+        cleanup_cv_.notify_all(); // Wake up cleanup thread
       }
 
       cb_called_ = false;
@@ -223,7 +241,7 @@ private:
     csvFile << "Timestamp"
             << "\n";
 
-    // Write data to file until ros is interrupted (likely with ctrl-c)
+    // Write data to file until interrupted with ctrl-c
     while (true) {
       // Wait for joint states data to be ready routinely checking it while
       // putting the thread to sleep at other times and releasing the mutex.
@@ -233,8 +251,8 @@ private:
       {
         std::unique_lock<std::mutex> lock(mutex_);
         joint_states_cv_.wait(
-            lock, [this] { return (joint_states_ready_ || g_exit_flag_); });
-        if (g_exit_flag_)
+            lock, [this] { return (joint_states_ready_ || g_exit_flag); });
+        if (g_exit_flag)
           break;
         joint_states_copy = joint_states_;
         joint_states_ready_ = false;
@@ -262,10 +280,11 @@ private:
     csvFile.close();
 
     std::cout << "Finished writing actual data" << std::endl;
-    ros::shutdown();
-    /* return; */
+
+    cleanup_cv_.notify_all(); // Wake up cleanup thread
   }
 };
+/***** EOF Joint Trajectory and EE TF Recorder class *************/
 int main(int argc, char **argv) {
   ros::init(argc, argv,
             "joint_traj_and_tf_recorder"); // FYI, send this additional argument
@@ -283,7 +302,11 @@ int main(int argc, char **argv) {
       "/spot_arm/arm_controller/follow_joint_trajectory";
   JointTrajAndTfRecorder jointTrajAndTfRecorder(robot_config_file_path,
                                                 as_server_name);
-  signal(SIGINT, JointTrajAndTfRecorder::signal_callback_handler);
+
+  // Ctrl+c signal handling
+  signal(SIGINT,
+         signal_callback_handler); // signal handler
+
   ROS_INFO("Joint_traj_and_tf_recorder is active");
   ros::spin();
 
