@@ -80,7 +80,6 @@ private:
   std::string tool_name_;
   // Multithreading and data-sync tools
   std::mutex mutex_;
-  std::thread sentinel_thread_;
   std::thread act_data_writer_thread_;
   std::thread sentinel_cleanup_thread_; // thread to ensure cleanup after ctrl+c
                                         // interruption
