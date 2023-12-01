@@ -43,11 +43,11 @@ public:
     // Extract robot config info
     const AffordanceUtil::RobotConfig &robotConfig =
         AffordanceUtil::robot_builder(robot_config_file_path);
-    const size_t noFJoints =
+    const size_t nof_joints =
         robotConfig.joint_names.size() - 3; // Disregard appended virtual joints
-    slist_ = robotConfig.Slist.leftCols(noFJoints);
+    slist_ = robotConfig.Slist.leftCols(nof_joints);
     joint_names_.assign(robotConfig.joint_names.begin(),
-                        robotConfig.joint_names.begin() + noFJoints);
+                        robotConfig.joint_names.begin() + nof_joints);
     M_ = robotConfig.M;
     tool_name_ = robotConfig.tool_name;
 
