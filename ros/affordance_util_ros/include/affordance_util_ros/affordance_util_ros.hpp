@@ -36,7 +36,7 @@ Eigen::Isometry3d get_htm(const std::string &target_frame,
 
 control_msgs::FollowJointTrajectoryGoal follow_joint_trajectory_msg_builder(
     const std::vector<Eigen::VectorXd> &bare_trajectory,
-    const std::vector<double> &config_offset,
+    const Eigen::VectorXd &config_offset,
     const std::vector<std::string> &joint_names,
     const double &time_step = 0.05);
 } // namespace AffordanceUtilROS
