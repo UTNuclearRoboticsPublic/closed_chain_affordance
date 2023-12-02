@@ -1,0 +1,6 @@
+# Request
+trajectory_msgs/JointTrajectory joint_traj # joint trajectory for planning and visualization
+string viz_frame # frame name to trace movement
+---
+# Result
+bool success # whether planning and visualization was successful
