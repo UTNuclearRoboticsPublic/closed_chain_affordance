@@ -30,7 +30,7 @@ public:
 
     // Subscribers
     follow_joint_traj_sub_ =
-        nh_.subscribe(as_server_name + "/goal", 10,
+        nh_.subscribe(as_server_name + "/goal", 1000,
                       &JointTrajAndTfRecorder::follow_joint_traj_sub_cb_, this);
     joint_states_sub_ = nh_.subscribe(
         "/joint_states", 1000, &JointTrajAndTfRecorder::joint_states_cb_, this);
@@ -96,7 +96,7 @@ private:
   void cleanup_post_interruption_() {
     // Wait until signal interruption is received
     while (!g_exit_flag) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     // Wake up act_data_writer_thread_
@@ -200,7 +200,7 @@ private:
   // Function to write actual data to file
   void write_act_data_() {
 
-    ros::Rate loop_rate(15); // Rate for the writing loop
+    ros::Rate loop_rate(10); // Rate for the writing loop
 
     const std::string filename = "act_tf_and_joint_states_data.csv";
     const std::string filepath = abs_data_save_path_ + filename;
