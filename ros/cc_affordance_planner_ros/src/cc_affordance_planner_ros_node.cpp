@@ -4,19 +4,58 @@
 #include <affordance_util/affordance_util.hpp>
 #include <affordance_util_ros/affordance_util_ros.hpp>
 #include <cc_affordance_planner/cc_affordance_planner.hpp>
+#include <filesystem>
 #include <moveit_plan_and_viz/MoveItPlanAndViz.h>
 #include <ros/ros.h>
 #include <tf2_ros/transform_listener.h>
 
 #include <control_msgs/FollowJointTrajectoryAction.h>
+#include <ros/package.h>
 #include <sensor_msgs/JointState.h>
 /*
    Author: Crasun Jans
 */
+
+class CustomException : public std::exception {
+public:
+  CustomException(const char *message) : msg(message) {}
+
+  // Override the what() function to provide a description of the exception
+  virtual const char *what() const noexcept override { return msg.c_str(); }
+
+private:
+  std::string msg;
+};
+
+std::string get_filepath_inside_pkg(const std::string &package_name,
+                                    const std::string &rel_dir,
+                                    const std::string &filename) {
+
+  std::string full_filepath; // output of the function
+
+  // Get the path to the package
+  const std::string package_path = ros::package::getPath(package_name);
+
+  // Build full filepath and check for errors
+  if (!package_path.empty()) {
+    full_filepath = package_path + rel_dir + filename;
+  } else {
+    throw CustomException(
+        ("Failed to find path for package '" + package_name).c_str());
+  }
+
+  // Make sure the file exists
+  if (!std::filesystem::exists(full_filepath)) {
+    throw CustomException(
+        ("File does not exist at this path: '" + full_filepath).c_str());
+  }
+
+  return full_filepath;
+}
 Eigen::Matrix<double, 6, 1> get_screw(const Eigen::Vector3d &w,
                                       const Eigen::Vector3d &q) {
 
-  Eigen::Matrix<double, 6, 1> screw; // Output of the function
+  Eigen::VectorXd screw(6); // Output of the function
 
   screw.head(3) = w;
   screw.tail(3) = -w.cross(q); // q cross w
@@ -247,8 +286,19 @@ int main(int argc, char **argv) {
   // Buffer to lookup tf data for the tag
   tf2_ros::Buffer tf_buffer;
 
-  const std::string robot_config_file_path =
-      "/home/crasun/spot_ws/src/cc_affordance_planner/config/robot_setup.yaml";
+  // Find CC Affordance Description for the robot
+  const std::string package_name = "cc_affordance_spot_description";
+  const std::string rel_dir = "/config/";
+  const std::string filename = package_name + ".yaml";
+  std::string robot_cc_description_path;
+  try {
+    robot_cc_description_path =
+        get_filepath_inside_pkg(package_name, rel_dir, filename);
+  } catch (const CustomException &e) {
+    // Catch and handle the custom exception
+    std::cerr << "Caught exception: " << e.what() << std::endl;
+    return 1;
+  }
 
   // Compose affordance screw
   const bool aff_from_tag = false;
@@ -271,8 +321,8 @@ int main(int argc, char **argv) {
   // Set affordance goal
   const double aff_goal = 1.57;
 
-  CcAffordancePlannerRosNode ccAffordancePlannerRosNode(robot_config_file_path,
-                                                        aff_screw, aff_goal);
+  CcAffordancePlannerRosNode ccAffordancePlannerRosNode(
+      robot_cc_description_path, aff_screw, aff_goal);
   // Run cc affordance planner
   ccAffordancePlannerRosNode.run_cc_affordance_planner();
 
