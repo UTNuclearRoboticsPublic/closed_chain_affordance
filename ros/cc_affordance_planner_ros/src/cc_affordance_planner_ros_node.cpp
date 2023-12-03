@@ -88,8 +88,10 @@ Eigen::MatrixXd compose_cc_model_slist(
     app_slist.col(i) = get_screw(w_vir.col(i), q_vir);
   }
 
+  std::cout << "aff screw: \n" << aff_screw << std::endl;
   // Affordance screw
   app_slist.col(4) = aff_screw;
+  std::cout << "Debug flag" << std::endl;
 
   // Putting altogether
   Eigen::MatrixXd slist(robot_slist.rows(),
@@ -141,10 +143,6 @@ public:
 
   void run_cc_affordance_planner() {
 
-    // Extract robot screw list
-    Eigen::MatrixXd robot_slist =
-        h_slist_.leftCols(joint_states_.positions.size());
-
     // Read joint states
     // Capture initial configuration joint states
     std::string capture_joint_states_conf;
@@ -165,6 +163,15 @@ public:
       ros::spinOnce();
       loop_rate.sleep();
     }
+
+    // Extract robot screw list
+    Eigen::MatrixXd robot_slist =
+        h_slist_.leftCols(joint_states_.positions.size());
+    std::cout << "robot_slist: \n" << robot_slist << std::endl;
+    std::cout << "joint_states_.positions: \n"
+              << joint_states_.positions << std::endl;
+    std::cout << "M_: \n" << M_ << std::endl;
+    std::cout << "aff_screw: \n" << aff_screw_ << std::endl;
     // Compose cc model and affordance goal
     Eigen::MatrixXd cc_slist = compose_cc_model_slist(
         robot_slist, joint_states_.positions, M_, aff_screw_);
