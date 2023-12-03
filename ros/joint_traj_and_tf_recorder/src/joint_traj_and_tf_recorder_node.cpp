@@ -294,9 +294,10 @@ int main(int argc, char **argv) {
   // Furnish the filepath where the robot config yaml file is located and
   // supply the action server name whose goal to listen to
   const std::string robot_config_file_path =
-      "/home/crasun/spot_ws/src/cc_affordance_planner/config/"
-      "robot_setup.yaml"; // TODO: to retrieve the filepath from package name
-                          // and relative path
+      "/home/crasun/spot_ws/src/cc_affordance_spot_description/config/"
+      "cc_affordance_spot_description.yaml"; // TODO: to retrieve the filepath
+                                             // from package name and relative
+                                             // path
   const std::string as_server_name =
       "/spot_arm/arm_controller/follow_joint_trajectory";
   JointTrajAndTfRecorder jointTrajAndTfRecorder(robot_config_file_path,
