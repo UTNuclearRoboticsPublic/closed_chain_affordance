@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
+
 def set_axes_equal(ax):
     """
     Make axes of 3D plot have equal scale so that spheres appear as spheres,
@@ -78,7 +79,8 @@ ax.legend()
 # Add title
 ax.set_title('EE Position - Pure rotation with no grasp')
 
-set_axes_equal(ax)
 
+set_axes_equal(ax)
+ax.set_aspect('equal')
 # Show the plot
 plt.show()
