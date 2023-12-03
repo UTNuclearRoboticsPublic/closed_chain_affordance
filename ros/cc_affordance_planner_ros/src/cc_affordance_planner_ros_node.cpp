@@ -9,6 +9,7 @@
 #include <ros/ros.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <cmath>
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <ros/package.h>
 #include <sensor_msgs/JointState.h>
@@ -88,10 +89,8 @@ Eigen::MatrixXd compose_cc_model_slist(
     app_slist.col(i) = get_screw(w_vir.col(i), q_vir);
   }
 
-  std::cout << "aff screw: \n" << aff_screw << std::endl;
   // Affordance screw
-  app_slist.col(4) = aff_screw;
-  std::cout << "Debug flag" << std::endl;
+  app_slist.col(3) = aff_screw;
 
   // Putting altogether
   Eigen::MatrixXd slist(robot_slist.rows(),
@@ -167,11 +166,6 @@ public:
     // Extract robot screw list
     Eigen::MatrixXd robot_slist =
         h_slist_.leftCols(joint_states_.positions.size());
-    std::cout << "robot_slist: \n" << robot_slist << std::endl;
-    std::cout << "joint_states_.positions: \n"
-              << joint_states_.positions << std::endl;
-    std::cout << "M_: \n" << M_ << std::endl;
-    std::cout << "aff_screw: \n" << aff_screw_ << std::endl;
     // Compose cc model and affordance goal
     Eigen::MatrixXd cc_slist = compose_cc_model_slist(
         robot_slist, joint_states_.positions, M_, aff_screw_);
@@ -182,8 +176,12 @@ public:
     /* const double affGoal = 0.1; */
     Eigen::VectorXd thetalist0 = Eigen::VectorXd::Zero(cc_slist.cols());
     CcAffordancePlanner ccAffordancePlanner(cc_slist, thetalist0, aff_goal_);
-    ccAffordancePlanner.affStep = 0.01;
-    ccAffordancePlanner.taskOffset = 1;
+    auto sign_of = [](double x) {
+      return (x > 0) ? 1.0 : (x < 0) ? -1.0 : 0.0;
+    }; // to check the sign of affordance goal
+    ccAffordancePlanner.affStep =
+        sign_of(aff_goal_) * 0.1; // should have the same sign as aff_goal_
+    ccAffordancePlanner.taskOffset = 3;
     /* ccAffordancePlanner.affStep = 0.01; */
 
     // Run the planner
@@ -212,7 +210,6 @@ public:
     const control_msgs::FollowJointTrajectoryGoal goal =
         AffordanceUtilROS::follow_joint_trajectory_msg_builder(
             solution, joint_states_.positions, joint_names_, traj_time_step);
-    ROS_INFO_STREAM("Here is the coveted ROS msg: " << goal);
 
     // Visualize plan
     // Send to move_plan_and_viz_server to visualize planning
@@ -238,11 +235,11 @@ public:
     if (moveit_plan_and_viz_client.call(moveit_plan_and_viz_goal)) {
       ROS_INFO_STREAM("Calling " << plan_and_viz_service_name
                                  << " service was successful.");
-      std::string executionConfirm;
+      std::string execution_conf;
       std::cout << "Ready to execute the trajectory? y to confirm" << std::endl;
-      std::cin >> executionConfirm;
+      std::cin >> execution_conf;
 
-      if (executionConfirm != "y") {
+      if (execution_conf != "y" && execution_conf != "Y") {
         std::cout << "You indicated you are not ready to execute trajectory"
                   << std::endl;
         return;
