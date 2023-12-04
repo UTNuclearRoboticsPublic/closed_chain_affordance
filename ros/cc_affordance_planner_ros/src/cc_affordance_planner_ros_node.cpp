@@ -79,6 +79,12 @@ Eigen::MatrixXd compose_cc_model_slist(
   const Eigen::Matrix4d ee_htm =
       AffordanceUtil::FKinSpace(M, robot_slist, thetalist);
   const Eigen::Vector3d q_vir = ee_htm.block<3, 1>(0, 3);
+  // Alternative method using TF data
+  /* tf2_ros::Buffer tf_buffer; */
+  /* const Eigen::Isometry3d ee_htm = */
+  /*     AffordanceUtilROS::get_htm("arm0_base_link", "arm0_tool0", tf_buffer);
+   */
+  /* const Eigen::Vector3d q_vir = ee_htm.translation(); */
 
   Eigen::Matrix<double, 3, 3> w_vir;
   w_vir.col(0) << 1, 0, 0; // x
@@ -95,7 +101,7 @@ Eigen::MatrixXd compose_cc_model_slist(
   // Putting altogether
   Eigen::MatrixXd slist(robot_slist.rows(),
                         (robot_slist.cols() + app_slist.cols()));
-  slist << robot_slist, app_slist;
+  slist << robot_jacobian, app_slist;
 
   return slist;
 }
@@ -163,12 +169,16 @@ public:
       loop_rate.sleep();
     }
 
+    std::cout << "Here are the captured joint states: \n"
+              << joint_states_.positions << std::endl;
+
     // Extract robot screw list
     Eigen::MatrixXd robot_slist =
         h_slist_.leftCols(joint_states_.positions.size());
     // Compose cc model and affordance goal
     Eigen::MatrixXd cc_slist = compose_cc_model_slist(
         robot_slist, joint_states_.positions, M_, aff_screw_);
+    std::cout << "Here is the full cc slist: \n" << cc_slist << std::endl;
 
     // Call planner
     // Define affordance goal and create planner object
@@ -180,8 +190,8 @@ public:
       return (x > 0) ? 1.0 : (x < 0) ? -1.0 : 0.0;
     }; // to check the sign of affordance goal
     ccAffordancePlanner.affStep =
-        sign_of(aff_goal_) * 0.1; // should have the same sign as aff_goal_
-    ccAffordancePlanner.taskOffset = 3;
+        sign_of(aff_goal_) * 0.01; // should have the same sign as aff_goal_
+    ccAffordancePlanner.taskOffset = 1;
     /* ccAffordancePlanner.affStep = 0.01; */
 
     // Run the planner
@@ -306,8 +316,8 @@ int main(int argc, char **argv) {
 
   // Compose affordance screw
   const bool aff_from_tag = false;
-  const Eigen::Vector3d w_aff(0, 0, 1); // To be hard-coded as needed
-  const Eigen::Vector3d q_aff(0, 0, 0); // To be hard-coded as needed
+  const Eigen::Vector3d w_aff(1, 0, 0);   // To be hard-coded as needed
+  const Eigen::Vector3d q_aff(0, 0.1, 0); // To be hard-coded as needed
   Eigen::Matrix<double, 6, 1> aff_screw;
   if (aff_from_tag) {
     const std::string affordance_frame =
@@ -322,8 +332,12 @@ int main(int argc, char **argv) {
     aff_screw = get_screw(w_aff, q_aff);
   }
 
+  // Pure translation edit
+  aff_screw = (Eigen::Matrix<double, 6, 1>() << 0, 0, 0, -1, 0, 0).finished();
+
   // Set affordance goal
-  const double aff_goal = 1.57;
+  /* const double aff_goal = 1.5 * M_PI; */
+  const double aff_goal = -0.3;
 
   CcAffordancePlannerRosNode ccAffordancePlannerRosNode(
       robot_cc_description_path, aff_screw, aff_goal);
