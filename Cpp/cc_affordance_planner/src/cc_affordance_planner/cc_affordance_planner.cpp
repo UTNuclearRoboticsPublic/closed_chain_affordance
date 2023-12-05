@@ -4,6 +4,11 @@ CcAffordancePlanner::CcAffordancePlanner(const Eigen::MatrixXd &slist,
                                          const double &affGoal)
     : slist_(slist), thetalist0_(thetalist0), affGoal_(affGoal) {
 
+  // Compute task error threshold.
+  taskErrThreshold_ =
+      accuracy * affStep; // Done here so as to access accuracy as public
+                          // variable post-constructor call
+
   // Resizings
   thetalist_.conservativeResize(thetalist0_.size());
 }
@@ -11,11 +16,6 @@ CcAffordancePlanner::CcAffordancePlanner(const Eigen::MatrixXd &slist,
 PlannerResult CcAffordancePlanner::affordance_stepper() {
 
   PlannerResult plannerResult; // Result of the planner
-
-  // Compute task error threshold.
-  taskErrThreshold_ =
-      accuracy * affStep; // Done here so as to access accuracy as public
-                          // variable post-constructor call
 
   // Initial guesses
   qsb_guess_ = thetalist0_.tail(taskOffset);

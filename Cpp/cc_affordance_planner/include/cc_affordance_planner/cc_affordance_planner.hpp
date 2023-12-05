@@ -34,7 +34,7 @@ public:
   // For stepper loop
   double affStep = 0.1;
   // For IK loop
-  double accuracy = 1.0 * (1.0 / 100.0); // accuracy for error threshold
+  double accuracy = 10.0 * (1.0 / 100.0); // accuracy for error threshold
   int maxItr = 50;
   //* Other parameters
   int taskOffset = 1;
