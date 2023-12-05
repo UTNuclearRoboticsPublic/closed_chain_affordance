@@ -3,7 +3,6 @@ CcAffordancePlanner::CcAffordancePlanner(const Eigen::MatrixXd &slist,
                                          const Eigen::VectorXd &thetalist0,
                                          const double &affGoal)
     : slist_(slist), thetalist0_(thetalist0), affGoal_(affGoal) {
-  taskErrThreshold_ = accuracy * affStep;
 
   // Resizings
   thetalist_.conservativeResize(thetalist0_.size());
@@ -12,6 +11,11 @@ CcAffordancePlanner::CcAffordancePlanner(const Eigen::MatrixXd &slist,
 PlannerResult CcAffordancePlanner::affordance_stepper() {
 
   PlannerResult plannerResult; // Result of the planner
+
+  // Compute task error threshold.
+  taskErrThreshold_ =
+      accuracy * affStep; // Done here so as to access accuracy as public
+                          // variable post-constructor call
 
   // Initial guesses
   qsb_guess_ = thetalist0_.tail(taskOffset);
@@ -27,6 +31,7 @@ PlannerResult CcAffordancePlanner::affordance_stepper() {
       taskOffset); // We extract the size for qsd and also the reference to
                    // start from. We'll set the affordance goal in the loop with
                    // respect to this reference
+  auto start_time = std::chrono::high_resolution_clock::now();
   while (stepperItr <= stepperMaxItr) {
 
     // Define Network Matrices as relevant Jacobian columns
@@ -82,6 +87,10 @@ PlannerResult CcAffordancePlanner::affordance_stepper() {
     plannerResult.success = false;
     plannerResult.trajFullorPartial = "Unset";
   }
+  auto end_time = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(
+      end_time - start_time);
+  std::cout << "Planning time: " << duration.count() << " microseconds\n";
   return plannerResult;
 }
 
