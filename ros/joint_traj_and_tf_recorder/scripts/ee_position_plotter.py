@@ -77,7 +77,7 @@ ax.set_zlabel('z (mm)')
 ax.legend()
 
 # Add title
-ax.set_title('EE Position - Pure rotation with no grasp')
+ax.set_title('EE Position - Pulling a drawer')
 
 
 set_axes_equal(ax)

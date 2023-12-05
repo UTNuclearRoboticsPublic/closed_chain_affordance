@@ -192,6 +192,7 @@ public:
     ccAffordancePlanner.affStep =
         sign_of(aff_goal_) * 0.01; // should have the same sign as aff_goal_
     ccAffordancePlanner.taskOffset = 1;
+    /* ccAffordancePlanner.accuracy = 1.0 * (1.0 / 100.0); */
     /* ccAffordancePlanner.affStep = 0.01; */
 
     // Run the planner
@@ -337,7 +338,7 @@ int main(int argc, char **argv) {
 
   // Set affordance goal
   /* const double aff_goal = 1.5 * M_PI; */
-  const double aff_goal = -0.3;
+  const double aff_goal = -0.29;
 
   CcAffordancePlannerRosNode ccAffordancePlannerRosNode(
       robot_cc_description_path, aff_screw, aff_goal);
