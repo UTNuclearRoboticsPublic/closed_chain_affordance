@@ -6,6 +6,7 @@
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <csignal>
 #include <fstream>
+#include <iomanip> // for std::precision
 #include <ros/ros.h>
 #include <sensor_msgs/JointState.h>
 #include <thread>
@@ -158,6 +159,10 @@ private:
     // Open a CSV file for writing
     std::ofstream csvFile(filepath);
 
+    // Set precision for writing to file
+    csvFile << std::fixed
+            << std::setprecision(5); // fixed-type notation and 5 decimal places
+
     // Check if the file was opened successfully
     if (!csvFile.is_open()) {
       std::cerr << "Failed to open the predicted-data CSV file for writing. "
@@ -189,8 +194,7 @@ private:
               << ",";
 
       // Timestamp
-      double timestamp = pred_traj_point.timestamp;
-      csvFile << timestamp << "\n";
+      csvFile << pred_traj_point.timestamp << "\n";
     }
 
     // Close file before exiting
@@ -207,6 +211,10 @@ private:
 
     // Open a CSV file for writing
     std::ofstream csvFile(filepath);
+
+    // Set precision for writing to file
+    csvFile << std::fixed
+            << std::setprecision(5); // fixed-type notation and 5 decimal places
 
     // Check if the file was opened successfully
     if (!csvFile.is_open()) {
