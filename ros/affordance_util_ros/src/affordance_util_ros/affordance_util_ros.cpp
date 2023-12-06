@@ -162,9 +162,21 @@ control_msgs::FollowJointTrajectoryGoal follow_joint_trajectory_msg_builder(
   fjtg_msg.trajectory.joint_names = joint_names;
 
   fjtg_msg.trajectory.points.resize(
-      bare_trajectory.size()); // resize points array before filling
+      bare_trajectory.size() +
+      1); // resize points array before filling to bare_trajectory.size()+1
+          // since the first point will be the config_offset itself
 
-  size_t j = 0;
+  // Add the first point with config_offset
+  trajectory_msgs::JointTrajectoryPoint &first_point =
+      fjtg_msg.trajectory.points[0];
+  first_point.time_from_start = ros::Duration(0.0); // Start time is 0
+  first_point.positions.resize(joint_names.size());
+  for (size_t i = 0; i < joint_names.size(); i++) {
+    first_point.positions[i] = config_offset[i];
+  }
+
+  // Fill out the rest of the trajectory with bare_trajectory
+  size_t j = 1; // Start with 1 to skip the first point
   for (const Eigen::VectorXd &point : bare_trajectory) {
     trajectory_msgs::JointTrajectoryPoint &trajectory_point =
         fjtg_msg.trajectory.points[j];
