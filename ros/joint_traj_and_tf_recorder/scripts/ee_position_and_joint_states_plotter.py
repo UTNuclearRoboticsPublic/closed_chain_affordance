@@ -35,7 +35,9 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 relative_filepath = os.path.join(script_dir, '..', 'data', 'pred_tf_and_joint_states_data.csv')
 relative_filepath2 = os.path.join(script_dir, '..', 'data', 'act_tf_and_joint_states_data.csv')
 df_pred = pd.read_csv(relative_filepath)
+print(df_pred)
 df_act = pd.read_csv(relative_filepath2)
+df_act['Timestamp'] = df_act['Timestamp'] - df_act['Timestamp'].iloc[0] # adjust timestamps such that we start from 0
 
 # Plot 3D scatter plot
 fig = plt.figure()
@@ -66,6 +68,9 @@ df_act['Timestamp'] = manual_timestamps
 
 for joint in df_act.columns[:6]:  # Assuming first 6 columns are joint states
     ax_joint_states.plot(df_act['Timestamp'], df_act[joint], label=joint)
+    # ax_joint_states.plot(df_act['Timestamp'], df_act[joint], label=f'act_{joint}')
+# for joint in df_pred.columns[:6]:  # Assuming first 6 columns are joint states
+#     ax_joint_states.plot(df_pred['Timestamp'], df_pred[joint], label=f'pred_{joint}')
 ax_joint_states.set_xlabel('time (s)')
 ax_joint_states.set_ylabel('joint states (rad)')
 ax_joint_states.legend()
