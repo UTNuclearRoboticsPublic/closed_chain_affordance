@@ -130,7 +130,7 @@ Eigen::Isometry3d get_htm(const std::string &target_frame,
 
   try {
     transform_stamped = tf_buffer.lookupTransform(
-        target_frame, reference_frame, ros::Time(0), ros::Duration(0.3));
+        target_frame, reference_frame, ros::Time(0), ros::Duration(0.5));
   } catch (tf2::TransformException &ex) {
     ROS_WARN("%s", ex.what());
   }
