@@ -210,6 +210,7 @@ private:
         robot_state->setJointGroupPositions(
             joint_model_group,
             response.trajectory.joint_trajectory.points.back().positions);
+        moveit::core::robotStateToRobotStateMsg(*robot_state, req.start_state);
       }
 
       Eigen::Isometry3d eigenTransform =
@@ -228,7 +229,6 @@ private:
       waypoint.orientation.w = eigenQuaternion.w();
 
       waypoints.push_back(waypoint);
-      ROS_INFO_STREAM("Here is the pose: " << waypoint);
       // Now, setup a joint space goal based on the info from service request
       std::vector<double> joint_group_positions;
       trajectory_msgs::JointTrajectoryPoint &point =
