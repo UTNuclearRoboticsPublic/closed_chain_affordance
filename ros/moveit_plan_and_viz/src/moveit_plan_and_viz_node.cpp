@@ -210,10 +210,6 @@ private:
         robot_state->setJointGroupPositions(
             joint_model_group,
             response.trajectory.joint_trajectory.points.back().positions);
-        moveit::core::robotStateToRobotStateMsg(*robot_state, req.start_state);
-        robot_state->setJointGroupPositions(
-            joint_model_group,
-            response.trajectory.joint_trajectory.points.back().positions);
       }
 
       Eigen::Isometry3d eigenTransform =
