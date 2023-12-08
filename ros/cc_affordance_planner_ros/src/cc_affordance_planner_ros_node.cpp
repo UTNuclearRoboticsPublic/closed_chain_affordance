@@ -196,8 +196,8 @@ public:
       return (x > 0) ? 1.0 : (x < 0) ? -1.0 : 0.0;
     }; // to check the sign of affordance goal
     ccAffordancePlanner.affStep =
-        sign_of(aff_goal_) * 0.05; // should have the same sign as aff_goal_
-    ccAffordancePlanner.taskOffset = 1;
+        sign_of(aff_goal_) * 0.2; // should have the same sign as aff_goal_
+    ccAffordancePlanner.taskOffset = 3;
     /* ccAffordancePlanner.accuracy = 1.0 * (1.0 / 100.0); */
     /* ccAffordancePlanner.affStep = 0.01; */
 
@@ -350,11 +350,12 @@ int main(int argc, char **argv) {
   }
 
   // Pure translation edit
-  aff_screw = (Eigen::Matrix<double, 6, 1>() << 0, 0, 0, -1, 0, 0).finished();
+  /* aff_screw = (Eigen::Matrix<double, 6, 1>() << 0, 0, 0, -1, 0,
+   * 0).finished(); */
 
   // Set affordance goal
-  /* const double aff_goal = -1 * M_PI; */
-  const double aff_goal = 0.35;
+  const double aff_goal = -0.5 * M_PI;
+  /* const double aff_goal = 0.2; */
 
   CcAffordancePlannerRosNode ccAffordancePlannerRosNode(
       robot_cc_description_path, aff_screw, aff_goal);

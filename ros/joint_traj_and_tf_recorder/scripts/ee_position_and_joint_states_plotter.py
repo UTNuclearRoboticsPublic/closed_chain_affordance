@@ -51,7 +51,7 @@ ax_ee.set_xlabel('x (mm)')
 ax_ee.set_ylabel('y (mm)')
 ax_ee.set_zlabel('z (mm)')
 ax_ee.legend()
-ax_ee.set_title('EE Position - Moving a Stool')
+ax_ee.set_title('EE Position - Turning a Valve')
 set_axes_equal(ax_ee)
 ax_ee.set_aspect('equal')
 
@@ -73,7 +73,7 @@ for joint in df_act.columns[:6]:  # Assuming first 6 columns are joint states
 ax_joint_states.set_xlabel('time (s)')
 ax_joint_states.set_ylabel('joint states (rad)')
 ax_joint_states.legend()
-ax_joint_states.set_title('Actual Joint States vs. Time - Moving a Stool')
+ax_joint_states.set_title('Actual Joint States vs. Time - Turning a Valve')
 
 # Adjust layout
 plt.tight_layout()
