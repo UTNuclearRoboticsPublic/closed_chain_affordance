@@ -210,7 +210,6 @@ private:
         robot_state->setJointGroupPositions(
             joint_model_group,
             response.trajectory.joint_trajectory.points.back().positions);
-        moveit::core::robotStateToRobotStateMsg(*robot_state, req.start_state);
       }
 
       Eigen::Isometry3d eigenTransform =
@@ -281,6 +280,29 @@ private:
       visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(),
                                          joint_model_group);
     }
+
+    // Last point
+    robot_state = planning_scene_monitor::LockedPlanningSceneRO(psm)
+                      ->getCurrentStateUpdated(response.trajectory_start);
+    robot_state->setJointGroupPositions(
+        joint_model_group,
+        response.trajectory.joint_trajectory.points.back().positions);
+    Eigen::Isometry3d eigenTransform =
+        robot_state->getGlobalLinkTransform("arm0_tool0");
+    geometry_msgs::Pose waypoint;
+    // Set the translation (position) values
+    waypoint.position.x = eigenTransform.translation().x();
+    waypoint.position.y = eigenTransform.translation().y();
+    waypoint.position.z = eigenTransform.translation().z();
+
+    // Set the rotation (orientation) values (quaternion)
+    Eigen::Quaterniond eigenQuaternion(eigenTransform.rotation());
+    waypoint.orientation.x = eigenQuaternion.x();
+    waypoint.orientation.y = eigenQuaternion.y();
+    waypoint.orientation.z = eigenQuaternion.z();
+    waypoint.orientation.w = eigenQuaternion.w();
+
+    waypoints.push_back(waypoint);
     /* -------------------------------------------------------------- */
     /* visual_tools.deleteAllMarkers(); */
     /* visual_tools.publishPath(waypoints, rvt::LIME_GREEN, rvt::SMALL); */
