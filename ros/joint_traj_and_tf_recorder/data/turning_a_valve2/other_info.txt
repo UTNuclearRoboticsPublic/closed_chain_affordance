@@ -1,0 +1,5 @@
+affordance_goal: -1.5*pi rad, screw axis: -1,0,0, location: (0.597133,-0.0887238, 0.170599) from April tag
+affordance steps: 0.2rad
+accuracy: 10%
+task offset: 3
+planning_time for whole trajectory: 0.6709s
