@@ -127,7 +127,8 @@ public:
   CcAffordancePlannerRosNode(const std::string &robot_config_file_path,
                              const Eigen::VectorXd &aff_screw,
                              const double &aff_goal)
-      : nh_("~"), aff_screw_(aff_screw), aff_goal_(aff_goal) {
+      : nh_("~"), aff_screw_(aff_screw), aff_goal_(aff_goal),
+        client_("/spot_arm/arm_controller/follow_joint_trajectory", true) {
 
     // Subscribers
     joint_states_sub_ =
@@ -144,6 +145,9 @@ public:
         robotConfig.joint_names.size() - 3; // Disregard virtual joint names
     joint_names_.assign(robotConfig.joint_names.begin(),
                         robotConfig.joint_names.begin() + real_robot_joints);
+
+    // Create action client
+    /* client_("/spot_arm/arm_controller/follow_joint_trajectory", true); */
   }
 
   ~CcAffordancePlannerRosNode() {}
@@ -192,8 +196,8 @@ public:
       return (x > 0) ? 1.0 : (x < 0) ? -1.0 : 0.0;
     }; // to check the sign of affordance goal
     ccAffordancePlanner.affStep =
-        sign_of(aff_goal_) * 0.1; // should have the same sign as aff_goal_
-    ccAffordancePlanner.taskOffset = 2;
+        sign_of(aff_goal_) * 0.05; // should have the same sign as aff_goal_
+    ccAffordancePlanner.taskOffset = 1;
     /* ccAffordancePlanner.accuracy = 1.0 * (1.0 / 100.0); */
     /* ccAffordancePlanner.affStep = 0.01; */
 
@@ -263,12 +267,15 @@ public:
 
       // Execute directly
       // Create the connection to the action server
-      actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction>
-          client("/spot_arm/arm_controller/follow_joint_trajectory", true);
-      client.waitForServer(); // Waits until the action server is up and running
+      /* ROS_INFO_STREAM("Waiting for server"); */
+      std::cout << "Waiting for server" << std::endl;
+      client_.waitForServer(); // Waits until the action server is up and
+      /* running */
 
-      client.sendGoal(goal);
-      client.waitForResult();
+      /* ROS_INFO_STREAM("Sending goal to action server for execution"); */
+      std::cout << "Sending goal to action server for execution" << std::endl;
+      client_.sendGoal(goal);
+      client_.waitForResult(timeout);
     }
 
     else {
@@ -291,6 +298,8 @@ private:
   // Affordance data
   Eigen::Matrix<double, 6, 1> aff_screw_;
   double aff_goal_;
+  actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction>
+      client_;
 
   // Callback function for the joint_states subscriber
   void joint_states_cb_(const sensor_msgs::JointState::ConstPtr &msg) {
@@ -341,12 +350,11 @@ int main(int argc, char **argv) {
   }
 
   // Pure translation edit
-  /* aff_screw = (Eigen::Matrix<double, 6, 1>() << 0, 0, 0, -1, 0,
-   * 0).finished(); */
+  aff_screw = (Eigen::Matrix<double, 6, 1>() << 0, 0, 0, -1, 0, 0).finished();
 
   // Set affordance goal
-  const double aff_goal = -1 * M_PI;
-  /* const double aff_goal = 0.25; */
+  /* const double aff_goal = -1 * M_PI; */
+  const double aff_goal = 0.35;
 
   CcAffordancePlannerRosNode ccAffordancePlannerRosNode(
       robot_cc_description_path, aff_screw, aff_goal);
