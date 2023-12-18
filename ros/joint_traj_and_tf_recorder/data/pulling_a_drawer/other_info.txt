@@ -1,4 +1,0 @@
-affordance_goal: -0.29m along x axis
-affordance steps: 0.01m
-accuracy: 10%
-planning_time for whole trajectory: 0.1106s
