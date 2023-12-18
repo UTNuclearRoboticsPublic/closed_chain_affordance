@@ -16,4 +16,5 @@ Note: verify that the affordance_util library was indeed installed in the /usr/l
 # Data Collection Notes
 All real robot data is located inside the ROS joint_traj_and_tf_recorder package data folder</br>
 All simulation data is located inside the Matlab plots directory</br>
+Run simulation by executing the ClosedChainAffordancePlanner.m script located inside the Matlab src folder <br>
 The setup images with screw axes for real robot data were created by using the website, drawio.com. Files with drawio extension are meant to be opened via this web interface.</br>
