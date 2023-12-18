@@ -28,15 +28,15 @@ clc
 
 % Robot and Affordance Type
 robotType = 'UR5';
-affType = 'pure_rot';
+affType = 'pure_trans';
 
 % Algorithm control parameters
-affStep = 0.1;
+affStep = 0.05;
 accuracy = 1*(1/100); % accuracy for error threshold
 taskErrThreshold = accuracy*affStep;
-closureErrThreshold = 1e-6;
+closureErrThreshold = 1e-4;
 maxItr = 50; % for IK solver
-stepperMaxItr = 75; % for total steps
+stepperMaxItr = 1; % for total steps
 dt = 1e-2; % time step to compute joint velocities
 delta_theta = 0.1;
 pathComputerFlag = true;
@@ -45,6 +45,7 @@ taskOffset = 1;
 % Build the robot and plot FK to validate configuration
 [mlist, slist, thetalist0, Tsd, x1Tindex, x2Tindex, xlimits, ylimits, zlimits, tick_quantum, quiverScaler,  azimuth, elevation] = RobotBuilder(robotType, affType);
 figure(1)
+robotType = 'UR3';
 if strcmpi(robotType,'UR5')
     robot = loadrobot("universalUR5","DataFormat","column");
 else
@@ -153,9 +154,13 @@ figure(2)
 subplot(2,1,1)
 plot(errPlotMatrix(:,1),errPlotMatrix(:,2));
 set(gca, 'YScale', 'log');
-title("EE Error vs. Iteration for " + num2str(stepperItr) + "st Step");
+title("Affordance Step Goal Error vs. Iteration for " + num2str(stepperItr) + "st Step");
 xlabel("iterations");
-ylabel("ee error");
+if strcmpi(affType,'pure_trans')
+    ylabel("ee error, m");
+else
+    ylabel("ee error, rad");
+end
 subplot(2,1,2)
 plot(errPlotMatrix(:,1),errPlotMatrix(:,3));
 set(gca, 'YScale', 'log');
@@ -169,9 +174,16 @@ if success
     ikIterHolder = [ikIterHolder ikIter-1];
     if pathComputerFlag
     % Compute the screw path to plot as well
-    iterations = 64;
     screwPathStart = FKinSpace(mlist(:,:,end-2), slist(:,1:end-2), thetalist(1:end-2));% Starting guess for all relevant frames/tasks
-    screwPath  = screwPathCreator(rJ(:,end), screwPathStart, delta_theta, iterations);
+    if strcmpi(affType,'pure_trans')
+        iterations = 5;
+        start_offset = [0.1; 0; 0];
+        screwPathStart(1:3, 4) = screwPathStart(1:3, 4) + start_offset; % offset the path such that the beginning of the path coincides with the start config of the robot
+        screwPath  = screwPathCreator(rJ(:,end), screwPathStart, -delta_theta, iterations);
+    else
+        iterations = 64;
+        screwPath  = screwPathCreator(rJ(:,end), screwPathStart, delta_theta, iterations);
+    end
     screwPathMatrix = reshape(screwPath(1:3, 4, :), 3, [])'; % get xyz coordinates and put them in an N x 3 form
     pathComputerFlag = false; % to compute only once
 
@@ -196,10 +208,10 @@ disp("maximum IK iteration:");
 max(ikIterHolder)
 
 % Delete the manipulator initial config plot references
-delete(plotrepf);
-delete(plotrepl);
-delete(plotrepj);
-delete(plotrept);
+% delete(plotrepf);
+% delete(plotrepl);
+% delete(plotrepj);
+% delete(plotrept);
 if strcmpi(robotType, 'UR5')
     delete(plotrepn);   
 end
@@ -210,10 +222,10 @@ for ikIter = 1:1:stepperItrSuc-1
     drawnow;
     pause(0.001);
     if ikIter~=stepperItrSuc-1
-    delete(plotrepf);
-    delete(plotrepl);
-    delete(plotrepj);
-    delete(plotrept);
+    % delete(plotrepf);
+    % delete(plotrepl);
+    % delete(plotrepj);
+    % delete(plotrept);
         if strcmpi(robotType, 'UR5')
             delete(plotrepn);   
         end

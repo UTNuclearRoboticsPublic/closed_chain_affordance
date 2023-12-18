@@ -22,14 +22,23 @@ function [plotrepf, plotrepl, plotrepj, plotrept, plotrepn]  = FKPlotter(mlist,s
             zticks(zlimits(1):tick_quantum:zlimits(2));
             
             % labels
-            xlabel('x');
-            ylabel('y');
-            zlabel('z');
+            xlabel('x, m');
+            ylabel('y, m');
+            zlabel('z, m');
 
-            axis square
+            % axis square
+            grid_fontsize = 15;
+            label_fontsize = 30;
+            title_fontsize = 30;
+            ax = gca;
+            axis equal
             grid on
+            set(ax, 'FontSize', grid_fontsize);
+            set(ax.XAxis, 'FontSize', label_fontsize);
+            set(ax.YAxis, 'FontSize', label_fontsize);
+            set(ax.ZAxis, 'FontSize', label_fontsize);
+            set(ax.Title, 'FontSize', title_fontsize);
 
-                
     %% Dynamic plots: manipulator and EE frames
     for i = 1:size(FK, 4)
         
@@ -78,7 +87,7 @@ function [plotrepf, plotrepl, plotrepj, plotrept, plotrepn]  = FKPlotter(mlist,s
         plotrepf(i,6) = quiver3(x2Pos(1), x2Pos(2), x2Pos(3), x2Rot(1,3), x2Rot(2,3), x2Rot(3,3),'b', 'LineWidth', 2, 'MaxHeadSize', 0.5, 'AutoScaleFactor',quiverScaler); % x2 task frame z vector
         
         %Links
-        % plotrepl(i,1) = plot3(xLink, yLink, zLink, 'k', 'LineWidth', 2); % real manipulator links
+        plotrepl(i,1) = plot3(xLink, yLink, zLink, 'k', 'LineWidth', 3); % real manipulator links
         plotrepl(i,2) = plot3(imXLink, imYLink, imZLink, 'b--', 'LineWidth', 2); % imaginary link connecting x1 and x2
        
         % Joint and task markers

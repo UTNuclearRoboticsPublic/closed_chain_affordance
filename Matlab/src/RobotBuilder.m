@@ -145,7 +145,7 @@ switch robotType
      case 'UR5'
         %Link lengths
         mconv = 1000;
-        W1 = 109/mconv; W2 = 82/mconv; L1 = 425/mconv; L2 = 392/mconv; H1 = 89/mconv; H2 = 95/mconv; W3 = 135.85/mconv; W4 = 119.7/mconv; W6 = 93/mconv; aff = -100/mconv;
+        W1 = 109/mconv; W2 = 82/mconv; L1 = 425/mconv; L2 = 392/mconv; H1 = 89/mconv; H2 = 95/mconv; W3 = 135.85/mconv; W4 = 119.7/mconv; W6 = 93/mconv; aff = 100/mconv;
         
         % Start angles
         thetalist0 = zeros([10 1]);
@@ -199,9 +199,9 @@ switch robotType
         x2Tindex = 9;
 
          % Plotting parameters
-        xlimits = [-.5 1.0];
-        ylimits = [-0.5 1.0];
-        zlimits = [-.6 .4];
+        xlimits = [-.2 1.0];
+        ylimits = [-.2 1.0];
+        zlimits = [-.7 .5];
         tick_quantum = 0.050;
         quiverScaler = 0.1;
         azimuth = 45;
