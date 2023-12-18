@@ -13,3 +13,7 @@ To install the project and make the library and header files available for other
 Then, you can use the library in other projects by adding the following to your CMakeLists file and linking the library `affordance_util` against your desired targets:</br>
 `FIND_LIBRARY(affordance_util_LIBRARIES affordance_util /usr/local/lib)` </br>
 Note: verify that the affordance_util library was indeed installed in the /usr/local/lib folder and that the header was placed in the /usr/local/include folder. If it was installed somewhere else, replace the path in the above call. When uninstalling and reinstalling, manually delete the affordance_util-related files in those folders.
+# Data Collection Notes
+All real robot data is located inside the ROS joint_traj_and_tf_recorder package data folder</br>
+All simulation data is located inside the Matlab plots directory</br>
+The setup images with screw axes for real robot data were created by using the website, drawio.com. Files with drawio extension are meant to be opened via this web interface.</br>
