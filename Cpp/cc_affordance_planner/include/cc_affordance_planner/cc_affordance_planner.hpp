@@ -15,14 +15,14 @@
 // Struct to store result from planner
 /**
  * @brief Designed to contain the result of an IK planner with fields:
- * success of type bool, trajFullorPartial of type string with values: "Full",
- * "Partial", or "Unset", and jointTraj of type std::vector<Eigen::VectorXd
+ * success of type bool, traj_full_or_partial of type string with values: "Full",
+ * "Partial", or "Unset", and joint_traj of type std::vector<Eigen::VectorXd
  */
 struct PlannerResult
 {
     bool success;
-    std::string trajFullorPartial;
-    std::vector<Eigen::VectorXd> jointTraj;
+    std::string traj_full_or_partial;
+    std::vector<Eigen::VectorXd> joint_traj;
 };
 
 /**
@@ -60,12 +60,12 @@ class CcAffordancePlanner
      * affordance step (p_aff_step_deltatheta_a)
      *
      * @return Struct containing the result of the planning with fields:
-     success of type bool, trajFullorPartial of type string with values: "Full",
-     "Partial", or "Unset", and jointTraj of type std::vector<Eigen::VectorXd
+     success of type bool, traj_full_or_partial of type string with values: "Full",
+     "Partial", or "Unset", and joint_traj of type std::vector<Eigen::VectorXd
      */
-    PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &slist, const double &theta_adf,
-                                                          const int task_offset_tau);
 
+    PlannerResult affordance_stepper(const Eigen::MatrixXd &slist, const double &theta_adf,
+                                     const size_t &task_offset_tau);
     /**
      * @brief Closed-chain IK solver. Not standalone.
      *
@@ -82,11 +82,13 @@ class CcAffordancePlanner
                                  Eigen::VectorXd &theta_sg); // theta_sg and theta_p returned by referece
 
   private:
-    const size_t aff_chain_noj_ = 4; // no. of joints in the affordance chain
-    const size_t twist_length_ = 6;  // length of a twist vector
-    const double dt_ = 1e-2;         // time step to compute joint velocities
+    constexpr static size_t twist_length_ = 6; // length of a twist vector
+    const double dt_ = 1e-2;                   // time step to compute joint velocities
 
     // Helper variables to share info between functions
     Eigen::VectorXd thetalist_; // helper vector variable holding theta_p, theta_sg
+    size_t nof_pjoints_;
+    size_t nof_sjoints_;
+    Eigen::Matrix4d des_endlink_htm_ = Eigen::Matrix4d::Identity();
 };
 #endif // CC_AFFORDANCE_PLANNER
