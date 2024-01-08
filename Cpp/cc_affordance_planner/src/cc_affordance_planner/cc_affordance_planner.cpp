@@ -6,6 +6,7 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
 {
 
     PlannerResult plannerResult; // Result of the planner
+    auto start_time = std::chrono::high_resolution_clock::now();
 
     //** Alg1:L1: Determine relevant matrix and vector sizes based on task_offset_tau
     nof_pjoints_ = slist.cols() - task_offset_tau;
@@ -13,7 +14,7 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
 
     // Declare thetalist_ with correct size for later use in IK solver and closure_error_optimizer. This is to prevent
     // the overhead of a variable declaration inside functions that are called in a loop
-    thetalist_.conservativeResize(slist.cols()); // helper variable holding theta_p, theta_s
+    /* thetalist_.conservativeResize(slist.cols()); // helper variable holding theta_p, theta_s */
 
     //**Alg1:L1 and Alg1:L2: Set start guesses and step goal
     Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
@@ -28,8 +29,6 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
     //**Alg1:L4: Initialize loop counter, loop_counter_k; success counter, success_counter_s
     int loop_counter_k = 0;
     int success_counter_s = 0;
-
-    auto start_time = std::chrono::high_resolution_clock::now();
 
     //**Alg1:L5: Define affordance step, p_aff_step_deltatheta_a : Defined as class public variable
 
@@ -99,6 +98,9 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::cc_ik_solver(const Eigen::Ma
                                                                  const Eigen::VectorXd &theta_sd)
 {
 
+    Eigen::VectorXd thetalist_;
+    const double dt_ = 1e-2;                     // time step to compute joint velocities
+    thetalist_.conservativeResize(slist.cols()); // helper variable holding theta_p, theta_s
     // Capture guesses
     Eigen::VectorXd theta_p = theta_pg;
     Eigen::VectorXd theta_s = theta_sg;
@@ -113,18 +115,6 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::cc_ik_solver(const Eigen::Ma
 
     //**Alg2:L3: Start closure error at 0
     Eigen::Matrix<double, twist_length_, 1> rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
-
-    //-------------------------------------------------------------
-    /* //**Alg3:L1: Compute forward kinematics to chain's end link, Tse */
-    /* thetalist_ << theta_p, theta_s; */
-    /* Eigen::Matrix4d Tse = */
-    /*     AffordanceUtil::FKinSpace(des_endlink_htm_, slist, thetalist_); // HTM of actual end of ground link */
-
-    /* //**Alg3:L2: Compute closure error twist */
-    /* Eigen::Matrix<double, twist_length_, 1> rho = */
-    /*     AffordanceUtil::Adjoint(Tse) * */
-    /*     AffordanceUtil::se3ToVec(AffordanceUtil::MatrixLog6(AffordanceUtil::TransInv(Tse))); */
-    //-------------------------------------------------------------
 
     //**Alg2:L4: Set max. no. of iterations, p_max_itr_l, and error thresholds, p_task_err_threshold_eps_s,
     // p_closure_err_threshold_eps_r: Defined as class public variables
@@ -190,6 +180,9 @@ void CcAffordancePlanner::closure_error_optimizer(const Eigen::MatrixXd &slist, 
 {
 
     //**Alg3:L1: Compute forward kinematics to chain's end link, Tse
+    const Eigen::Matrix4d des_endlink_htm_ = Eigen::Matrix4d::Identity(); // Desired HTM for the end link
+    Eigen::VectorXd thetalist_;
+    thetalist_.conservativeResize(slist.cols()); // helper variable holding theta_p, theta_s
     thetalist_ << theta_p, theta_s;
     Eigen::Matrix4d Tse =
         AffordanceUtil::FKinSpace(des_endlink_htm_, slist, thetalist_); // HTM of actual end of ground link

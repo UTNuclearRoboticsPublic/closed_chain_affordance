@@ -83,12 +83,10 @@ class CcAffordancePlanner
 
   private:
     constexpr static size_t twist_length_ = 6; // length of a twist vector
-    const double dt_ = 1e-2;                   // time step to compute joint velocities
 
     // Helper variables to share info between functions
-    Eigen::VectorXd thetalist_; // helper vector variable holding theta_p, theta_sg
+    /* Eigen::VectorXd thetalist_; // helper vector variable holding theta_p, theta_sg */
     size_t nof_pjoints_;
     size_t nof_sjoints_;
-    Eigen::Matrix4d des_endlink_htm_ = Eigen::Matrix4d::Identity();
 };
 #endif // CC_AFFORDANCE_PLANNER
