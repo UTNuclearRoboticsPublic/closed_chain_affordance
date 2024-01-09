@@ -134,6 +134,7 @@ RobotConfig robot_builder(const std::string &config_file_path)
         robotConfig.Slist = Slist;
 
         // EE homogenous transformation matrix
+        const Eigen::Vector3d toolLocation = toolNode[0]["q"].as<Eigen::Vector3d>();
         Eigen::Matrix4d M = Eigen::Matrix4d::Identity();
         M.block<3, 1>(0, 3) = toolLocation;
         robotConfig.M = M;
@@ -149,7 +150,7 @@ RobotConfig robot_builder(const std::string &config_file_path)
     catch (const YAML::Exception &e)
     {
         std::cerr << "Error reading YAML file: " << e.what() << std::endl;
-        return std::nullopt;
+        throw std::runtime_error("Robot screw list cannot be built without a valid robot config yaml file");
     }
 }
 Eigen::MatrixXd Adjoint(const Eigen::Matrix4d &htm)

@@ -38,7 +38,8 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-#include <iostream> // to print errors
+#include <iostream>  // to print errors
+#include <stdexcept> // to throw runtime error
 #include <vector>
 #include <yaml-cpp/yaml.h> // to read yaml files
 
