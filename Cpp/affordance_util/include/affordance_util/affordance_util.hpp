@@ -96,6 +96,20 @@ struct RobotConfig
 };
 
 /**
+ * @brief Given a robot screw list, robot palm HTM, robot joint states at affordance start pose, and affordance screw,
+ * returns the closed-chain affordance model screw list.
+ *
+ * @param robot_slist Eigen::MatrixXd containing as columns 6x1 screws representing robot joints
+ * @param thetalist Eigen::VectorXd containing robot joint states at affordance start pose
+ * @param M Eigen::Matrix4d containing the HTM for the robot palm in home position
+ * @param aff_screw Eigen::VectorXd containing 6x1 affordance screw
+ *
+ * @return Eigen::MatrixXd containing as columns all 6x1 screws encompassing the closed-chain affordance model
+ */
+Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::VectorXd &thetalist,
+                                       const Eigen::Matrix4d &M, const Eigen::Matrix<double, 6, 1> &aff_screw);
+
+/**
  * @brief Given a file path to a yaml file containing robot information,
  returns the robot space-form screw list, EE htm, space-frame name,
  joint_names, and tool name.
@@ -270,6 +284,16 @@ Eigen::Matrix3d MatrixLog3(const Eigen::Matrix3d &R);
  * @return exponential coordinate representation of the transformation matrix
  */
 Eigen::Matrix4d MatrixLog6(const Eigen::Matrix4d &T);
+
+/**
+ * @brief Given a screw axis and its location, returns the 6x1 screw vector
+ *
+ * @param w Eigen::Vector3d containing screw axis
+ * @param q Eigen::Vector3d containing the location of the screw axis
+ *
+ * @return Eigen::Matrix<double, 6, 1> containing the 6x1 screw vector
+ */
+Eigen::Matrix<double, 6, 1> get_screw(const Eigen::Vector3d &w, const Eigen::Vector3d &q);
 
 /**
  * @brief Given a scalar, checks if the scalar is small enough to be
