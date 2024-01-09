@@ -84,6 +84,7 @@ int main()
         std::cout << "Planner succeeded with " << plannerResult.traj_full_or_partial
                   << " solution. and here is the first point in the trajectory \n"
                   << solution.at(0) << std::endl;
+        std::cout << "The entire planning took " << plannerResult.planning_time.count() << " microseconds" << std::endl;
         Eigen::Matrix<double, 10, 1> matlab_solution;
         matlab_solution << -0.0006, 0.0118, 0.0008, -0.0093, 0.0031, -0.0017, -0.0994, -0.0019, 0.0036, 0.0994;
         std::cout << "The solution from Matlab for the same setup, i.e. UR5 pure rotation with affordance step 0.1, "
