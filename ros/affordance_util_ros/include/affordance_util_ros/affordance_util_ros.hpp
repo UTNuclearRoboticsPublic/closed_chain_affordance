@@ -37,6 +37,7 @@
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <filesystem>
 #include <geometry_msgs/TransformStamped.h>
+#include <ros/package.h>
 #include <ros/ros.h>
 #include <sensor_msgs/JointState.h>
 #include <tf2_ros/transform_listener.h>
@@ -44,6 +45,36 @@
 
 namespace AffordanceUtilROS
 {
+
+class CustomException : public std::exception
+{
+  public:
+    CustomException(const char *message);
+
+    /**
+     * @brief Overrides the what function in std::exception so as to throw a custom exception
+     *
+     * @return char containing exception message
+     */
+    virtual const char *what() const noexcept override;
+
+  private:
+    std::string msg; // custom exception message
+};
+
+/**
+ * @brief Given a ROS package name, relative directory path, and filename inside that directory, returns full path to
+ * the file.
+ *
+ * @param package_name std::string containing ROS package name. Example: "spot_description"
+ * @param rel_dir std::string containing relative directory path. Example: "/config/"
+ * @param filename std::string containing name of a desired file inside the relative directory. Example: package_name +
+ * ".yaml"
+ *
+ * @return std::string containing full path to the desired file
+ */
+std::string get_filepath_inside_pkg(const std::string &package_name, const std::string &rel_dir,
+                                    const std::string &filename);
 
 /**
  * @brief Struct to hold a joint trajectory point in the form of positions and timestamp
