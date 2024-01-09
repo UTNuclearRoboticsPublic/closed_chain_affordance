@@ -60,14 +60,11 @@ int main()
     }
 
     // Output screw axes for debugging purposes
-    /* for (size_t i = 0; i < nof_joints_total; i++) { */
-    /*   std::cout << "slist.col(" << i << "):\n" << slist.col(i) << "\n"; */
-    /* } */
     std::cout << "Here is the list of screws: \n" << slist << std::endl;
     ;
 
     // Start angles
-    const double affGoal = 0.3;
+    const double aff_goal = 0.3;
 
     // Construct the planner object
     CcAffordancePlanner ccAffordancePlanner;
@@ -78,7 +75,7 @@ int main()
     const int task_offset = 1;
 
     // Run the planner
-    PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper(slist, affGoal, task_offset);
+    PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper(slist, aff_goal, task_offset);
 
     // Print the first point in the trajectory if planner succeeds and display the Matlab solution as well
     if (plannerResult.success)
