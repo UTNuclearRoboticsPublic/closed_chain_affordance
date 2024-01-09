@@ -1,5 +1,35 @@
+///////////////////////////////////////////////////////////////////////////////
+//      Title     : affordance_util.hpp
+//      Project   : affordance_util
+//      Created   : Fall 2023
+//      Author    : Janak Panthi (Crasun Jans)
+//      Copyright : Copyright© The University of Texas at Austin, 2014-2026. All
+//      rights reserved.
+//
+//          All files within this directory are subject to the following, unless
+//          an alternative license is explicitly included within the text of
+//          each file.
+//
+//          This software and documentation constitute an unpublished work
+//          and contain valuable trade secrets and proprietary information
+//          belonging to the University. None of the foregoing material may be
+//          copied or duplicated or disclosed without the express, written
+//          permission of the University. THE UNIVERSITY EXPRESSLY DISCLAIMS ANY
+//          AND ALL WARRANTIES CONCERNING THIS SOFTWARE AND DOCUMENTATION,
+//          INCLUDING ANY WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
+//          PARTICULAR PURPOSE, AND WARRANTIES OF PERFORMANCE, AND ANY WARRANTY
+//          THAT MIGHT OTHERWISE ARISE FROM COURSE OF DEALING OR USAGE OF TRADE.
+//          NO WARRANTY IS EITHER EXPRESS OR IMPLIED WITH RESPECT TO THE USE OF
+//          THE SOFTWARE OR DOCUMENTATION. Under no circumstances shall the
+//          University be liable for incidental, special, indirect, direct or
+//          consequential damages or loss of profits, interruption of business,
+//          or related expenses which may arise from use of software or
+//          documentation, including but not limited to those resulting from
+//          defects in software and/or documentation, or loss or inaccuracy of
+//          data of any kind.
+//
+///////////////////////////////////////////////////////////////////////////////
 /*
-   Author: Crasun Jans
    Credits: Some functions are translated to Cpp from Kevin Lynch's Modern
    Robotics Matlab package
 */
@@ -12,52 +42,57 @@
 #include <vector>
 #include <yaml-cpp/yaml.h> // to read yaml files
 
-namespace YAML {
-template <int N> struct convert<Eigen::Matrix<double, N, 1>> {
-  /**
-   * @brief This template function is a custom addition to the YAML namespace
-   * to decode a YAML node as an Eigen::VectorXd type. By default, the yaml-cpp
-   * library does not support Eigen-type decoding.
-   *
-   * @param node YAML node
-   * @param vec An Eigen::VectorXd type
-   *
-   * @return Boolean indicating whether decoding was successful
-   */
-  static bool decode(const Node &node, Eigen::Matrix<double, N, 1> &vec);
-  /**
-   * @brief This template function is a custom addition to the YAML namespace to
-   * encode an Eigen::VectorXd type as a YAML node. By default, the yaml-cpp
-   * library does not support Eigen-type encoding.
-   *
-   * @param vec An Eigen::VectorXd type
-   *
-   * @return YAML node
-   */
-  static Node encode(const Eigen::Matrix<double, N, 1> &vec);
+namespace YAML
+{
+template <int N> struct convert<Eigen::Matrix<double, N, 1>>
+{
+    /**
+     * @brief This template function is a custom addition to the YAML namespace
+     * to decode a YAML node as an Eigen::VectorXd type. By default, the yaml-cpp
+     * library does not support Eigen-type decoding.
+     *
+     * @param node YAML node
+     * @param vec An Eigen::VectorXd type
+     *
+     * @return Boolean indicating whether decoding was successful
+     */
+    static bool decode(const Node &node, Eigen::Matrix<double, N, 1> &vec);
+    /**
+     * @brief This template function is a custom addition to the YAML namespace to
+     * encode an Eigen::VectorXd type as a YAML node. By default, the yaml-cpp
+     * library does not support Eigen-type encoding.
+     *
+     * @param vec An Eigen::VectorXd type
+     *
+     * @return YAML node
+     */
+    static Node encode(const Eigen::Matrix<double, N, 1> &vec);
 };
 } // namespace YAML
 
-namespace AffordanceUtil {
+namespace AffordanceUtil
+{
 /**
  * @brief Struct to describe a joint with its name, axis, and location
  */
-struct JointData {
-  std::string name;  // Joint name
-  Eigen::Vector3d w; // Joint axis
-  Eigen::Vector3d q; // Joint location
+struct JointData
+{
+    std::string name;  // Joint name
+    Eigen::Vector3d w; // Joint axis
+    Eigen::Vector3d q; // Joint location
 };
 
 /**
  * @brief Struct describing a robotic arm
  */
-struct RobotConfig {
-  Eigen::MatrixXd Slist;                // Space-form screw axes
-  Eigen::Matrix4d M;                    // EE homogenous transformation matrix
-  std::string ref_frame_name;           // Name of the reference frame
-  std::vector<std::string> joint_names; // Name of the joints
-  std::string tool_name; // Name of the frame that mimicks where the robot
-                         // would grasp external objects
+struct RobotConfig
+{
+    Eigen::MatrixXd Slist;                // Space-form screw axes
+    Eigen::Matrix4d M;                    // EE homogenous transformation matrix
+    std::string ref_frame_name;           // Name of the reference frame
+    std::vector<std::string> joint_names; // Name of the joints
+    std::string tool_name;                // Name of the frame that mimicks where the robot
+                                          // would grasp external objects
 };
 
 /**
@@ -123,8 +158,7 @@ Eigen::MatrixXd Adjoint(const Eigen::Matrix4d &htm);
  *
  * @return Space-form Jacobian
  */
-Eigen::MatrixXd JacobianSpace(const Eigen::MatrixXd &Slist,
-                              const Eigen::VectorXd &thetalist);
+Eigen::MatrixXd JacobianSpace(const Eigen::MatrixXd &Slist, const Eigen::VectorXd &thetalist);
 /**
  * @brief Given a 4x4 se(3) representation of exponential coordinates, returns
  * a T matrix in SE(3) that is achieved by traveling along/about the screw
@@ -178,9 +212,7 @@ std::tuple<Eigen::Vector3d, double> AxisAng3(const Eigen::Vector3d &expc3);
  * @return T in SE(3) representing the end-effector frame, when the joints are
  * at the specified coordinates (i.t.o Space Frame)
  */
-Eigen::Matrix4d FKinSpace(const Eigen::Matrix4d &M,
-                          const Eigen::MatrixXd &Slist,
-                          const Eigen::VectorXd &thetalist);
+Eigen::Matrix4d FKinSpace(const Eigen::Matrix4d &M, const Eigen::MatrixXd &Slist, const Eigen::VectorXd &thetalist);
 /**
  * @brief Given a 6-vector (representing a spatial velocity), returns the
  * corresponding 4x4 se(3) matrix.
