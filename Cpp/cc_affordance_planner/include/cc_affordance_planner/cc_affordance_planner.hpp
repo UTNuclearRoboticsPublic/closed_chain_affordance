@@ -15,14 +15,16 @@
 // Struct to store result from planner
 /**
  * @brief Designed to contain the result of an IK planner with fields:
- * success of type bool, traj_full_or_partial of type string with values: "Full",
- * "Partial", or "Unset", and joint_traj of type std::vector<Eigen::VectorXd
+ * success indicating success; traj_full_or_partial indicating full or partial trajectory with values, "Full",
+ * "Partial", or "Unset"; joint_traj representing the joint trajectory; and planning_time representing time taken for
+ * planning in microseconds.
  */
 struct PlannerResult
 {
     bool success;
     std::string traj_full_or_partial;
     std::vector<Eigen::VectorXd> joint_traj;
+    std::chrono::microseconds planning_time; // ms
 };
 
 /**
@@ -67,13 +69,13 @@ class CcAffordancePlanner
      * i.e. robot joints, virtual ee joint, affordance joint
      * @param theta_adf Affordance goal for the affordance
      * @param task_offset_tau A numeric parameter indicating the length of the secondary joint vector.
-     *                        The value 1 implies only affordance control, 2 represents affordance control
-     *                        along with fixing the gripper x-axis, 3 involves fixing the gripper x and y axes,
-     *                        and 4 involves fixing the gripper x, y, and z axes.
+     * The value 1 implies only affordance control, 2 represents affordance control
+     * along with fixing the gripper x-axis, 3 involves fixing the gripper x and y axes,
+     * and 4 involves fixing the gripper x, y, and z axes.
      *
-     * @return Struct containing the result of the planning with fields: success of type bool, traj_full_or_partial of
-     * type string with values: "Full", "Partial", or "Unset", and joint_traj of type std::vector<Eigen::VectorXd
-     * containing joint trajectory values for all joints
+     * @return Struct containing the result of the planning with fields: success indicating success;
+     * traj_full_or_partial indicating full or partial trajectory with values, "Full", "Partial", or "Unset"; joint_traj
+     * representing the joint trajectory; and planning_time representing time taken for planning in microseconds.
      */
     PlannerResult affordance_stepper(const Eigen::MatrixXd &slist, const double &theta_adf,
                                      const size_t &task_offset_tau);
