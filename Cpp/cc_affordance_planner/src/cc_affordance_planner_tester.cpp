@@ -60,8 +60,8 @@ int main()
     }
 
     // Output screw axes for debugging purposes
-    std::cout << "Here is the list of screws: \n" << slist << std::endl;
-    ;
+    /* std::cout << "Here is the list of screws: \n" << slist << std::endl; */
+    /* ; */
 
     // Start angles
     const double aff_goal = 0.3;
@@ -71,7 +71,7 @@ int main()
 
     // Set algorithm parameters
     ccAffordancePlanner.p_aff_step_deltatheta_a = 0.1;
-    ccAffordancePlanner.p_task_err_threshold_eps_s = 0.01;
+    ccAffordancePlanner.p_task_err_threshold_eps_s = 0.001;
     const int task_offset = 1;
 
     // Run the planner
@@ -82,12 +82,14 @@ int main()
     {
         std::vector<Eigen::VectorXd> solution = plannerResult.joint_traj;
         std::cout << "Planner succeeded with " << plannerResult.traj_full_or_partial
-                  << " solution. and here is the first point in the trajectory \n"
+                  << " solution, and here is the first point in the trajectory: \n"
                   << solution.at(0) << std::endl;
-        std::cout << "The entire planning took " << plannerResult.planning_time.count() << " microseconds" << std::endl;
+        std::cout << "The entire planning took " << plannerResult.planning_time.count() << " microseconds."
+                  << std::endl;
         Eigen::Matrix<double, 10, 1> matlab_solution;
         matlab_solution << -0.0006, 0.0118, 0.0008, -0.0093, 0.0031, -0.0017, -0.0994, -0.0019, 0.0036, 0.0994;
-        std::cout << "The solution from Matlab for the same setup, i.e. UR5 pure rotation with affordance step 0.1, "
+        std::cout << "The first point of the solution from Matlab for the same setup, i.e. UR5 pure rotation with "
+                     "affordance step 0.1, "
                      "and accuracy 1% (or "
                      "0.001) is as follows: \n"
                   << matlab_solution << std::endl;
@@ -96,17 +98,17 @@ int main()
         bool are_equal = solution.at(0).isApprox(matlab_solution, 1e-3);
         if (are_equal)
         {
-            std::cout << "The planner solution matches Matlab solution" << std::endl;
+            std::cout << "The planner solution first point matches the one from Matlab." << std::endl;
         }
         else
         {
 
-            std::cout << "The planner solution does not match Matlab solution" << std::endl;
+            std::cout << "The planner solution does not match Matlab solution." << std::endl;
         }
     }
     else
     {
-        std::cout << "Planner did not find a solution" << std::endl;
+        std::cout << "Planner did not find a solution." << std::endl;
     }
     return 0;
 }
