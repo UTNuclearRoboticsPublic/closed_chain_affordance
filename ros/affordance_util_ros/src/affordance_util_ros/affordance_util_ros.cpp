@@ -10,29 +10,37 @@ const char *CustomException::what() const noexcept { return msg.c_str(); }
 std::string get_filepath_inside_pkg(const std::string &package_name, const std::string &rel_dir,
                                     const std::string &filename)
 {
-
-    std::string full_filepath; // output of the function
-
-    // Get the path to the package
-    const std::string package_path = ros::package::getPath(package_name);
-
-    // Build full filepath and check for errors
-    if (!package_path.empty())
+    try
     {
-        full_filepath = package_path + rel_dir + filename;
-    }
-    else
-    {
-        throw CustomException(("Failed to find path for package '" + package_name).c_str());
-    }
+        std::string full_filepath; // output of the function
 
-    // Make sure the file exists
-    if (!std::filesystem::exists(full_filepath))
-    {
-        throw CustomException(("File does not exist at this path: '" + full_filepath).c_str());
-    }
+        // Get the path to the package
+        const std::string package_path = ros::package::getPath(package_name);
 
-    return full_filepath;
+        // Build full filepath and check for errors
+        if (!package_path.empty())
+        {
+            full_filepath = package_path + rel_dir + filename;
+        }
+        else
+        {
+            throw CustomException(("Failed to find path for package '" + package_name).c_str());
+        }
+
+        // Make sure the file exists
+        if (!std::filesystem::exists(full_filepath))
+        {
+            throw CustomException(("File does not exist at this path: '" + full_filepath).c_str());
+        }
+
+        return full_filepath;
+    }
+    // throw runtime error if exception is caught
+    catch (const CustomException &e)
+    {
+        std::cerr << "Caught exception: " << e.what() << std::endl;
+        throw std::runtime_error("Cannot proceed without building a valid filepath to the ROS package file");
+    }
 }
 
 std::string get_abs_path_to_rel_dir(const std::string &full_path, const std::string &relative_path)
