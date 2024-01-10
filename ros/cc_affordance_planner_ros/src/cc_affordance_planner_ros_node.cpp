@@ -21,8 +21,8 @@ class CcAffordancePlannerRos
         : nh_("~"),
           joint_states_sub_(nh_.subscribe("/joint_states", 1000, &CcAffordancePlannerRos::joint_states_cb_, this)),
           moveit_plan_and_viz_client_(
-              nh_.serviceClient<moveit_plan_and_viz::MoveItPlanAndViz>(moveit_plan_and_viz_server_name_)),
-          traj_execution_client_(traj_execution_server_name_, true)
+              nh_.serviceClient<moveit_plan_and_viz::MoveItPlanAndViz>("\moveit_plan_and_viz_server")),
+          traj_execution_client_("/spot_arm/arm_controller/follow_joint_trajectory", true)
     {
         // Extract robot config info
         const AffordanceUtil::RobotConfig &robotConfig = AffordanceUtil::robot_builder(robot_config_file_path);
@@ -36,29 +36,33 @@ class CcAffordancePlannerRos
     {
 
         // Capture initial configuration joint states
-        std::string capture_joint_states_conf;
-        std::cout << "Put the robot in the start configuration for affordance "
-                     "execution. Done? y for yes."
-                  << std::endl;
-        std::cin >> capture_joint_states_conf;
+        /* std::string capture_joint_states_conf; */
+        /* std::cout << "Put the robot in the start configuration for affordance " */
+        /*              "execution. Done? y for yes." */
+        /*           << std::endl; */
+        /* std::cin >> capture_joint_states_conf; */
 
-        if (capture_joint_states_conf != "y" && capture_joint_states_conf != "Y")
-        {
-            std::cout << "You indicated you are not ready to capture joint states" << std::endl;
-            return;
-        }
-        // Take a second to read callbacks to ensure proper capturing of joint
-        // states data
-        ros::Rate loop_rate(4);
-        for (int i = 0; i < 4; ++i)
-        {
-            ros::spinOnce();
-            loop_rate.sleep();
-        }
+        /* if (capture_joint_states_conf != "y" && capture_joint_states_conf != "Y") */
+        /* { */
+        /*     std::cout << "You indicated you are not ready to capture joint states" << std::endl; */
+        /*     return; */
+        /* } */
+        /* // Take a second to read callbacks to ensure proper capturing of joint */
+        /* // states data */
+        /* ros::Rate loop_rate(4); */
+        /* for (int i = 0; i < 4; ++i) */
+        /* { */
+        /*     ros::spinOnce(); */
+        /*     loop_rate.sleep(); */
+        /* } */
 
         // Manually set joint_states for planning time computation purposes only
-        /* joint_states_.positions << */
+        joint_states_.positions.conservativeResize(joint_names_.size());
+        /* joint_states_.positions << -0.0113826, -0.800428, 1.80497, 0.0200335, -1.08084, -0.00336388; // Pulling a
+         * drawer */
+        joint_states_.positions << 0.00795, -1.18220, 2.46393, 0.02025, -1.32321, -0.00053; // Pushing a drawer
 
+        std::cout << "Debug flag" << std::endl;
         std::cout << "Here are the captured joint states: \n" << joint_states_.positions << std::endl;
 
         // Compose cc model and affordance goal
@@ -74,7 +78,7 @@ class CcAffordancePlannerRos
             return (x > 0) ? 1.0 : (x < 0) ? -1.0 : 0.0;
         }; // Helper lambda to check the sign of affordance goal
 
-        const double aff_step = 0.01;         // To be hard-coded as needed
+        const double aff_step = 0.05;         // To be hard-coded as needed
         const double accuracy = 10.0 / 100.0; // To be hard-coded as needed
 
         ccAffordancePlanner.p_aff_step_deltatheta_a = sign_of(aff_goal) * aff_step;
@@ -99,7 +103,7 @@ class CcAffordancePlannerRos
         }
 
         // Visualize and execute trajectory
-        visualize_and_execute_trajectory_(solution);
+        /* visualize_and_execute_trajectory_(solution); */
     }
 
   private:
@@ -230,19 +234,20 @@ int main(int argc, char **argv)
     }
     else
     {
-        const Eigen::Vector3d w_aff(-1, 0, 0); // To be hard-coded as needed
-        const Eigen::Vector3d q_aff(0, 0, 0);  // To be hard-coded as needed
+        /* const Eigen::Vector3d w_aff(-1, 0, 0); // To be hard-coded as needed */
+        /* const Eigen::Vector3d q_aff(0, 0, 0);  // To be hard-coded as needed */
 
-        // Compute the 6x1 screw vector
-        aff_screw = AffordanceUtil::get_screw(w_aff, q_aff);
+        /* // Compute the 6x1 screw vector */
+        /* aff_screw = AffordanceUtil::get_screw(w_aff, q_aff); */
 
         // Pure translation edit
-        aff_screw = (Eigen::Matrix<double, 6, 1>() << 0, 0, 0, -1, 0, 0).finished();
+        aff_screw = (Eigen::Matrix<double, 6, 1>() << 0, 0, 0, 1, 0, 0).finished();
     }
 
     // Set affordance goal
     /* const double aff_goal = -0.5 * M_PI; */
-    const double aff_goal = -0.29; // To be hard-coded as needed
+    /* const double aff_goal = -0.29; // To be hard-coded as needed */
+    const double aff_goal = 0.2; // To be hard-coded as needed
 
     // Construct the planner object and run the planner
     CcAffordancePlannerRos ccAffordancePlannerRos(robot_cc_description_path);
