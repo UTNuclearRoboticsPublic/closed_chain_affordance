@@ -1,4 +1,4 @@
 #ignore swap files created by vim
-*.swp
+*.sw*
 # all build folders
 build/
