@@ -21,8 +21,8 @@ class CcAffordancePlannerRos
         : nh_("~"),
           joint_states_sub_(nh_.subscribe("/joint_states", 1000, &CcAffordancePlannerRos::joint_states_cb_, this)),
           moveit_plan_and_viz_client_(
-              nh_.serviceClient<moveit_plan_and_viz::MoveItPlanAndViz>("/moveit_plan_and_viz_server")),
-          traj_execution_client_("/spot_arm/arm_controller/follow_joint_trajectory", true)
+              nh_.serviceClient<moveit_plan_and_viz::MoveItPlanAndViz>(moveit_plan_and_viz_server_name_)),
+          traj_execution_client_(traj_execution_server_name_, true)
     {
         // Extract robot config info
         const AffordanceUtil::RobotConfig &robotConfig = AffordanceUtil::robot_builder(robot_config_file_path);
@@ -103,13 +103,14 @@ class CcAffordancePlannerRos
     }
 
   private:
-    // ROS variables
+    // Subscriber and server-related variables
     ros::NodeHandle nh_;
     ros::Subscriber joint_states_sub_;              // Joint states subscriber
     ros::ServiceClient moveit_plan_and_viz_client_; // Service client to visualize joint trajectory
     actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction>
         traj_execution_client_; // Action client to execute joint trajectory on robot
-
+    const std::string moveit_plan_and_viz_server_name_ = "/moveit_plan_and_viz_server";
+    const std::string traj_execution_server_name_ = "/spot_arm/arm_controller/follow_joint_trajectory";
     AffordanceUtilROS::JointTrajPoint joint_states_; // Processed and ordered joint states data
 
     // Robot data
@@ -118,6 +119,7 @@ class CcAffordancePlannerRos
     Eigen::MatrixXd M_;
     std::string tool_name_;
 
+    // Methods
     // Callback function for the joint_states subscriber
     void joint_states_cb_(const sensor_msgs::JointState::ConstPtr &msg)
     {
@@ -142,15 +144,16 @@ class CcAffordancePlannerRos
         moveit_plan_and_viz_goal.request.joint_traj = goal.trajectory;
 
         ros::Duration timeout(60.0); // 1 minute
-        if (!ros::service::waitForService("/moveit_plan_and_viz_server", timeout))
+        if (!ros::service::waitForService(moveit_plan_and_viz_server_name_, timeout))
         {
-            std::cout << "Could not find MoveItPlanAndViz service within the timeout" << std::endl;
+            std::cout << "Could not find " << moveit_plan_and_viz_server_name_ << " service within the timeout"
+                      << std::endl;
             return;
         }
 
         if (moveit_plan_and_viz_client_.call(moveit_plan_and_viz_goal))
         {
-            std::cout << "Calling MoveItPlanAndViz service was successful." << std::endl;
+            std::cout << "Calling " << moveit_plan_and_viz_server_name_ << " service was successful." << std::endl;
 
             // Execute trajectory on the real robot
             std::string execution_conf;
@@ -165,24 +168,27 @@ class CcAffordancePlannerRos
 
             if (!traj_execution_client_.waitForServer(timeout))
             {
-                std::cout << "Could not find follow joint trajectory action server within the timeout" << std::endl;
+                std::cout << "Could not find " << traj_execution_server_name_ << " action server within the timeout"
+                          << std::endl;
                 return;
             }
 
-            std::cout << "Sending goal to action server for execution" << std::endl;
+            std::cout << "Sending goal to " << traj_execution_server_name_ << " action server for execution"
+                      << std::endl;
 
             traj_execution_client_.sendGoal(goal);
 
             if (!traj_execution_client_.waitForResult(timeout))
             {
-                std::cout << "Follow joint trajectory action server did not return result within timeout" << std::endl;
+                std::cout << traj_execution_server_name_ << " action server did not return result within timeout"
+                          << std::endl;
                 return;
             }
         }
 
         else
         {
-            std::cout << "Failed to call MoveItPlanAndViz service." << std::endl;
+            std::cout << "Failed to call " << moveit_plan_and_viz_server_name_ << " service." << std::endl;
         }
     }
 };
