@@ -17,18 +17,13 @@
 class CcAffordancePlannerRos
 {
   public:
-    CcAffordancePlannerRos(const std::string &robot_config_file_path, const Eigen::VectorXd &aff_screw,
-                           const double &aff_goal)
+    CcAffordancePlannerRos(const std::string &robot_config_file_path)
         : nh_("~"),
-          aff_screw(aff_screw),
-          aff_goal(aff_goal),
-          traj_execution_client_("/spot_arm/arm_controller/follow_joint_trajectory", true),
-          moveit_plan_and_viz_client_("/moveit_plan_and_viz_server", true)
+          joint_states_sub_(nh_.subscribe("/joint_states", 1000, &CcAffordancePlannerRos::joint_states_cb_, this)),
+          moveit_plan_and_viz_client_(
+              nh_.serviceClient<moveit_plan_and_viz::MoveItPlanAndViz>("/moveit_plan_and_viz_server")),
+          traj_execution_client_("/spot_arm/arm_controller/follow_joint_trajectory", true)
     {
-
-        // Subscribers
-        joint_states_sub_ = nh_.subscribe("/joint_states", 1000, &CcAffordancePlannerRos::joint_states_cb_, this);
-
         // Extract robot config info
         const AffordanceUtil::RobotConfig &robotConfig = AffordanceUtil::robot_builder(robot_config_file_path);
         robot_slist_ = robotConfig.Slist;
@@ -37,9 +32,7 @@ class CcAffordancePlannerRos
         joint_names_ = robotConfig.joint_names;
     }
 
-    ~CcAffordancePlannerRos() {}
-
-    void run_cc_affordance_planner()
+    void run_cc_affordance_planner(const Eigen::VectorXd &aff_screw, const double &aff_goal)
     {
 
         // Capture initial configuration joint states
@@ -70,7 +63,7 @@ class CcAffordancePlannerRos
 
         // Compose cc model and affordance goal
         Eigen::MatrixXd cc_slist =
-            AffordanceUtilROS::compose_cc_model_slist(robot_slist_, joint_states_.positions, M_, aff_screw);
+            AffordanceUtil::compose_cc_model_slist(robot_slist_, joint_states_.positions, M_, aff_screw);
         std::cout << "Here is the full cc slist: \n" << cc_slist << std::endl;
 
         // Construct the CcAffordancePlanner object
@@ -97,17 +90,49 @@ class CcAffordancePlannerRos
         if (plannerResult.success)
         {
             std::cout << "Planner succeeded with " << plannerResult.traj_full_or_partial
-                      << " solution, and planning took " << plannerResult.planning_time << " microseconds" << std::endl;
+                      << " solution, and planning took " << plannerResult.planning_time.count() << " microseconds"
+                      << std::endl;
         }
         else
         {
             std::cout << "Planner did not find a solution" << std::endl;
         }
 
+        // Visualize and execute trajectory
+        visualize_and_execute_trajectory_(solution);
+    }
+
+  private:
+    // ROS variables
+    ros::NodeHandle nh_;
+    ros::Subscriber joint_states_sub_;              // Joint states subscriber
+    ros::ServiceClient moveit_plan_and_viz_client_; // Service client to visualize joint trajectory
+    actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction>
+        traj_execution_client_; // Action client to execute joint trajectory on robot
+
+    AffordanceUtilROS::JointTrajPoint joint_states_; // Processed and ordered joint states data
+
+    // Robot data
+    Eigen::MatrixXd robot_slist_;
+    std::vector<std::string> joint_names_;
+    Eigen::MatrixXd M_;
+    std::string tool_name_;
+
+    // Callback function for the joint_states subscriber
+    void joint_states_cb_(const sensor_msgs::JointState::ConstPtr &msg)
+    {
+        joint_states_ = AffordanceUtilROS::get_ordered_joint_states(
+            msg,
+            joint_names_); // Takes care of filtering and ordering the joint_states
+    }
+
+    // function to visualize trajectory with moveit in Rviz and then, execute afterwards on the robot
+    void visualize_and_execute_trajectory_(std::vector<Eigen::VectorXd> trajectory)
+    {
         // Convert the solution trajectory to ROS message type
         const double traj_time_step = 0.3;
         const control_msgs::FollowJointTrajectoryGoal goal = AffordanceUtilROS::follow_joint_trajectory_msg_builder(
-            solution, joint_states_.positions, joint_names_,
+            trajectory, joint_states_.positions, joint_names_,
             traj_time_step); // this function takes care of extracting the right
                              // number of joint_states although solution
                              // contains qs data too
@@ -117,15 +142,15 @@ class CcAffordancePlannerRos
         moveit_plan_and_viz_goal.request.joint_traj = goal.trajectory;
 
         ros::Duration timeout(60.0); // 1 minute
-        if (!moveit_plan_and_viz_client_.waitForServer(timeout))
+        if (!ros::service::waitForService("/moveit_plan_and_viz_server", timeout))
         {
-            std::cout << "Could not find service within the timeout" << std::endl;
+            std::cout << "Could not find MoveItPlanAndViz service within the timeout" << std::endl;
             return;
         }
 
         if (moveit_plan_and_viz_client_.call(moveit_plan_and_viz_goal))
         {
-            std::cout << "Calling " << plan_and_viz_service_name << " service was successful." << std::endl;
+            std::cout << "Calling MoveItPlanAndViz service was successful." << std::endl;
 
             // Execute trajectory on the real robot
             std::string execution_conf;
@@ -157,33 +182,8 @@ class CcAffordancePlannerRos
 
         else
         {
-            std::cout << "Failed to call " << plan_and_viz_service_name << " service." << std::endl;
+            std::cout << "Failed to call MoveItPlanAndViz service." << std::endl;
         }
-    }
-
-  private:
-    // ROS variables
-    ros::NodeHandle nh_;
-    ros::Subscriber joint_states_sub_; // Joint states subscriber
-    ros::ServiceClient<moveit_plan_and_viz::MoveItPlanAndViz>
-        moveit_plan_and_viz_client_; // Service client to visualize joint trajectory
-    actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction>
-        traj_execution_client_; // Action client to execute joint trajectory on robot
-
-    AffordanceUtilROS::JointTrajPoint joint_states_; // Processed and ordered joint states data
-
-    // Robot data
-    Eigen::MatrixXd robot_slist_;
-    std::vector<std::string> joint_names_;
-    Eigen::MatrixXd M_;
-    std::string tool_name_;
-
-    // Callback function for the joint_states subscriber
-    void joint_states_cb_(const sensor_msgs::JointState::ConstPtr &msg)
-    {
-        joint_states_ = AffordanceUtilROS::get_ordered_joint_states(
-            msg,
-            joint_names_); // Takes care of filtering and ordering the joint_states
     }
 };
 
@@ -199,7 +199,7 @@ int main(int argc, char **argv)
     const std::string rel_dir = "/config/";
     const std::string filename = package_name + ".yaml";
     std::string robot_cc_description_path;
-    robot_cc_description_path = get_filepath_inside_pkg(package_name, rel_dir, filename);
+    robot_cc_description_path = AffordanceUtilROS::get_filepath_inside_pkg(package_name, rel_dir, filename);
 
     // Compose affordance screw
     const bool aff_from_tag = false; // To be hard-coded as needed
@@ -220,7 +220,7 @@ int main(int argc, char **argv)
         std::cout << "Here is the affordance frame location. Ensure it makes sense: \n" << q_aff << std::endl;
 
         // Compute the 6x1 screw vector
-        aff_screw = get_screw(w_aff, q_aff); // return screw axis
+        aff_screw = AffordanceUtil::get_screw(w_aff, q_aff); // return screw axis
     }
     else
     {
@@ -228,7 +228,7 @@ int main(int argc, char **argv)
         const Eigen::Vector3d q_aff(0, 0, 0);  // To be hard-coded as needed
 
         // Compute the 6x1 screw vector
-        aff_screw = get_screw(w_aff, q_aff);
+        aff_screw = AffordanceUtil::get_screw(w_aff, q_aff);
 
         // Pure translation edit
         aff_screw = (Eigen::Matrix<double, 6, 1>() << 0, 0, 0, -1, 0, 0).finished();
@@ -239,8 +239,11 @@ int main(int argc, char **argv)
     const double aff_goal = -0.29; // To be hard-coded as needed
 
     // Construct the planner object and run the planner
-    CcAffordancePlannerRos ccAffordancePlannerRos(robot_cc_description_path, aff_screw, aff_goal);
-    ccAffordancePlannerRos.run_cc_affordance_planner();
+    CcAffordancePlannerRos ccAffordancePlannerRos(robot_cc_description_path);
+    ccAffordancePlannerRos.run_cc_affordance_planner(aff_screw, aff_goal);
+
+    // Call the function again with new (or old) aff_screw and aff_goal to execute another affordance in series
+    /* ccAffordancePlannerRos.run_cc_affordance_planner(aff_screw, aff_goal); */
 
     return 0;
 }
