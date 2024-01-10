@@ -10,7 +10,6 @@ set(CMAKE_CXX_STANDARD 17)   # For C++17
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   roscpp
-  roslib
   affordance_util_ros
   moveit_plan_and_viz
   tf2_ros
