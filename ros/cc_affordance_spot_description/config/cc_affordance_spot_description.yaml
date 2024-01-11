@@ -1,0 +1,33 @@
+# Provide the reference frame, joint axes, their location, and the location of the tool
+# The following info is for the Spot robot arm
+ref_frame:
+  - name: arm0_base_link
+
+joints:
+  - name: arm0_shoulder_yaw
+    w: [0, 0, 1]
+    q: [0, 0, 0]
+
+  - name: arm0_shoulder_pitch
+    w: [0, 1, 0]
+    q: [0, 0, 0]
+
+  - name: arm0_elbow_pitch
+    w: [0, 1, 0]
+    q: [0.3385, -0.0001, -0.0003]
+
+  - name: arm0_elbow_roll
+    w: [1, 0, 0]
+    q: [0.7428, -0.0003, 0.0693]
+
+  - name: arm0_wrist_pitch
+    w: [0, 1, 0]
+    q: [0.7428, -0.0003, 0.0693]
+
+  - name: arm0_wrist_roll
+    w: [1, 0, 0]
+    q: [0.7428, -0.0003, 0.0693]
+
+tool:
+  - name: arm0_tool0
+    q: [0.9383, 0.0005, 0.0664]
