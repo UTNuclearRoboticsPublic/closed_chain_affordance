@@ -47,10 +47,12 @@ class CcAffordancePlannerRos
   public:
     CcAffordancePlannerRos(const std::string &robot_config_file_path)
         : nh_("~"),
+          traj_execution_client_(
+              "/spot_arm/arm_controller/follow_joint_trajectory",
+              true), // Simple action client does not have a default constructor and needs to initialized this way
           joint_states_sub_(nh_.subscribe("/joint_states", 1000, &CcAffordancePlannerRos::joint_states_cb_, this)),
           moveit_plan_and_viz_client_(
-              nh_.serviceClient<moveit_plan_and_viz::MoveItPlanAndViz>("\moveit_plan_and_viz_server")),
-          traj_execution_client_("/spot_arm/arm_controller/follow_joint_trajectory", true)
+              nh_.serviceClient<moveit_plan_and_viz::MoveItPlanAndViz>("/moveit_plan_and_viz_server"))
     {
         // Extract robot config info
         const AffordanceUtil::RobotConfig &robotConfig = AffordanceUtil::robot_builder(robot_config_file_path);
@@ -63,39 +65,17 @@ class CcAffordancePlannerRos
     void run_cc_affordance_planner(const Eigen::VectorXd &aff_screw, const double &aff_goal)
     {
 
-        // Capture initial configuration joint states
-        /* std::string capture_joint_states_conf; */
-        /* std::cout << "Put the robot in the start configuration for affordance " */
-        /*              "execution. Done? y for yes." */
-        /*           << std::endl; */
-        /* std::cin >> capture_joint_states_conf; */
+        // Get joint states at the start configuration of the affordance
+        /* Eigen::VectorXd robot_thetalist = get_aff_start_joint_states_(); */
+        Eigen::VectorXd robot_thetalist(joint_names_.size());
+        /* Eigen::VectorXd robot_thetalist << -0.0113826, -0.800428, 1.80497, 0.0200335, -1.08084, -0.00336388; //
+         * Pulling a drawer */
+        robot_thetalist << 0.00795, -1.18220, 2.46393, 0.02025, -1.32321, -0.00053; // Pushing a drawer
 
-        /* if (capture_joint_states_conf != "y" && capture_joint_states_conf != "Y") */
-        /* { */
-        /*     std::cout << "You indicated you are not ready to capture joint states" << std::endl; */
-        /*     return; */
-        /* } */
-        /* // Take a second to read callbacks to ensure proper capturing of joint */
-        /* // states data */
-        /* ros::Rate loop_rate(4); */
-        /* for (int i = 0; i < 4; ++i) */
-        /* { */
-        /*     ros::spinOnce(); */
-        /*     loop_rate.sleep(); */
-        /* } */
-
-        // Manually set joint_states for planning time computation purposes only
-        joint_states_.positions.conservativeResize(joint_names_.size());
-        /* joint_states_.positions << -0.0113826, -0.800428, 1.80497, 0.0200335, -1.08084, -0.00336388; // Pulling a
-         * drawer */
-        joint_states_.positions << 0.00795, -1.18220, 2.46393, 0.02025, -1.32321, -0.00053; // Pushing a drawer
-
-        std::cout << "Debug flag" << std::endl;
         std::cout << "Here are the captured joint states: \n" << joint_states_.positions << std::endl;
 
         // Compose cc model and affordance goal
-        Eigen::MatrixXd cc_slist =
-            AffordanceUtil::compose_cc_model_slist(robot_slist_, joint_states_.positions, M_, aff_screw);
+        Eigen::MatrixXd cc_slist = AffordanceUtil::compose_cc_model_slist(robot_slist_, robot_thetalist, M_, aff_screw);
         std::cout << "Here is the full cc slist: \n" << cc_slist << std::endl;
 
         // Construct the CcAffordancePlanner object
@@ -140,9 +120,7 @@ class CcAffordancePlannerRos
     ros::Subscriber joint_states_sub_;              // Joint states subscriber
     ros::ServiceClient moveit_plan_and_viz_client_; // Service client to visualize joint trajectory
     actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction>
-        traj_execution_client_; // Action client to execute joint trajectory on robot
-    const std::string moveit_plan_and_viz_server_name_ = "/moveit_plan_and_viz_server";
-    const std::string traj_execution_server_name_ = "/spot_arm/arm_controller/follow_joint_trajectory";
+        traj_execution_client_;                      // Action client to execute joint trajectory on robot
     AffordanceUtilROS::JointTrajPoint joint_states_; // Processed and ordered joint states data
 
     // Robot data
@@ -160,9 +138,47 @@ class CcAffordancePlannerRos
             joint_names_); // Takes care of filtering and ordering the joint_states
     }
 
+    // Function to read robot joint states at the start of the affordance
+    Eigen::VectorXd get_aff_start_joint_states_()
+    {
+        // Manually set joint_states for planning time computation purposes only
+        joint_states_.positions.conservativeResize(joint_names_.size());
+
+        // Capture initial configuration joint states
+        std::string capture_joint_states_conf;
+        std::cout << "Put the robot in the start configuration for affordance "
+                     "execution. Done? y for yes."
+                  << std::endl;
+        std::cin >> capture_joint_states_conf;
+
+        if (capture_joint_states_conf != "y" && capture_joint_states_conf != "Y")
+        {
+            throw std::runtime_error("You indicated you are not ready to capture joint states");
+        }
+        // Take a second to read callbacks to ensure proper capturing of joint
+        // states data
+        ros::Rate loop_rate(4);
+        for (int i = 0; i < 4; ++i)
+        {
+            ros::spinOnce();
+            loop_rate.sleep();
+        }
+        return joint_states_.positions;
+    }
+
     // function to visualize trajectory with moveit in Rviz and then, execute afterwards on the robot
     void visualize_and_execute_trajectory_(std::vector<Eigen::VectorXd> trajectory)
     {
+
+        const std::string traj_execution_server_name =
+            "/spot_arm/arm_controller/follow_joint_trajectory"; // Action client doesn't have a way to use an AS name
+                                                                // variable from within this class. So, this variable
+                                                                // (as class variable) can't be used to initialize the
+                                                                // client. Thus, we limit its scope in here as needed.
+        const std::string moveit_plan_and_viz_server_name =
+            "/moveit_plan_and_viz_server"; // Service client does not have the same problem, but for consistency, we
+                                           // limit this variable's scope as well.
+
         // Convert the solution trajectory to ROS message type
         const double traj_time_step = 0.3;
         const control_msgs::FollowJointTrajectoryGoal goal = AffordanceUtilROS::follow_joint_trajectory_msg_builder(
@@ -176,16 +192,16 @@ class CcAffordancePlannerRos
         moveit_plan_and_viz_goal.request.joint_traj = goal.trajectory;
 
         ros::Duration timeout(60.0); // 1 minute
-        if (!ros::service::waitForService(moveit_plan_and_viz_server_name_, timeout))
+        if (!ros::service::waitForService(moveit_plan_and_viz_server_name, timeout))
         {
-            std::cout << "Could not find " << moveit_plan_and_viz_server_name_ << " service within the timeout"
+            std::cout << "Could not find " << moveit_plan_and_viz_server_name << " service within the timeout"
                       << std::endl;
             return;
         }
 
         if (moveit_plan_and_viz_client_.call(moveit_plan_and_viz_goal))
         {
-            std::cout << "Calling " << moveit_plan_and_viz_server_name_ << " service was successful." << std::endl;
+            std::cout << "Calling " << moveit_plan_and_viz_server_name << " service was successful." << std::endl;
 
             // Execute trajectory on the real robot
             std::string execution_conf;
@@ -200,19 +216,19 @@ class CcAffordancePlannerRos
 
             if (!traj_execution_client_.waitForServer(timeout))
             {
-                std::cout << "Could not find " << traj_execution_server_name_ << " action server within the timeout"
+                std::cout << "Could not find " << traj_execution_server_name << " action server within the timeout"
                           << std::endl;
                 return;
             }
 
-            std::cout << "Sending goal to " << traj_execution_server_name_ << " action server for execution"
+            std::cout << "Sending goal to " << traj_execution_server_name << " action server for execution"
                       << std::endl;
 
             traj_execution_client_.sendGoal(goal);
 
             if (!traj_execution_client_.waitForResult(timeout))
             {
-                std::cout << traj_execution_server_name_ << " action server did not return result within timeout"
+                std::cout << traj_execution_server_name << " action server did not return result within timeout"
                           << std::endl;
                 return;
             }
@@ -220,7 +236,7 @@ class CcAffordancePlannerRos
 
         else
         {
-            std::cout << "Failed to call " << moveit_plan_and_viz_server_name_ << " service." << std::endl;
+            std::cout << "Failed to call " << moveit_plan_and_viz_server_name << " service." << std::endl;
         }
     }
 };
