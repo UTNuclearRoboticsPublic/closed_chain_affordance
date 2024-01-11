@@ -27,17 +27,25 @@ function [plotrepf, plotrepl, plotrepj, plotrept, plotrepn]  = FKPlotter(mlist,s
             zlabel('z, m');
 
             % axis square
-            grid_fontsize = 15;
-            label_fontsize = 30;
-            title_fontsize = 30;
+            grid_fontsize = 20;
+            label_fontsize = 40;
+            title_fontsize = 35;
+            grid_lw = 1.5;
             ax = gca;
             axis equal
             grid on
-            set(ax, 'FontSize', grid_fontsize);
-            set(ax.XAxis, 'FontSize', label_fontsize);
-            set(ax.YAxis, 'FontSize', label_fontsize);
-            set(ax.ZAxis, 'FontSize', label_fontsize);
+            % set(ax, 'GridLineWidth', grid_lw);
+            set(ax, 'FontSize', grid_fontsize,  'FontWeight', 'bold');
+            set(ax.XAxis, 'FontSize', label_fontsize,  'FontWeight', 'bold');
+            set(ax.YAxis, 'FontSize', label_fontsize,  'FontWeight', 'bold');
+            set(ax.ZAxis, 'FontSize', label_fontsize,  'FontWeight', 'bold');
             set(ax.Title, 'FontSize', title_fontsize);
+
+            % Manipulator and frame sizes
+            frame_lw = 6; %linewidth
+            frame_as = 1; %arrow size
+            link_lw = 7;
+            joint_size = 17;
 
     %% Dynamic plots: manipulator and EE frames
     for i = 1:size(FK, 4)
@@ -79,24 +87,24 @@ function [plotrepf, plotrepl, plotrepj, plotrept, plotrepn]  = FKPlotter(mlist,s
         %% Plot
        
         % Task frames
-        plotrepf(i,1) = quiver3(x1Pos(1), x1Pos(2), x1Pos(3), x1Rot(1,1), x1Rot(2,1), x1Rot(3,1), 'r', 'LineWidth', 2, 'MaxHeadSize', 0.5, 'AutoScaleFactor',quiverScaler);% x1 task frame x vector
-        plotrepf(i,2) = quiver3(x1Pos(1), x1Pos(2), x1Pos(3), x1Rot(1,2), x1Rot(2,2), x1Rot(3,2),'g', 'LineWidth', 2, 'MaxHeadSize', 0.5, 'AutoScaleFactor',quiverScaler); % x1 task frame y vector
-        plotrepf(i,3) = quiver3(x1Pos(1), x1Pos(2), x1Pos(3), x1Rot(1,3), x1Rot(2,3), x1Rot(3,3),'b', 'LineWidth', 2, 'MaxHeadSize', 0.5, 'AutoScaleFactor',quiverScaler); % x1 task frame z vector
-        plotrepf(i,4) = quiver3(x2Pos(1), x2Pos(2), x2Pos(3), x2Rot(1,1), x2Rot(2,1), x2Rot(3,1),'r', 'LineWidth', 2, 'MaxHeadSize', 0.5, 'AutoScaleFactor',quiverScaler); % x2 task frame x vector
-        plotrepf(i,5) = quiver3(x2Pos(1), x2Pos(2), x2Pos(3), x2Rot(1,2), x2Rot(2,2), x2Rot(3,2),'g', 'LineWidth', 2, 'MaxHeadSize', 0.5, 'AutoScaleFactor',quiverScaler); % x2 task frame y vector
-        plotrepf(i,6) = quiver3(x2Pos(1), x2Pos(2), x2Pos(3), x2Rot(1,3), x2Rot(2,3), x2Rot(3,3),'b', 'LineWidth', 2, 'MaxHeadSize', 0.5, 'AutoScaleFactor',quiverScaler); % x2 task frame z vector
+        plotrepf(i,1) = quiver3(x1Pos(1), x1Pos(2), x1Pos(3), x1Rot(1,1), x1Rot(2,1), x1Rot(3,1),'r', 'LineWidth', frame_lw, 'MaxHeadSize', frame_as, 'AutoScaleFactor',quiverScaler); % x1 task frame x vector
+        plotrepf(i,2) = quiver3(x1Pos(1), x1Pos(2), x1Pos(3), x1Rot(1,2), x1Rot(2,2), x1Rot(3,2),'g', 'LineWidth', frame_lw, 'MaxHeadSize', frame_as, 'AutoScaleFactor',quiverScaler); % x1 task frame y vector
+        plotrepf(i,3) = quiver3(x1Pos(1), x1Pos(2), x1Pos(3), x1Rot(1,3), x1Rot(2,3), x1Rot(3,3),'b', 'LineWidth', frame_lw, 'MaxHeadSize', frame_as, 'AutoScaleFactor',quiverScaler); % x1 task frame z vector
+        plotrepf(i,4) = quiver3(x2Pos(1), x2Pos(2), x2Pos(3), x2Rot(1,1), x2Rot(2,1), x2Rot(3,1),'r', 'LineWidth', frame_lw, 'MaxHeadSize', frame_as, 'AutoScaleFactor',quiverScaler); % x2 task frame x vector
+        plotrepf(i,5) = quiver3(x2Pos(1), x2Pos(2), x2Pos(3), x2Rot(1,2), x2Rot(2,2), x2Rot(3,2),'g', 'LineWidth', frame_lw, 'MaxHeadSize', frame_as, 'AutoScaleFactor',quiverScaler); % x2 task frame y vector
+        plotrepf(i,6) = quiver3(x2Pos(1), x2Pos(2), x2Pos(3), x2Rot(1,3), x2Rot(2,3), x2Rot(3,3),'b', 'LineWidth', frame_lw, 'MaxHeadSize', frame_as, 'AutoScaleFactor',quiverScaler); % x2 task frame z vector
         
         %Links
-        plotrepl(i,1) = plot3(xLink, yLink, zLink, 'k', 'LineWidth', 3); % real manipulator links
-        plotrepl(i,2) = plot3(imXLink, imYLink, imZLink, 'b--', 'LineWidth', 2); % imaginary link connecting x1 and x2
+        plotrepl(i,1) = plot3(xLink, yLink, zLink, 'k', 'LineWidth', link_lw); % real manipulator links
+        plotrepl(i,2) = plot3(imXLink, imYLink, imZLink, 'b--', 'LineWidth', link_lw); % imaginary link connecting x1 and x2
        
         % Joint and task markers
-        plotrepj(i,1) = plot3(xLink, yLink, zLink, 'o', 'MarkerSize', 10, 'MarkerFaceColor','m'); % all real joints
-        plotrepj(i,2) = plot3(x2Pos(1), x2Pos(2), x2Pos(3), 'bd', 'MarkerSize', 12, 'MarkerFaceColor','m'); % x2 task marker
-        plotrepj(i,3) = plot3(x1Pos(1), x1Pos(2), x1Pos(3), 'o', 'MarkerSize', 12, 'MarkerFaceColor','k'); % x1 task marker
+        plotrepj(i,1) = plot3(xLink, yLink, zLink, 'o', 'MarkerSize', joint_size, 'MarkerFaceColor','m'); % all real joints
+        plotrepj(i,2) = plot3(x2Pos(1), x2Pos(2), x2Pos(3), 'bd', 'MarkerSize', joint_size, 'MarkerFaceColor','m'); % x2 task marker
+        plotrepj(i,3) = plot3(x1Pos(1), x1Pos(2), x1Pos(3), 'o', 'MarkerSize', joint_size, 'MarkerFaceColor','k'); % x1 task marker
         
         % Task 2 trajectory
-        plotrept(i,1) = plot3(x2PosTraj(:, 1), x2PosTraj(:, 2), x2PosTraj(:, 3),  'm', 'LineWidth', 2); % x2 task marker
+        plotrept(i,1) = plot3(x2PosTraj(:, 1), x2PosTraj(:, 2), x2PosTraj(:, 3),  'm', 'LineWidth', 4); % x2 task marker
         
 
         % Draw, pause, and delete plot to create animation

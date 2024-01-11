@@ -152,21 +152,106 @@ thetalist =[qp; qsb]; % store the very last values as thetalist
 %Plot errors
 figure(2)
 subplot(2,1,1)
-plot(errPlotMatrix(:,1),errPlotMatrix(:,2));
+%Font sizes and linewidths
+grid_fontsize = 50;
+label_fontsize = 50;
+title_fontsize = 50;
+grid_lw = 1.5;
+plot_lw = 8; %linewidth
+plot(errPlotMatrix(:,1),errPlotMatrix(:,2), 'b', 'LineWidth', plot_lw);
 set(gca, 'YScale', 'log');
-title("Affordance Step Goal Error vs. Iteration for " + num2str(stepperItr) + "st Step");
-xlabel("iterations");
+set(gca, 'FontSize', grid_fontsize,  'FontWeight', 'bold');
+grid on
+set(gca, 'GridLineWidth', grid_lw);
+title("Affordance Step Goal Error vs. Iteration for " + num2str(stepperItr) + "st Step", 'FontSize', title_fontsize);
+xlabel("iterations", 'FontSize', label_fontsize,  'FontWeight', 'bold');
+% xlim([1 9]);    % Pure rotation first step of 0.5rad
+% xlim([1 8]);    % Pure rotation first step of 0.1rad
+xlim([1 30]);    % Pure translation first step of 0.05m
+% xlim([1 30]);    % Pure translation first step of 0.01m
+
+% ee_error_plot_xlim = xlim(gca)
 if strcmpi(affType,'pure_trans')
-    ylabel("ee error, m");
+    yyaxis left
+    ylabel("ee error, m", 'FontSize', label_fontsize,  'FontWeight', 'bold');
+    % Pure translation first step of 0.05m
+    ylim([10e-5 10e-2]);
+    yticks([10^-3,10^-1]);
+    % Pure translation first step of 0.01m
+    % ylim([10e-6-10e-7 10e-3]);
+    % yticks([10^-5, 10^-3]);
+    yyaxis right
+    set(gca, 'YColor', 'k');
+    set(gca, 'YScale', 'log');
+    % Pure translation first step of 0.05m
+    ylim([10e-5 10e-2]);
+    yticks([10^-4, 10^-2]);
+    % Pure translation first step of 0.01m
+    % ylim([10e-6-10e-7 10e-3]);
+    % yticks([10^-4, 10^-2]);
 else
-    ylabel("ee error, rad");
+    yyaxis left
+    ylabel("ee error, rad", 'FontSize', label_fontsize,  'FontWeight', 'bold');
+    % Pure rotation first step of 0.5rad
+    ylim([10e-4 10e-1]);
+    yticks([10^-3,10^-1]);
+    % Pure rotation first step of 0.1rad
+    % ylim([10e-5 10e-2]);
+    % yticks([10^-3,10^-1]);
+    yyaxis right
+    set(gca, 'YColor', 'k');
+    set(gca, 'YScale', 'log');
+    % Pure rotation first step of 0.5rad
+    ylim([10e-4 10e-1]);
+    yticks([10^-2,10^0]);
+    % Pure rotation first step of 0.1rad
+    % ylim([10e-5 10e-2]);
+    % yticks([10^-4,10^-2]);
 end
+
 subplot(2,1,2)
-plot(errPlotMatrix(:,1),errPlotMatrix(:,3));
+plot(errPlotMatrix(:,1),errPlotMatrix(:,3), 'b', 'LineWidth', plot_lw);
 set(gca, 'YScale', 'log');
-title("Closure Error vs. Iteration for " + num2str(stepperItr) + "st Step");
-xlabel("iterations");
-ylabel("closure error");
+set(gca, 'FontSize', grid_fontsize,  'FontWeight', 'bold');
+grid on
+set(gca, 'GridLineWidth', grid_lw);
+title("Closure Error vs. Iteration for " + num2str(stepperItr) + "st Step", 'FontSize', title_fontsize);
+xlabel("iterations", 'FontSize', label_fontsize,  'FontWeight', 'bold');
+ylabel("closure error", 'FontSize', label_fontsize,  'FontWeight', 'bold');
+% xlim([1 9]);    % Pure rotation first step of 0.5rad
+% xlim([1 8]);    % Pure rotation first step of 0.1rad
+xlim([1 30]);    % Pure translation first step of 0.05m
+% xlim([1 30]);    % Pure translation first step of 0.01m
+
+
+yyaxis left
+% Pure translation first step of 0.05m
+ylim([10e-7 10e-2]);
+yticks([10^-5, 10^-3, 10^-1]);
+% Pure translation first step of 0.01m
+% ylim([10e-9 10e-4]);
+% yticks([10^-7, 10^-5, 10^-3]);
+% Pure rotation first step of 0.5rad
+% ylim([10e-8 10e-2]);
+% yticks([10^-7, 10^-5, 10^-3, 10^-1]);
+% Pure rotation first step of 0.1rad
+% ylim([10e-8 10e-3]);
+% yticks([10^-7, 10^-5, 10^-3]);
+yyaxis right
+set(gca, 'YColor', 'k');
+set(gca, 'YScale', 'log');
+% Pure translation first step of 0.05m
+ylim([10e-7 10e-2]);
+yticks([10^-6, 10^-4, 10^-2]);
+% Pure translation first step of 0.01m
+% ylim([10e-9 10e-4]);
+% yticks([10^-8, 10^-6, 10^-4]);
+% Pure rotation first step of 0.5rad
+% ylim([10e-8 10e-2]);
+% yticks([10^-6, 10^-4, 10^-2]);
+% Pure rotation first step of 0.1rad
+% ylim([10e-8 10e-3]);
+% yticks([10^-6, 10^-4, 10^-2]);
 
 if success
     disp("Working m:")

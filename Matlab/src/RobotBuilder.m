@@ -202,7 +202,7 @@ switch robotType
         xlimits = [-.2 1.0];
         ylimits = [-.2 1.0];
         zlimits = [-.7 .5];
-        tick_quantum = 0.050;
+        tick_quantum = 0.1;
         quiverScaler = 0.1;
         azimuth = 45;
         elevation = 45;
