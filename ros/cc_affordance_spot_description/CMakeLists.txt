@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(cc_affordance_planner)
+project(cc_affordance_spot_description)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -7,23 +7,12 @@ project(cc_affordance_planner)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  tf2_ros
-  geometry_msgs
-  control_msgs
-  moveit_core
-  moveit_ros_planning_interface
-  visualization_msgs
-  moveit_visual_tools
-)
+find_package(catkin REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-find_package(Eigen3 REQUIRED )
-find_package(yaml-cpp REQUIRED )
 
-FIND_LIBRARY(affordance_util_LIBRARIES affordance_util /usr/local/lib)
+
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
 ## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
@@ -61,11 +50,11 @@ FIND_LIBRARY(affordance_util_LIBRARIES affordance_util /usr/local/lib)
 # )
 
 ## Generate services in the 'srv' folder
-add_service_files(
-  FILES
-  MoveItPlanAndViz.srv
-  # Service2.srv
-)
+# add_service_files(
+#   FILES
+#   Service1.srv
+#   Service2.srv
+# )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -75,11 +64,10 @@ add_service_files(
 # )
 
 ## Generate added messages and services with any dependencies listed here
-generate_messages(
-  DEPENDENCIES
-  trajectory_msgs
-  std_msgs  # Or other packages containing msgs
-)
+# generate_messages(
+#   DEPENDENCIES
+#   std_msgs  # Or other packages containing msgs
+# )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -112,8 +100,8 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES cc_affordance_planner
- CATKIN_DEPENDS roscpp message_runtime
+#  LIBRARIES cc_affordance_spot_description
+#  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
 )
 
@@ -124,19 +112,14 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-  include
-  ${catkin_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIRS}
+# include
+# ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
-add_library(${PROJECT_NAME}
-  include/${PROJECT_NAME}/cc_affordance_planner.hpp
-  src/${PROJECT_NAME}/cc_affordance_planner.cpp
-)
-
-# Link the affordance_util cpp library against this package's library which uses it
-target_link_libraries(${PROJECT_NAME} affordance_util)
+# add_library(${PROJECT_NAME}
+#   src/${PROJECT_NAME}/cc_affordance_spot_description.cpp
+# )
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -146,11 +129,7 @@ target_link_libraries(${PROJECT_NAME} affordance_util)
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_tester src/${PROJECT_NAME}_tester.cpp)
-add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.cpp)
-add_executable(${PROJECT_NAME}_data_recorder src/${PROJECT_NAME}_data_recorder.cpp)
-add_executable(${PROJECT_NAME}_moveit_plan_and_viz_server src/${PROJECT_NAME}_moveit_plan_and_viz_server.cpp)
-add_executable(${PROJECT_NAME}_robot_builder src/${PROJECT_NAME}_robot_builder.cpp)
+# add_executable(${PROJECT_NAME}_node src/cc_affordance_spot_description_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -160,27 +139,13 @@ add_executable(${PROJECT_NAME}_robot_builder src/${PROJECT_NAME}_robot_builder.c
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-add_dependencies(${PROJECT_NAME}_data_recorder ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-add_dependencies(${PROJECT_NAME}_moveit_plan_and_viz_server ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp) # we use a custom srv from this package in this target
+# add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(${PROJECT_NAME}_tester
-	${PROJECT_NAME} yaml-cpp #tester requires this packages library, that's all. Can still run the executable with rosrun.
-)
-target_link_libraries(${PROJECT_NAME}_node
-	${catkin_LIBRARIES} ${PROJECT_NAME} affordance_util yaml-cpp# Link this package's library against the node target
-)
-target_link_libraries(${PROJECT_NAME}_data_recorder
-	${catkin_LIBRARIES} ${PROJECT_NAME} affordance_util yaml-cpp# Link this package's library against the node target
-)
-target_link_libraries(${PROJECT_NAME}_moveit_plan_and_viz_server
-	${catkin_LIBRARIES} ${PROJECT_NAME} # Link this package's library against the node target
-)
+# target_link_libraries(${PROJECT_NAME}_node
+#   ${catkin_LIBRARIES}
+# )
 
-target_link_libraries(${PROJECT_NAME}_robot_builder
-	yaml-cpp # Link this package's library against the node target
-)
 #############
 ## Install ##
 #############
@@ -228,7 +193,7 @@ target_link_libraries(${PROJECT_NAME}_robot_builder
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_cc_affordance_planner.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_cc_affordance_spot_description.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
