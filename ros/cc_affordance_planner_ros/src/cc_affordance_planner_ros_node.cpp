@@ -68,10 +68,11 @@ class CcAffordancePlannerRos
         // Get joint states at the start configuration of the affordance
         /* Eigen::VectorXd robot_thetalist = get_aff_start_joint_states_(); */
         Eigen::VectorXd robot_thetalist(joint_names_.size());
-        robot_thetalist << -0.0113826, -0.800428, 1.80497, 0.0200335, -1.08084,
-            -0.00336388; // Pulling a drawer
+        /* robot_thetalist << -0.0113826, -0.800428, 1.80497, 0.0200335, -1.08084, */
+        /*     -0.00336388; // Pulling a drawer */
         /* robot_thetalist << 0.00795, -1.18220, 2.46393, 0.02025, -1.32321, */
         /*     -0.00053; // Pushing a drawer */
+        robot_thetalist << -1.50341, -0.52196, 1.69636, 0.24370, -1.18089, -0.06755; // Moving a stool
 
         std::cout << "Here are the captured joint states: \n" << joint_states_.positions << std::endl;
 
@@ -87,9 +88,10 @@ class CcAffordancePlannerRos
             return (x > 0) ? 1.0 : (x < 0) ? -1.0 : 0.0;
         }; // Helper lambda to check the sign of affordance goal
 
-        const double aff_step = 0.01; // To be hard-coded as needed
-        /* const double aff_step = 0.05;         // To be hard-coded as needed */
-        const double accuracy = 10.0 / 100.0; // To be hard-coded as needed
+        /* const double aff_step = 0.01; // Pulling a drawer */
+        /* const double aff_step = 0.05;         // Pushing a drawer */
+        const double aff_step = 0.3;          // Moving a stool
+        const double accuracy = 10.0 / 100.0; //
 
         ccAffordancePlanner.p_aff_step_deltatheta_a = sign_of(aff_goal) * aff_step;
         ccAffordancePlanner.p_task_err_threshold_eps_s = accuracy * aff_step;
@@ -295,22 +297,22 @@ int main(int argc, char **argv)
     }
     else
     {
-        /* const Eigen::Vector3d w_aff(-1, 0, 0); // To be hard-coded as needed */
-        /* const Eigen::Vector3d q_aff(0, 0, 0);  // To be hard-coded as needed */
+        const Eigen::Vector3d w_aff(0, 0, 1); // Moving a stool
+        const Eigen::Vector3d q_aff(0, 0, 0); // Moving a stool
 
         /* // Compute the 6x1 screw vector */
-        /* aff_screw = AffordanceUtil::get_screw(w_aff, q_aff); */
+        aff_screw = AffordanceUtil::get_screw(w_aff, q_aff);
 
         // Pure translation edit
-        aff_screw = (Eigen::Matrix<double, 6, 1>() << 0, 0, 0, -1, 0, 0).finished();
-        /* aff_screw = (Eigen::Matrix<double, 6, 1>() << 0, 0, 0, 1, 0,
-         * 0).finished(); */
+        /* aff_screw = (Eigen::Matrix<double, 6, 1>() << 0, 0, 0, -1, 0, 0).finished(); // Pulling a drawer */
+        /* aff_screw = (Eigen::Matrix<double, 6, 1>() << 0, 0, 0, 1, 0, */
+        /*              *0).finished(); // Pushing a drawer */
     }
 
     // Set affordance goal
-    /* const double aff_goal = -0.5 * M_PI; */
-    const double aff_goal = -0.29; // To be hard-coded as needed
-    /* const double aff_goal = 0.2; // To be hard-coded as needed */
+    const double aff_goal = -0.5 * M_PI; // Moving a stool
+    /* const double aff_goal = -0.29; // Pulling a drawer */
+    /* const double aff_goal = 0.2; // Pushing a drawer*/
 
     // Construct the planner object and run the planner
     CcAffordancePlannerRos ccAffordancePlannerRos(robot_cc_description_path);
