@@ -3,3 +3,4 @@ affordance steps: 0.2rad
 accuracy: 10%
 task offset: 3
 planning_time for whole trajectory: 0.6709s
+planning_time for whole trajectory after update(ms): 350948, 351128, 351570, 351749, 351447
