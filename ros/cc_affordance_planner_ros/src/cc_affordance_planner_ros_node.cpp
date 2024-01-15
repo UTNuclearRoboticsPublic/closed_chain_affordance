@@ -47,9 +47,9 @@ class CcAffordancePlannerRos
   public:
     CcAffordancePlannerRos(const std::string &robot_config_file_path)
         : nh_("~"),
-          traj_execution_client_(
-              "/spot_arm/arm_controller/follow_joint_trajectory",
-              true), // Simple action client does not have a default constructor and needs to initialized this way
+          traj_execution_client_("/spot_arm/arm_controller/follow_joint_trajectory",
+                                 true), // Simple action client does not have a default
+                                        // constructor and needs to initialized this way
           joint_states_sub_(nh_.subscribe("/joint_states", 1000, &CcAffordancePlannerRos::joint_states_cb_, this)),
           moveit_plan_and_viz_client_(
               nh_.serviceClient<moveit_plan_and_viz::MoveItPlanAndViz>("/moveit_plan_and_viz_server"))
@@ -68,9 +68,10 @@ class CcAffordancePlannerRos
         // Get joint states at the start configuration of the affordance
         /* Eigen::VectorXd robot_thetalist = get_aff_start_joint_states_(); */
         Eigen::VectorXd robot_thetalist(joint_names_.size());
-        /* Eigen::VectorXd robot_thetalist << -0.0113826, -0.800428, 1.80497, 0.0200335, -1.08084, -0.00336388; //
-         * Pulling a drawer */
-        robot_thetalist << 0.00795, -1.18220, 2.46393, 0.02025, -1.32321, -0.00053; // Pushing a drawer
+        robot_thetalist << -0.0113826, -0.800428, 1.80497, 0.0200335, -1.08084,
+            -0.00336388; // Pulling a drawer
+        /* robot_thetalist << 0.00795, -1.18220, 2.46393, 0.02025, -1.32321, */
+        /*     -0.00053; // Pushing a drawer */
 
         std::cout << "Here are the captured joint states: \n" << joint_states_.positions << std::endl;
 
@@ -86,13 +87,15 @@ class CcAffordancePlannerRos
             return (x > 0) ? 1.0 : (x < 0) ? -1.0 : 0.0;
         }; // Helper lambda to check the sign of affordance goal
 
-        const double aff_step = 0.05;         // To be hard-coded as needed
+        const double aff_step = 0.01; // To be hard-coded as needed
+        /* const double aff_step = 0.05;         // To be hard-coded as needed */
         const double accuracy = 10.0 / 100.0; // To be hard-coded as needed
 
         ccAffordancePlanner.p_aff_step_deltatheta_a = sign_of(aff_goal) * aff_step;
         ccAffordancePlanner.p_task_err_threshold_eps_s = accuracy * aff_step;
 
-        // Run the planner by passing the screw list, affordance goal, and task offset
+        // Run the planner by passing the screw list, affordance goal, and task
+        // offset
         const int gripper_control_par_tau = 1;
         PlannerResult plannerResult =
             ccAffordancePlanner.affordance_stepper(cc_slist, aff_goal, gripper_control_par_tau);
@@ -118,9 +121,11 @@ class CcAffordancePlannerRos
     // Subscriber and server-related variables
     ros::NodeHandle nh_;
     ros::Subscriber joint_states_sub_;              // Joint states subscriber
-    ros::ServiceClient moveit_plan_and_viz_client_; // Service client to visualize joint trajectory
+    ros::ServiceClient moveit_plan_and_viz_client_; // Service client to visualize
+                                                    // joint trajectory
     actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction>
-        traj_execution_client_;                      // Action client to execute joint trajectory on robot
+        traj_execution_client_;                      // Action client to execute joint trajectory on
+                                                     // robot
     AffordanceUtilROS::JointTrajPoint joint_states_; // Processed and ordered joint states data
 
     // Robot data
@@ -166,18 +171,30 @@ class CcAffordancePlannerRos
         return joint_states_.positions;
     }
 
-    // function to visualize trajectory with moveit in Rviz and then, execute afterwards on the robot
+    // function to visualize trajectory with moveit in Rviz and then, execute
+    // afterwards on the robot
     void visualize_and_execute_trajectory_(std::vector<Eigen::VectorXd> trajectory)
     {
 
         const std::string traj_execution_server_name =
-            "/spot_arm/arm_controller/follow_joint_trajectory"; // Action client doesn't have a way to use an AS name
-                                                                // variable from within this class. So, this variable
-                                                                // (as class variable) can't be used to initialize the
-                                                                // client. Thus, we limit its scope in here as needed.
+            "/spot_arm/arm_controller/follow_joint_trajectory"; // Action client
+                                                                // doesn't have a
+                                                                // way to use an AS
+                                                                // name variable
+                                                                // from within this
+                                                                // class. So, this
+                                                                // variable (as
+                                                                // class variable)
+                                                                // can't be used to
+                                                                // initialize the
+                                                                // client. Thus, we
+                                                                // limit its scope
+                                                                // in here as
+                                                                // needed.
         const std::string moveit_plan_and_viz_server_name =
-            "/moveit_plan_and_viz_server"; // Service client does not have the same problem, but for consistency, we
-                                           // limit this variable's scope as well.
+            "/moveit_plan_and_viz_server"; // Service client does not have the same
+                                           // problem, but for consistency, we limit
+                                           // this variable's scope as well.
 
         // Convert the solution trajectory to ROS message type
         const double traj_time_step = 0.3;
@@ -285,19 +302,22 @@ int main(int argc, char **argv)
         /* aff_screw = AffordanceUtil::get_screw(w_aff, q_aff); */
 
         // Pure translation edit
-        aff_screw = (Eigen::Matrix<double, 6, 1>() << 0, 0, 0, 1, 0, 0).finished();
+        aff_screw = (Eigen::Matrix<double, 6, 1>() << 0, 0, 0, -1, 0, 0).finished();
+        /* aff_screw = (Eigen::Matrix<double, 6, 1>() << 0, 0, 0, 1, 0,
+         * 0).finished(); */
     }
 
     // Set affordance goal
     /* const double aff_goal = -0.5 * M_PI; */
-    /* const double aff_goal = -0.29; // To be hard-coded as needed */
-    const double aff_goal = 0.2; // To be hard-coded as needed
+    const double aff_goal = -0.29; // To be hard-coded as needed
+    /* const double aff_goal = 0.2; // To be hard-coded as needed */
 
     // Construct the planner object and run the planner
     CcAffordancePlannerRos ccAffordancePlannerRos(robot_cc_description_path);
     ccAffordancePlannerRos.run_cc_affordance_planner(aff_screw, aff_goal);
 
-    // Call the function again with new (or old) aff_screw and aff_goal to execute another affordance in series
+    // Call the function again with new (or old) aff_screw and aff_goal to execute
+    // another affordance in series
     /* ccAffordancePlannerRos.run_cc_affordance_planner(aff_screw, aff_goal); */
 
     return 0;
