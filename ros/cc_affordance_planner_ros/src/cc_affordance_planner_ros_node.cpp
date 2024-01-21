@@ -68,13 +68,12 @@ class CcAffordancePlannerRos
         // Get joint states at the start configuration of the affordance
         /* Eigen::VectorXd robot_thetalist = get_aff_start_joint_states_(); */
         Eigen::VectorXd robot_thetalist(joint_names_.size());
-        /* robot_thetalist << -0.0113826, -0.800428, 1.80497, 0.0200335, -1.08084, */
-        /*     -0.00336388; // Pulling a drawer */
+        /* robot_thetalist << -0.00076, -0.87982, 1.73271, 0.01271, -1.13217, -0.00273; // Pulling a drawer */
         /* robot_thetalist << 0.00795, -1.18220, 2.46393, 0.02025, -1.32321, */
         /*     -0.00053; // Pushing a drawer */
-        /* robot_thetalist << -1.50341, -0.52196, 1.69636, 0.24370, -1.18089, -0.06755; // Moving a stool */
+        robot_thetalist << 0.20841, -0.52536, 1.85988, 0.18575, -1.37188, -0.07426; // Moving a stool
         /* robot_thetalist << 0.08788, -1.33410, 2.14567, 0.19725, -0.79857, 0.46613; // Turning a valve2 */
-        robot_thetalist << 0.03456, -1.40627, 2.10997, 0.13891, -0.66079, 0.76027; // Turning a valve4
+        /* robot_thetalist << 0.03456, -1.40627, 2.10997, 0.13891, -0.66079, 0.76027; // Turning a valve4 */
 
         std::cout << "Here are the captured joint states: \n" << joint_states_.positions << std::endl;
 
@@ -90,11 +89,11 @@ class CcAffordancePlannerRos
             return (x > 0) ? 1.0 : (x < 0) ? -1.0 : 0.0;
         }; // Helper lambda to check the sign of affordance goal
 
-        /* const double aff_step = 0.01; // Pulling a drawer */
+        /* const double aff_step = 0.05; // Pulling a drawer */
         /* const double aff_step = 0.05;         // Pushing a drawer */
-        /* const double aff_step = 0.3;          // Moving a stool */
+        const double aff_step = 0.15; // Moving a stool
         /* const double aff_step = 0.2;          // Turning a valve2 */
-        const double aff_step = 0.2;          // Turning a valve4
+        /* const double aff_step = 0.2;          // Turning a valve4 */
         const double accuracy = 10.0 / 100.0; //
 
         ccAffordancePlanner.p_aff_step_deltatheta_a = sign_of(aff_goal) * aff_step;
@@ -104,9 +103,9 @@ class CcAffordancePlannerRos
         // offset
         /* const int gripper_control_par_tau = 1; // Pulling a drawer */
         /* const int gripper_control_par_tau = 1; // Pushing a drawer */
-        /* const int gripper_control_par_tau = 1; // Moving a stool */
+        const int gripper_control_par_tau = 1; // Moving a stool
         /* const int gripper_control_par_tau = 3; // Turning a valve2 */
-        const int gripper_control_par_tau = 3; // Turning a valve4
+        /* const int gripper_control_par_tau = 3; // Turning a valve4 */
         PlannerResult plannerResult =
             ccAffordancePlanner.affordance_stepper(cc_slist, aff_goal, gripper_control_par_tau);
 
@@ -117,6 +116,14 @@ class CcAffordancePlannerRos
             std::cout << "Planner succeeded with " << plannerResult.traj_full_or_partial
                       << " solution, and planning took " << plannerResult.planning_time.count() << " microseconds"
                       << std::endl;
+            /* std::cout << "Here are the start and end affordances, " */
+            /*           << "Start: " << solution[0](9) << ", End: " << solution[solution.size() - 1](9) << std::endl;
+             */
+            /* std::cout << "Here is the full solution:" << std::endl; */
+            /* for (const auto &point : solution) */
+            /* { */
+            /*     std::cout << point << "\n\n"; */
+            /* } */
         }
         else
         {
@@ -214,6 +221,24 @@ class CcAffordancePlannerRos
                              // number of joint_states although solution
                              // contains qs data too
 
+        //------------------------------------------------------------------------------------------------------
+        // Print the contents of the goal using std::cout
+        std::cout << "Goal:\n";
+
+        std::cout << "\nPoints:\n";
+
+        for (const auto &point : goal.trajectory.points)
+        {
+            std::cout << "  - Positions: ";
+            for (const auto &position : point.positions)
+            {
+                std::cout << position << " ";
+            }
+
+            std::cout << "\n    Time From Start: " << point.time_from_start << "\n";
+        }
+
+        //------------------------------------------------------------------------------------------------------
         // Visualize plan
         moveit_plan_and_viz::MoveItPlanAndViz moveit_plan_and_viz_goal;
         moveit_plan_and_viz_goal.request.joint_traj = goal.trajectory;
@@ -270,7 +295,10 @@ class CcAffordancePlannerRos
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "cc_affordance_planner_node");
+    ros::init(argc, argv, "cc_affordance_planner_ros_node");
+    // Set the logging level to INFO
+    /* ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info); */
+    /* ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug); */
 
     // Buffer to lookup tf data for the tag
     tf2_ros::Buffer tf_buffer;
@@ -305,12 +333,12 @@ int main(int argc, char **argv)
     }
     else
     {
-        /* const Eigen::Vector3d w_aff(0, 0, 1); // Moving a stool */
-        /* const Eigen::Vector3d q_aff(0, 0, 0); // Moving a stool */
+        const Eigen::Vector3d w_aff(0, 0, 1); // Moving a stool
+        const Eigen::Vector3d q_aff(0, 0, 0); // Moving a stool
         /* const Eigen::Vector3d w_aff(-1, 0, 0);                       // Turning a valve2 */
         /* const Eigen::Vector3d q_aff(0.597133, -0.0887238, 0.170599); // Turning a valve2 */
-        const Eigen::Vector3d w_aff(-1, 0, 0);                     // Turning a valve4
-        const Eigen::Vector3d q_aff(0.602653, -0.119387, 0.16575); // Turning a valve4
+        /* const Eigen::Vector3d w_aff(-1, 0, 0);                     // Turning a valve4 */
+        /* const Eigen::Vector3d q_aff(0.602653, -0.119387, 0.16575); // Turning a valve4 */
 
         /* // Compute the 6x1 screw vector */
         aff_screw = AffordanceUtil::get_screw(w_aff, q_aff);
@@ -322,9 +350,9 @@ int main(int argc, char **argv)
     }
 
     // Set affordance goal
-    /* const double aff_goal = -0.5 * M_PI; // Moving a stool */
+    const double aff_goal = 0.5 * M_PI; // Moving a stool
     /* const double aff_goal = -1.5 * M_PI; // Turning a valve2 */
-    const double aff_goal = -0.5 * M_PI; // Turning a valve2
+    /* const double aff_goal = -0.5 * M_PI; // Turning a valve4 */
     /* const double aff_goal = -0.29; // Pulling a drawer */
     /* const double aff_goal = 0.2; // Pushing a drawer*/
 
