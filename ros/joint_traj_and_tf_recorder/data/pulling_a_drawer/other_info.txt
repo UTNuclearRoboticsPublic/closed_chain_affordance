@@ -2,4 +2,4 @@ affordance_goal: -0.29m along x axis
 affordance steps: 0.05m
 accuracy: 10%
 planning_time for whole trajectory: 0.0253s
-planning_time for whole trajectory after update(ms):
+planning_time for whole trajectory after update(ms): 15375, 15441, 15598, 15574, 15424

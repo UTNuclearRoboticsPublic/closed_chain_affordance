@@ -2,4 +2,4 @@ affordance_goal: 0.5*pi, Screw axis: (0,0,1), location: (0,0,0)
 affordance_steps: 0.15
 accuracy: 10%
 planning_time for whole trajectory: 0.125s
-planning_time for whole trajectory after update(ms):
+planning_time for whole trajectory after update(ms): 119129, 118940, 118957, 118839, 118994
