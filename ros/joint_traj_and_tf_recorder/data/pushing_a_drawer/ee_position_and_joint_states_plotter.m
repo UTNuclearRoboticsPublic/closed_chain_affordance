@@ -282,3 +282,74 @@ ax_ee_traj_error.ZLabel.FontSize = label_fontsize;
 ax_ee_traj_error.Title.FontSize = title_fontsize;
 ax_ee_traj_error.GridLineWidth = grid_lw;
 
+% Plot
+fig4 = figure(4);
+ax_ee_traj_error2 = subplot(1, 1, 1, 'Parent', fig4);
+
+% Plot both lines first
+plot(ax_ee_traj_error2, df_pred{:, 'PredEEX'} * 1000, ...
+    df_pred{:, 'PredEEY'} * 1000, ...
+    'b-o', 'LineWidth', 8, 'DisplayName', 'Predicted Trajectory');
+hold on;
+plot(ax_ee_traj_error2, df_act{:, 'ActEEX'} * 1000, ...
+    df_act{:, 'ActEEY'} * 1000, ...
+    'k-o', 'LineWidth', 8, 'DisplayName', 'Actual Trajectory');
+
+% Enforce equal aspect ratio
+axis equal
+pbaspect([1 1 1])
+% Add left y-axis
+yyaxis left
+
+% Add grid
+grid on
+xlim([450 750])
+ylim([0 10])
+
+xlabel(ax_ee_traj_error2, 'x(mm)');
+ylabel(ax_ee_traj_error2, 'y(mm)');
+title(ax_ee_traj_error2, ['EE trajectory and Error - ',title_postfix]);
+
+yyaxis right
+plot(ax_ee_traj_error2, ...
+     df_pred{:, 'PredEEX'} * 1000, ...  % Efficient indexing
+     d, ...
+     'Color', '#A2142F', ...
+     'LineStyle', '-', ...  % Use 'LineStyle' for line style
+     'Marker', 'o', ...     % Use 'Marker' for marker style
+     'LineWidth', 8, 'DisplayName', 'Error');
+ylabel(ax_ee_traj_error2, 'ee trajectory error (mm)');
+% Create legend for the left plot elements
+hLegend = legend(ax_ee_traj_error2, 'Interpreter', 'none', 'Color', 'none');
+yaxis_right = ax_ee_traj_error2.YAxis(2);  % Index 2 for the second (right) y-axis
+yaxis_right.Color = '#A2142F';  % Example using a color name
+
+% Set fontsizes for various plot parameters
+title_fontsize = 40;
+label_fontsize = 40;
+legend_fontsize = 30;
+tick_fontsize = 40;
+grid_lw = 2.5;
+
+
+% Set fontsizes for various plot parameters
+ax_ee_traj_error2.XAxis.FontSize = tick_fontsize; 
+ax_ee_traj_error2.XAxis.FontWeight = 'bold';
+ax_ee_traj_error2.YAxis(1).FontSize = tick_fontsize;  % Primary Y-axis
+ax_ee_traj_error2.YAxis(1).FontWeight = 'bold';
+ax_ee_traj_error2.YAxis(2).FontSize = tick_fontsize;  % Secondary Y-axis
+ax_ee_traj_error2.YAxis(2).FontWeight = 'bold';
+
+ax_ee_traj_error2.XLabel.FontSize = label_fontsize;
+ax_ee_traj_error2.YLabel(1).FontSize = label_fontsize;  % Primary Y-axis label
+% ax_ee_traj_error.YLabel(2).FontSize = label_fontsize;  % Secondary Y-axis label
+
+ax_ee_traj_error2.ZLabel.FontSize = label_fontsize;
+ax_ee_traj_error2.Title.FontSize = title_fontsize;
+ax_ee_traj_error2.GridLineWidth = grid_lw;
+ax_ee_traj_error2.Legend.FontSize = legend_fontsize;
+ax_ee_traj_error2.Legend.Location = "northwest";
+
+
+
+

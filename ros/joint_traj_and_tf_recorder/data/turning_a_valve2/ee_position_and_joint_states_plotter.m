@@ -209,8 +209,8 @@ shift_amount_y = 0.145;
 ax_joint_states.Legend.Position = [legend_position(1) + shift_amount_x, legend_position(2)+ shift_amount_y, legend_position(3), legend_position(4)];
 
 % Plot Error between predicted and actual EE cartesian trajectory
-fig3 = figure(3); 
-ax_ee_traj_error = subplot(1, 1, 1, 'Parent', fig3);
+% fig3 = figure(3); 
+% ax_ee_traj_error = subplot(1, 1, 1, 'Parent', fig3);
 
 
 L2 = [df_pred{:, 'PredEEX'} * 1000, ...
@@ -249,11 +249,7 @@ for i = 1:size(L2, 1)
     distances(i) = min(distances_to_interpolated);
 end
 d = distances
-max_d = max(d)
-min_d = min(d)
-length_L2 = length(L2)
-length_L1 = length(L1)
-length_d = length(d)
+
 ts = df_pred{:, 'Timestamp'};
 % Ignore the last two points
 ts = ts(1:end-2,:);
@@ -261,26 +257,74 @@ ts = ts(1:end-2,:);
 f = polyfit(ts, d,1) % linear fit
 length_f = length(f)
 length_timestamp = length(ts)
-% Plot
-plot(ax_ee_traj_error, ts, d, 'b-o','LineWidth', 8);
-hold on
-% plot(ax_ee_traj_error, ts, polyval(f, ts), 'r','LineWidth', 8);
-% Subplot settings--
-grid on
 
-% Subplot labels
-xlabel(ax_ee_traj_error, 'predicted trajectory timestamp (s)');
+
+% Plot
+fig3 = figure(3);
+ax_ee_traj_error = subplot(1, 1, 1, 'Parent', fig3);
+
+% Plot both lines first
+plot(ax_ee_traj_error, df_pred{:, 'PredEEY'} * 1000, ...
+    df_pred{:, 'PredEEZ'} * 1000, ...
+    'b-o', 'LineWidth', 8, 'DisplayName', 'Predicted');
+hold on;
+plot(ax_ee_traj_error, df_act{:, 'ActEEY'} * 1000, ...
+    df_act{:, 'ActEEZ'} * 1000, ...
+    'k-o', 'LineWidth', 8, 'DisplayName', 'Actual');
+
+% Enforce equal aspect ratio
+axis equal
+pbaspect([1 1 1])
+% Add left y-axis
+yyaxis left
+
+% Add grid
+grid on
+xlim([-250 100])
+ylim([0 350])
+xlabel(ax_ee_traj_error, 'y(mm)');
+ylabel(ax_ee_traj_error, 'z(mm)');
+title(ax_ee_traj_error, ['EE trajectory and Error - ',title_postfix]);
+
+yyaxis right
+plot(ax_ee_traj_error, ...
+     df_pred{1:end-2, 'PredEEY'} * 1000, ...  % Efficient indexing
+     d, ...
+     'Color', '#A2142F', ...
+     'LineStyle', '-', ...  % Use 'LineStyle' for line style
+     'Marker', 'o', ...     % Use 'Marker' for marker style
+     'LineWidth', 8, 'DisplayName', 'Error');
 ylabel(ax_ee_traj_error, 'ee trajectory error (mm)');
-title(ax_ee_traj_error, ['EE Cartesian Trajectory Error vs. Time - ',title_postfix]);
+% Create legend for the left plot elements
+hLegend = legend(ax_ee_traj_error, 'Interpreter', 'none', 'Color', 'none');
+yaxis_right = ax_ee_traj_error.YAxis(2);  % Index 2 for the second (right) y-axis
+yaxis_right.Color = '#A2142F';  % Example using a color name
+
+
+% Set fontsizes for various plot parameters
+title_fontsize = 40;
+label_fontsize = 40;
+legend_fontsize = 30;
+tick_fontsize = 40;
+grid_lw = 2.5;
+
 
 % Set fontsizes for various plot parameters
 ax_ee_traj_error.XAxis.FontSize = tick_fontsize; 
-ax_ee_traj_error.XAxis.FontWeight = "bold";
-ax_ee_traj_error.YAxis.FontSize = tick_fontsize;
-ax_ee_traj_error.YAxis.FontWeight = "bold";
+ax_ee_traj_error.XAxis.FontWeight = 'bold';
+ax_ee_traj_error.YAxis(1).FontSize = tick_fontsize;  % Primary Y-axis
+ax_ee_traj_error.YAxis(1).FontWeight = 'bold';
+ax_ee_traj_error.YAxis(2).FontSize = tick_fontsize;  % Secondary Y-axis
+ax_ee_traj_error.YAxis(2).FontWeight = 'bold';
+
 ax_ee_traj_error.XLabel.FontSize = label_fontsize;
-ax_ee_traj_error.YLabel.FontSize = label_fontsize;
+ax_ee_traj_error.YLabel(1).FontSize = label_fontsize;  % Primary Y-axis label
+% ax_ee_traj_error.YLabel(2).FontSize = label_fontsize;  % Secondary Y-axis label
+
 ax_ee_traj_error.ZLabel.FontSize = label_fontsize;
 ax_ee_traj_error.Title.FontSize = title_fontsize;
 ax_ee_traj_error.GridLineWidth = grid_lw;
+ax_ee_traj_error.Legend.FontSize = legend_fontsize;
 
+% axis equal
+% grid on
