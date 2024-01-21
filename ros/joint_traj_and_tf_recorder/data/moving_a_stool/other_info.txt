@@ -1,5 +1,5 @@
-affordance_goal: -0.5*pi, Screw axis: (0,0,1), location: (0,0,0)
-affordance_steps: 0.3
+affordance_goal: 0.5*pi, Screw axis: (0,0,1), location: (0,0,0)
+affordance_steps: 0.15
 accuracy: 10%
-planning_time for whole trajectory: 0.1376s
-planning_time for whole trajectory after update(ms): 56445, 56234, 56499, 56544, 56501
+planning_time for whole trajectory: 0.125s
+planning_time for whole trajectory after update(ms):
