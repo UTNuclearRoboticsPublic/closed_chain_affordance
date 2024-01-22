@@ -266,11 +266,11 @@ ax_ee_traj_error = subplot(1, 1, 1, 'Parent', fig3);
 % Plot both lines first
 plot(ax_ee_traj_error, df_pred{:, 'PredEEY'} * 1000, ...
     df_pred{:, 'PredEEZ'} * 1000, ...
-    'b-o', 'LineWidth', 8, 'DisplayName', 'Predicted');
+    'b-o', 'LineWidth', 8, 'DisplayName', 'predicted trajectory');
 hold on;
 plot(ax_ee_traj_error, df_act{:, 'ActEEY'} * 1000, ...
     df_act{:, 'ActEEZ'} * 1000, ...
-    'k-o', 'LineWidth', 8, 'DisplayName', 'Actual');
+    'k-o', 'LineWidth', 8, 'DisplayName', 'actual trajectory');
 
 % Enforce equal aspect ratio
 axis equal
@@ -284,7 +284,7 @@ xlim([-250 100])
 ylim([0 350])
 xlabel(ax_ee_traj_error, 'y(mm)');
 ylabel(ax_ee_traj_error, 'z(mm)');
-title(ax_ee_traj_error, ['EE trajectory and Error - ',title_postfix]);
+title(ax_ee_traj_error, ['EE Trajectory and Error - ',title_postfix]);
 
 yyaxis right
 plot(ax_ee_traj_error, ...
@@ -293,20 +293,22 @@ plot(ax_ee_traj_error, ...
      'Color', '#A2142F', ...
      'LineStyle', '-', ...  % Use 'LineStyle' for line style
      'Marker', 'o', ...     % Use 'Marker' for marker style
-     'LineWidth', 8, 'DisplayName', 'Error');
+     'LineWidth', 8, 'DisplayName', 'trajectory error');
 ylabel(ax_ee_traj_error, 'ee trajectory error (mm)');
 % Create legend for the left plot elements
 hLegend = legend(ax_ee_traj_error, 'Interpreter', 'none', 'Color', 'none');
+hLegend.Box = 'on'; % Turn on the legend box (if not already on)
+hLegend.Color = 'white'; % Set the background color of the legend box
 yaxis_right = ax_ee_traj_error.YAxis(2);  % Index 2 for the second (right) y-axis
 yaxis_right.Color = '#A2142F';  % Example using a color name
 
 
 % Set fontsizes for various plot parameters
-title_fontsize = 40;
-label_fontsize = 40;
-legend_fontsize = 30;
-tick_fontsize = 40;
-grid_lw = 2.5;
+title_fontsize = 35;
+label_fontsize = 35;
+legend_fontsize = 22;
+tick_fontsize = 30;
+grid_lw = 1.5;
 
 
 % Set fontsizes for various plot parameters
@@ -325,6 +327,8 @@ ax_ee_traj_error.ZLabel.FontSize = label_fontsize;
 ax_ee_traj_error.Title.FontSize = title_fontsize;
 ax_ee_traj_error.GridLineWidth = grid_lw;
 ax_ee_traj_error.Legend.FontSize = legend_fontsize;
+% ax_ee_traj_error.Legend.Location = "east";
+
 
 % axis equal
 % grid on

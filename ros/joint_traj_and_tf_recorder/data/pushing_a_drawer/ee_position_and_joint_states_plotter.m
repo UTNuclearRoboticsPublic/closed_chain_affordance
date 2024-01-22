@@ -289,11 +289,11 @@ ax_ee_traj_error2 = subplot(1, 1, 1, 'Parent', fig4);
 % Plot both lines first
 plot(ax_ee_traj_error2, df_pred{:, 'PredEEX'} * 1000, ...
     df_pred{:, 'PredEEY'} * 1000, ...
-    'b-o', 'LineWidth', 8, 'DisplayName', 'Predicted Trajectory');
+    'b-o', 'LineWidth', 8, 'DisplayName', 'predicted trajectory');
 hold on;
 plot(ax_ee_traj_error2, df_act{:, 'ActEEX'} * 1000, ...
     df_act{:, 'ActEEY'} * 1000, ...
-    'k-o', 'LineWidth', 8, 'DisplayName', 'Actual Trajectory');
+    'k-o', 'LineWidth', 8, 'DisplayName', 'actual trajectory');
 
 % Enforce equal aspect ratio
 axis equal
@@ -308,7 +308,7 @@ ylim([0 10])
 
 xlabel(ax_ee_traj_error2, 'x(mm)');
 ylabel(ax_ee_traj_error2, 'y(mm)');
-title(ax_ee_traj_error2, ['EE trajectory and Error - ',title_postfix]);
+title(ax_ee_traj_error2, ['EE Trajectory and Error - ',title_postfix]);
 
 yyaxis right
 plot(ax_ee_traj_error2, ...
@@ -317,19 +317,22 @@ plot(ax_ee_traj_error2, ...
      'Color', '#A2142F', ...
      'LineStyle', '-', ...  % Use 'LineStyle' for line style
      'Marker', 'o', ...     % Use 'Marker' for marker style
-     'LineWidth', 8, 'DisplayName', 'Error');
+     'LineWidth', 8, 'DisplayName', 'trajectory error');
 ylabel(ax_ee_traj_error2, 'ee trajectory error (mm)');
 % Create legend for the left plot elements
 hLegend = legend(ax_ee_traj_error2, 'Interpreter', 'none', 'Color', 'none');
+hLegend.Box = 'on'; % Turn on the legend box (if not already on)
+hLegend.Color = 'white'; % Set the background color of the legend box
 yaxis_right = ax_ee_traj_error2.YAxis(2);  % Index 2 for the second (right) y-axis
 yaxis_right.Color = '#A2142F';  % Example using a color name
 
+
 % Set fontsizes for various plot parameters
-title_fontsize = 40;
-label_fontsize = 40;
-legend_fontsize = 30;
-tick_fontsize = 40;
-grid_lw = 2.5;
+title_fontsize = 35;
+label_fontsize = 35;
+legend_fontsize = 25;
+tick_fontsize = 30;
+grid_lw = 1.5;
 
 
 % Set fontsizes for various plot parameters
