@@ -1,3 +1,0 @@
-<launch>
-	<node pkg="cc_affordance_planner_ros" type="cc_affordance_planner_ros_node" name="cc_affordance_planner_ros_node" output="screen"/>
-</launch>

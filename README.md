@@ -1,23 +1,39 @@
-# Install the affordance_util library by running the following commands
-## Create a build folder at the same level as the src folder in the CMake package
-`mkdir build` </br>
-`cd build`
-## Configure the Build
-Run CMake to configure the build process. This will generate the build system files in the build directory. Also turn the PIC flag on so the ROS packages that use this can make shared objects.</br>
-`cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON`
-## Build the project
-`cmake --build .`
-## Install the Project
-To install the project and make the library and header files available for other projects, run:</br>
-`cmake --install .` </br>
-Then, you can use the library in other projects by adding the following to your CMakeLists file and linking the library `affordance_util` against your desired targets:</br>
-`FIND_LIBRARY(affordance_util_LIBRARIES affordance_util /usr/local/lib)` </br>
-Note: verify that the affordance_util library was indeed installed in the /usr/local/lib folder and that the header was placed in the /usr/local/include folder. If it was installed somewhere else, replace the path in the above call. When uninstalling and reinstalling, manually delete the affordance_util-related files in those folders.
-### Repeat the above process for the cc_affordance planner package
-### Next, build ROS packages
-Building must be done in the following order: </br>
-affordance_util_ros</br>
-moveit_plan_and_viz</br>
-After the above two packages are installed, the following packages can be installed in any order (or together)</br>
-cc_affordance_planner_ros</br>
-joint_traj_and_tf_recorder</br>
+# Affordance Planning Framework
+
+This repository encompasses two C++ packages, namely `affordance_util` and `cc_affordance_planner`, collectively forming an independent framework for affordance planning based on the closed-chain affordance model described in the paper referenced at `<paper_reference>`.
+
+## Install the `affordance_util` Library
+
+### 1. Create a Build Folder
+
+Execute the following commands to create a build folder at the same level as the `src` folder in the CMake package:
+
+```bash
+mkdir build
+cd build
+```
+
+### 2. Configure the Build
+Run CMake to configure the build process. This will generate the build system files in the build directory. Also turn the PIC flag on so the ROS packages that use this can make shared objects.
+```bash
+cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+```
+
+### 3. Build the project
+Execute the following command to build the project:
+```bash
+cmake --build .
+```
+
+### 4. Install the Project
+To install the project and make the library and header files available for other projects, run:
+```bash
+cmake --install .
+```
+### 5. Repeat the above process for the cc_affordance_planner package
+
+At this point, if you need to use these libraries in other projects you can do so by adding the following to your CMakeLists file and linking the libraries, for instance, `affordance_util` against your desired targets:
+```cmake
+FIND_LIBRARY(affordance_util_LIBRARIES affordance_util /usr/local/lib)
+```
+Note: verify that the libraries were indeed installed in the /usr/local/lib folder and that the header files were placed in the /usr/local/include folder. If installed elsewhere, replace the path in the above call.
