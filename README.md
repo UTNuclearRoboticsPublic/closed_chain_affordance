@@ -45,9 +45,6 @@ This repository encompasses two C++ packages, namely `affordance_util` and `cc_a
 
 7. Remove the temporary directory along with this repo clone since we don't need them anymore:
    ```
-   cd ~/temp_cca_ws
-   ```
-   ```
    rm -rf ~/temp_cca_ws
    ```
 
