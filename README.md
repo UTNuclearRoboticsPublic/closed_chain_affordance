@@ -51,5 +51,5 @@ Note: Verify that the libraries were indeed installed in the /usr/local/lib fold
 
 ## ROS2 Implementation
 
-If using ROS2 to interface the closed-chain affordance planner with a physical robot, go to the main branch of this repository and follow instructions there:
-   [ROS2 implementation instructions](git@github.com:UTNuclearRobotics/closed_chain_affordance.git)
+If using ROS2 to interface the closed-chain affordance planner with a physical robot, go to the main branch of this repository and follow instructions there:</br>
+   [ROS2 implementation instructions](https://github.com/UTNuclearRobotics/closed_chain_affordance/tree/main)
