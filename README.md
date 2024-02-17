@@ -4,7 +4,7 @@ This repository encompasses two C++ packages, namely `affordance_util` and `cc_a
 
 ## Installation Instructions
 
-1. Create a temporary directory and clone this repository in there.
+1. Create a temporary directory and clone this repository in there:
    ```
    mkdir ~/temp_cca_ws
    ```
@@ -26,7 +26,7 @@ This repository encompasses two C++ packages, namely `affordance_util` and `cc_a
    cd build
    ```
 
-3. Run CMake to configure the build process. This will generate the build system files in the build directory. Also turn the PIC flag on so the ROS packages that use this can make shared objects.
+3. Run CMake to configure the build process. This will generate the build system files in the build directory. Also turn the PIC flag on so the ROS packages that use this can make shared objects:
    ```
    cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON
    ```
@@ -42,6 +42,14 @@ This repository encompasses two C++ packages, namely `affordance_util` and `cc_a
    ```
 
 6. Repeat the above process for the `cc_affordance_planner` package.
+
+7. Remove the temporary directory along with this repo clone since we don't need them anymore:
+   ```
+   cd ~/temp_cca_ws
+   ```
+   ```
+   rm -rf ~/temp_cca_ws
+   ```
 
 At this point, if you need to use these libraries in other projects, you can do so by adding the following to your CMakeLists file and linking the libraries, for instance, `affordance_util` against your desired targets:
 ```cmake
