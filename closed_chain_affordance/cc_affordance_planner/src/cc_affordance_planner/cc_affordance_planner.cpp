@@ -9,23 +9,23 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
 
     auto start_time = std::chrono::high_resolution_clock::now(); // Monitor clock to track planning time
 
-    //** Alg1:L1: Determine relevant matrix and vector sizes based on task_offset_tau
+    //**Alg1:L1: Define affordance step, p_aff_step_deltatheta_a : Defined as class public variable
+
+    //** Alg1:L2: Determine relevant matrix and vector sizes based on task_offset_tau
     nof_pjoints_ = slist.cols() - task_offset_tau;
     nof_sjoints_ = task_offset_tau;
 
-    //**Alg1:L1 and Alg1:L2: Set start guesses and step goal
+    //**Alg1:L3 and Alg1:L2: Set start guesses and step goal
     Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sg; // We set the affordance goal in the loop in reference to the start state
 
-    //**Alg1:L3: Compute no. of iterations, stepper_max_itr_m to final goal, theta_adf
+    //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal, theta_adf
     const int stepper_max_itr_m = theta_adf / p_aff_step_deltatheta_a + 1;
 
-    //**Alg1:L4: Initialize loop counter, loop_counter_k; success counter, success_counter_s
+    //**Alg1:L5: Initialize loop counter, loop_counter_k; success counter, success_counter_s
     int loop_counter_k = 0;
     int success_counter_s = 0;
-
-    //**Alg1:L5: Define affordance step, p_aff_step_deltatheta_a : Defined as class public variable
 
     while (loop_counter_k < stepper_max_itr_m) //**Alg1:L6
     {
@@ -34,7 +34,7 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
 
         //**Alg1:L8: Update aff step goal:
         // If last iteration, adjust affordance step accordingly
-        if (loop_counter_k == (stepper_max_itr_m - 1)) //**Alg1:L9
+        if (loop_counter_k == (stepper_max_itr_m)) //**Alg1:L9
         {
             p_aff_step_deltatheta_a = theta_adf - p_aff_step_deltatheta_a * (stepper_max_itr_m - 1); //**Alg1:L10
         }                                                                                            //**Alg1:L11
@@ -99,24 +99,24 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::cc_ik_solver(const Eigen::Ma
     Eigen::VectorXd thetalist; // helper variable holding theta_p, theta_s
     thetalist.conservativeResize(slist.cols());
 
-    // Alg2:L1: Capture guesses
+    //**Alg2:L1: Set max. no. of iterations, p_max_itr_l, and error thresholds, p_task_err_threshold_eps_s,
+    // p_closure_err_threshold_eps_r: Defined as class public variables
+
+    //** Alg2:L2: Set dt as small time increment
+    const double dt = 1e-2; // time step to compute joint velocities
+
+    // Alg2:L3: Capture guesses
     Eigen::VectorXd theta_p = theta_pg;
     Eigen::VectorXd theta_s = theta_sg;
-
-    //** Alg2:L2: Set dt as small time increment: Defined as class private variable
-    const double dt = 1e-2; // time step to compute joint velocities
 
     Eigen::VectorXd oldtheta_p =
         Eigen::VectorXd::Zero(nof_pjoints_); // capture theta_p to compute joint velocities below for Alg2:L8
 
-    //**Alg2:L3: Initialize loop counter, loop_counter_i
+    //**Alg2:L4: Initialize loop counter, loop_counter_i
     int loop_counter_i = 0;
 
-    //**Alg2:L4: Start closure error at 0
+    //**Alg2:L5: Start closure error at 0
     Eigen::Matrix<double, twist_length_, 1> rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
-
-    //**Alg2:L5: Set max. no. of iterations, p_max_itr_l, and error thresholds, p_task_err_threshold_eps_s,
-    // p_closure_err_threshold_eps_r: Defined as class public variables
 
     // Compute error
     bool err =
