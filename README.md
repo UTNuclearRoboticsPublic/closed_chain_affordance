@@ -38,7 +38,7 @@ This repository encompasses two C++ packages, namely `affordance_util` and `cc_a
 
 5. Install the `affordance_util` library and header files:
    ```
-   cmake --install .
+   sudo cmake --install .
    ```
 
 6. Repeat the above process for the `cc_affordance_planner` package.
