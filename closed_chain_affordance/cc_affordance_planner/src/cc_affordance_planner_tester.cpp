@@ -61,10 +61,9 @@ int main()
 
     // Output screw axes for debugging purposes
     /* std::cout << "Here is the list of screws: \n" << slist << std::endl; */
-    /* ; */
 
     // Start angles
-    const double aff_goal = 0.3;
+    const double aff_goal = 0.35;
 
     // Construct the planner object
     CcAffordancePlanner ccAffordancePlanner;
