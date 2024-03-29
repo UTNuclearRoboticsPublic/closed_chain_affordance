@@ -128,7 +128,8 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::cc_ik_solver(const Eigen::Ma
 
         //**Alg2:L8: Compute Np, Ns as screw-based Jacobians
         thetalist << theta_p, theta_s;
-        Eigen::MatrixXd jac = AffordanceUtil::JacobianSpace(slist, thetalist);
+        /* Eigen::MatrixXd jac = AffordanceUtil::JacobianSpace(slist, thetalist); */
+        Eigen::MatrixXd jac = AffordanceUtil::JacobianBody(slist, thetalist);
         Eigen::MatrixXd Np = jac.leftCols(nof_pjoints_);
         Eigen::MatrixXd Ns = jac.rightCols(nof_sjoints_);
 
@@ -138,8 +139,10 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::cc_ik_solver(const Eigen::Ma
         //**Alg2:L10: Compute N using Eqn. 22
         Eigen::MatrixXd pinv_Ns; // pseudo-inverse of Ns
         pinv_Ns = Ns.completeOrthogonalDecomposition().pseudoInverse();
+        /* pinv_Ns = Ns.transpose(); */
         Eigen::MatrixXd pinv_theta_pdot; // pseudo-inverse of theta_pdot
         pinv_theta_pdot = theta_pdot.completeOrthogonalDecomposition().pseudoInverse();
+        /* pinv_theta_pdot = theta_pdot.transpose(); */
 
         Eigen::MatrixXd N = -pinv_Ns * (Np + rho * pinv_theta_pdot);
 
@@ -148,6 +151,7 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::cc_ik_solver(const Eigen::Ma
         //**Alg2:L11: Update theta_p using Eqn. 24
         Eigen::MatrixXd pinv_N;
         pinv_N = N.completeOrthogonalDecomposition().pseudoInverse(); // pseudo-inverse of N
+        /* pinv_N = N.transpose(); // pseudo-inverse of N */
 
         theta_p = theta_p + pinv_N * (theta_sd - theta_s); // Update using Newton-Raphson
 
@@ -185,7 +189,8 @@ void CcAffordancePlanner::closure_error_optimizer(
     const Eigen::Matrix4d des_endlink_htm_ = Eigen::Matrix4d::Identity(); // Desired HTM for the end link
     thetalist << theta_p, theta_s;
     Eigen::Matrix4d Tse =
-        AffordanceUtil::FKinSpace(des_endlink_htm_, slist, thetalist); // HTM of actual end of ground link
+        /* AffordanceUtil::FKinSpace(des_endlink_htm_, slist, thetalist); // HTM of actual end of ground link */
+        AffordanceUtil::FKinBody(des_endlink_htm_, slist, thetalist); // HTM of actual end of ground link
 
     //**Alg3:L2: Compute closure error
     Eigen::Matrix<double, twist_length_, 1> rho =
@@ -197,14 +202,16 @@ void CcAffordancePlanner::closure_error_optimizer(
     Nc << Np, Ns; // Combine Np and Ns horizontally
     Eigen::MatrixXd pinv_Nc;
     pinv_Nc = Nc.completeOrthogonalDecomposition().pseudoInverse(); // pseudo-inverse of N
-    const Eigen::VectorXd delta_theta = pinv_Nc * rho;              // correction differential
+    /* pinv_Nc = Nc.transpose();                          // pseudo-inverse of N */
+    const Eigen::VectorXd delta_theta = pinv_Nc * rho; // correction differential
 
     theta_p = theta_p + delta_theta.head(nof_pjoints_);
     theta_s = theta_s + delta_theta.tail(nof_sjoints_);
 
     // Compute final error
     thetalist << theta_p, theta_s;
-    Tse = AffordanceUtil::FKinSpace(des_endlink_htm_, slist, thetalist);
+    /* Tse = AffordanceUtil::FKinSpace(des_endlink_htm_, slist, thetalist); */
+    Tse = AffordanceUtil::FKinBody(des_endlink_htm_, slist, thetalist);
     rho = AffordanceUtil::Adjoint(Tse) *
           AffordanceUtil::se3ToVec(AffordanceUtil::MatrixLog6(AffordanceUtil::TransInv(Tse)));
 }
