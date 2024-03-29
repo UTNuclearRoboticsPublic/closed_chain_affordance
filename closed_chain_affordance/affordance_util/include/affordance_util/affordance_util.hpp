@@ -164,6 +164,17 @@ RobotConfig robot_builder(const std::string &config_file_path);
 Eigen::MatrixXd Adjoint(const Eigen::Matrix4d &htm);
 
 /**
+ * @brief Given a list of body-form screws and corresponding magnitudes,
+ * computes the body-form Jacobian
+ *
+ * @param Blist Body-form screws as columns of a matrix
+ * @param thetalist Screw magnitudes as a column vector
+ *
+ * @return Body-form Jacobian
+ */
+Eigen::MatrixXd JacobianBody(const Eigen::MatrixXd &Blist, const Eigen::VectorXd &thetalist);
+
+/**
  * @brief Given a list of space-form screws and corresponding magnitudes,
  * computes the space-form Jacobian
  *
@@ -212,6 +223,23 @@ Eigen::Vector3d so3ToVec(const Eigen::Matrix3d &so3mat);
  * @return Tuple of 3-vector axis and corresponding angle
  */
 std::tuple<Eigen::Vector3d, double> AxisAng3(const Eigen::Vector3d &expc3);
+
+/**
+ * @brief Computes the body-form forward kinematics of the robot
+ *
+ * @param M Home configuration (position and orientation) of the
+ * end-effector
+ *
+ * @param Blist Joint screw axes in the body frame when the manipulator
+ * is at the home position
+ *
+ * @param thetalist List of joint coordinates
+ *
+ * @return T in SE(3) representing the end-effector frame, when the joints are
+ * at the specified coordinates (i.t.o Body Frame)
+ */
+Eigen::Matrix4d FKinBody(const Eigen::Matrix4d &M, const Eigen::MatrixXd &Blist, const Eigen::VectorXd &thetalist);
+
 /**
  * @brief Computes the space-form forward kinematics of the robot
  *

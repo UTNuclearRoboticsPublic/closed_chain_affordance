@@ -169,16 +169,33 @@ Eigen::MatrixXd Adjoint(const Eigen::Matrix4d &htm)
 
     return adjoint;
 }
+
+Eigen::MatrixXd JacobianBody(const Eigen::MatrixXd &Blist, const Eigen::VectorXd &thetalist)
+{
+    const size_t jacColSize = thetalist.size();
+    Eigen::MatrixXd Jb(6, jacColSize);
+    Jb.col(jacColSize - 1) = Blist.col(jacColSize - 1); // last column is simply the last screw
+    Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+
+    // Compute the Jacobian using the POE formula and adjoint representation
+    for (int i = thetalist.size() - 2; i >= 0; i--)
+    {
+        T = T * MatrixExp6(VecTose3(-1.0 * Blist.col(i + 1) * thetalist(i + 1)));
+        Jb.col(i) = Adjoint(T) * Blist.col(i);
+    }
+    return Jb;
+}
+
 Eigen::MatrixXd JacobianSpace(const Eigen::MatrixXd &Slist, const Eigen::VectorXd &thetalist)
 {
 
-    const int jacColSize = thetalist.size();
+    const size_t jacColSize = thetalist.size();
     Eigen::MatrixXd Js(6, jacColSize);
     Js.col(0) = Slist.col(0); // first column is simply the first screw axis
     Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
 
     // Compute the Jacobian using the POE formula and adjoint representation
-    for (int i = 1; i < jacColSize; i++)
+    for (size_t i = 1; i < jacColSize; i++)
     {
         T *= MatrixExp6(VecTose3(Slist.col(i - 1) * thetalist(i - 1)));
         Js.col(i) = Adjoint(T) * Slist.col(i);
@@ -249,6 +266,16 @@ std::tuple<Eigen::Vector3d, double> AxisAng3(const Eigen::Vector3d &expc3)
     // by the angle
     const Eigen::Vector3d omghat = expc3 / theta;
     return std::make_tuple(omghat, theta);
+}
+
+Eigen::Matrix4d FKinBody(const Eigen::Matrix4d &M, const Eigen::MatrixXd &Blist, const Eigen::VectorXd &thetalist)
+{
+    Eigen::Matrix4d T(M);
+    for (size_t i = 0; i < thetalist.size(); i++)
+    {
+        T = T * MatrixExp6(VecTose3(Blist.col(i) * thetalist(i)));
+    }
+    return T;
 }
 
 Eigen::Matrix4d FKinSpace(const Eigen::Matrix4d &M, const Eigen::MatrixXd &Slist, const Eigen::VectorXd &thetalist)
