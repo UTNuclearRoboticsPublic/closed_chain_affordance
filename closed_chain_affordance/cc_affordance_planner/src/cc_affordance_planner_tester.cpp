@@ -1,5 +1,6 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <affordance_util/affordance_util.hpp>
 #include <cc_affordance_planner/cc_affordance_planner.hpp>
 
 // This tester includes hardcoded UR5 robot info to test the CC Affordance
@@ -59,6 +60,14 @@ int main()
         slist.col(i) << wcurr, -wcurr.cross(qcurr);
     }
 
+    Eigen::Matrix4d M = Eigen::Matrix4d::Identity();
+    M.block<3, 1>(0, 3) = q.col(6);
+    Eigen::MatrixXd blist = AffordanceUtil::Adjoint(M.inverse()) * slist;
+    std::cout << "\nM:\n" << M << std::endl;
+    std::cout << "\nslist:\n" << slist << std::endl;
+    std::cout << "\nM inverse:\n" << M.inverse() << std::endl;
+    std::cout << "\nAdjoint:\n" << AffordanceUtil::Adjoint(M.inverse()) << std::endl;
+    std::cout << "\nHere are the body-frame screws:\n" << blist << std::endl;
     // Output screw axes for debugging purposes
     /* std::cout << "Here is the list of screws: \n" << slist << std::endl; */
 
@@ -74,7 +83,8 @@ int main()
     const int task_offset = 1;
 
     // Run the planner
-    PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper(slist, aff_goal, task_offset);
+    /* PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper(slist, aff_goal, task_offset); */
+    PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper(blist, aff_goal, task_offset);
 
     // Print the first point in the trajectory if planner succeeds and display the Matlab solution as well
     if (plannerResult.success)

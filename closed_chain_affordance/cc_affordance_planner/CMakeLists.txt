@@ -45,4 +45,4 @@ install(FILES include/${PROJECT_NAME}/${PROJECT_NAME}.hpp
 
 # Library Tester
 add_executable(${PROJECT_NAME}_tester src/${PROJECT_NAME}_tester.cpp)
-target_link_libraries(${PROJECT_NAME}_tester ${PROJECT_NAME})
+target_link_libraries(${PROJECT_NAME}_tester ${PROJECT_NAME} affordance_util)
