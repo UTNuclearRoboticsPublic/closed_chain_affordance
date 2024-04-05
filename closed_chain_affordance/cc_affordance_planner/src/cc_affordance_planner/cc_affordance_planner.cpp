@@ -119,8 +119,8 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::cc_ik_solver(const Eigen::Ma
     Eigen::Matrix<double, twist_length_, 1> rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
 
     // Compute error
-    bool err =
-        (((theta_sd - theta_s).norm() > p_task_err_threshold_eps_s) || rho.norm() > p_closure_err_threshold_eps_r);
+    bool err = (((theta_sd - theta_s).norm() > abs(p_accuracy * p_aff_step_deltatheta_a)) ||
+                rho.norm() > p_closure_err_threshold_eps_r);
 
     while (err && loop_counter_i < p_max_itr_l) //**Alg2:L6
     {
@@ -156,8 +156,8 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::cc_ik_solver(const Eigen::Ma
                                                      theta_s); // theta_s and theta_p returned by reference
 
         // Check error
-        err =
-            (((theta_sd - theta_s).norm() > p_task_err_threshold_eps_s) || rho.norm() > p_closure_err_threshold_eps_r);
+        err = (((theta_sd - theta_s).norm() > abs(p_accuracy * p_aff_step_deltatheta_a)) ||
+               rho.norm() > p_closure_err_threshold_eps_r);
 
     } //**Alg2:L13
 
