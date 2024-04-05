@@ -70,7 +70,8 @@ int main()
 
     // Set algorithm parameters
     ccAffordancePlanner.p_aff_step_deltatheta_a = 0.1;
-    ccAffordancePlanner.p_task_err_threshold_eps_s = 0.001;
+    /* ccAffordancePlanner.p_task_err_threshold_eps_s = 0.001; */
+    ccAffordancePlanner.p_accuracy = 0.01;
     const int task_offset = 1;
 
     // Run the planner
