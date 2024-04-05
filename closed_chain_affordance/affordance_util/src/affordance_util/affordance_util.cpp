@@ -73,7 +73,9 @@ Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const
     }
 
     // Affordance screw
-    app_slist.col(3) = aff_screw;
+    app_slist.col(3) =
+        -aff_screw; // The motion of the last closed-chain joint is in the opposite direction of the affordance since
+                    // the ground link is fixed and it is the affordance link that moves instead
 
     // Altogether
     Eigen::MatrixXd slist(robot_slist.rows(), (robot_slist.cols() + app_slist.cols()));
