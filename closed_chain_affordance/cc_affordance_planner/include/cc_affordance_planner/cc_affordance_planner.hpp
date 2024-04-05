@@ -66,9 +66,9 @@ struct PlannerResult
  *          resulting in a trajectory with 5 points, where from start to end, the intermediate affordance goals
  *          are 0.1, 0.2, 0.3, 0.4, and 0.5 rad.
  *
- *        - Another important parameter is p_task_err_threshold_eps_s, representing the error threshold
- *          for the affordance step. For instance, if 10% accuracy is desired for a 0.1 rad step, set the error
- * 	    threshold to 0.01 rad.
+ *        - Another important parameter is p_accuracy, which represents the threshold for the affordance goal (and
+ *          step). For instance, if 10% accuracy is desired for 1rad goal, set accuracy to 0.1. This will produce joint
+ *          solutions that result in an affordance goal of 1 +- 0.1
  *
  *        - Advanced users can utilize two additional parameters:
  *          - p_closure_err_threshold_eps_r: Specify the error threshold for the closed-chain closure error.
@@ -82,8 +82,8 @@ class CcAffordancePlanner
   public:
     // See Doxygen brief above
     double p_aff_step_deltatheta_a = 0.1;
-    double p_task_err_threshold_eps_s = 0.01;
     double p_closure_err_threshold_eps_r = 1e-6;
+    double p_accuracy = 10.0;
     int p_max_itr_l = 50;
 
     // Constructor
