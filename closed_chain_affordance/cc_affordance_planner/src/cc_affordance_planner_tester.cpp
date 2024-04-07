@@ -73,9 +73,12 @@ int main()
     /* ccAffordancePlanner.p_task_err_threshold_eps_s = 0.001; */
     ccAffordancePlanner.p_accuracy = 0.01;
     const int task_offset = 1;
+    Eigen::VectorXd sec_goal(1);
+    sec_goal.tail(1).setConstant(aff_goal);
 
     // Run the planner
-    PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper(slist, aff_goal, task_offset);
+    /* PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper(slist, aff_goal, task_offset); */
+    PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper(slist, sec_goal, task_offset);
 
     // Print the first point in the trajectory if planner succeeds and display the Matlab solution as well
     if (plannerResult.success)

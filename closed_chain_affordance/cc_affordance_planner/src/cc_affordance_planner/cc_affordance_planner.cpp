@@ -1,10 +1,13 @@
 #include <cc_affordance_planner/cc_affordance_planner.hpp>
 
 CcAffordancePlanner::CcAffordancePlanner() {}
-PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &slist, const double &theta_adf,
+/* PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &slist, const double &theta_adf, */
+/*                                                       const size_t &task_offset_tau) */
+PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &slist, const Eigen::VectorXd &sec_goal,
                                                       const size_t &task_offset_tau)
 {
 
+    const double theta_adf = sec_goal.tail(1)(0);
     PlannerResult plannerResult; // Result of the planner
 
     auto start_time = std::chrono::high_resolution_clock::now(); // Monitor clock to track planning time
@@ -18,7 +21,8 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
     //**Alg1:L3 and Alg1:L2: Set start guesses and step goal
     Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
-    Eigen::VectorXd theta_sd = theta_sg; // We set the affordance goal in the loop in reference to the start state
+    Eigen::VectorXd theta_sd = sec_goal; // We set the affordance goal in the loop in reference to the start state
+    theta_sd.tail(1).setConstant(0.0);   // start affordance at 0 but gripper orientation as specified
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal, theta_adf
     const int stepper_max_itr_m = theta_adf / p_aff_step_deltatheta_a + 1;
@@ -42,6 +46,7 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
         // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
         // theta_sd
         theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) + p_aff_step_deltatheta_a; //**Alg1:L12
+        std::cout << "\n**CCA theta_sd: " << theta_sd.transpose() << std::endl;
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
         std::optional<Eigen::VectorXd> ik_result =
@@ -56,6 +61,7 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
             //**Alg1:L16 Update guesses, theta_pg, theta_sg
             theta_sg = traj_point.tail(nof_sjoints_);
             theta_pg = traj_point.head(nof_pjoints_);
+            std::cout << "\n**CCA successful theta_sg: " << theta_sg.transpose() << std::endl;
 
             success_counter_s = success_counter_s + 1; //**Alg1:L17
         }                                              //**Alg1:L18
@@ -119,8 +125,9 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::cc_ik_solver(const Eigen::Ma
     Eigen::Matrix<double, twist_length_, 1> rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
 
     // Compute error
-    bool err = (((theta_sd - theta_s).norm() > abs(p_accuracy * p_aff_step_deltatheta_a)) ||
-                rho.norm() > p_closure_err_threshold_eps_r);
+    bool err =
+        (((theta_sd - theta_s).norm() > abs(p_accuracy * p_aff_step_deltatheta_a)) ||
+         rho.norm() > p_closure_err_threshold_eps_r); // Need to think about this more in terms of gripper or goals
 
     while (err && loop_counter_i < p_max_itr_l) //**Alg2:L6
     {
@@ -138,8 +145,10 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::cc_ik_solver(const Eigen::Ma
         //**Alg2:L10: Compute N using Eqn. 22
         Eigen::MatrixXd pinv_Ns; // pseudo-inverse of Ns
         pinv_Ns = Ns.completeOrthogonalDecomposition().pseudoInverse();
+        /* pinv_Ns = Ns.transpose(); */
         Eigen::MatrixXd pinv_theta_pdot; // pseudo-inverse of theta_pdot
         pinv_theta_pdot = theta_pdot.completeOrthogonalDecomposition().pseudoInverse();
+        /* pinv_theta_pdot = theta_pdot.transpose(); */
 
         Eigen::MatrixXd N = -pinv_Ns * (Np + rho * pinv_theta_pdot);
 
@@ -148,8 +157,33 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::cc_ik_solver(const Eigen::Ma
         //**Alg2:L11: Update theta_p using Eqn. 24
         Eigen::MatrixXd pinv_N;
         pinv_N = N.completeOrthogonalDecomposition().pseudoInverse(); // pseudo-inverse of N
+        /* pinv_N = N.transpose(); // pseudo-inverse of N */
 
-        theta_p = theta_p + pinv_N * (theta_sd - theta_s); // Update using Newton-Raphson
+        /* theta_p = theta_p + pinv_N * (theta_sd - theta_s); // Update using Newton-Raphson */
+
+        // Damped Least Squares
+        /***********************************************************************************/
+        // Define lambda as a constant or a parameter
+        /* double lambda = 0.2; */
+        double lambda = 0.02;
+
+        std::cout << "N*N.transpose(): \n" << N * N.transpose() << std::endl;
+        // Calculate N*N.transpose() only once
+        Eigen::MatrixXd NNt;
+        NNt.conservativeResize(pinv_Ns.rows(), pinv_Ns.rows());
+        NNt = N * N.transpose();
+
+        // Perform the Damped Least Squares computation
+        Eigen::VectorXd delta_theta =
+            N.transpose() *
+            ((NNt + lambda * lambda * Eigen::MatrixXd::Identity(pinv_Ns.rows(), pinv_Ns.rows()))
+                 .completeOrthogonalDecomposition()
+                 .pseudoInverse()) *
+            (theta_sd - theta_s);
+
+        theta_p += delta_theta;
+
+        /***********************************************************************************/
 
         //**Alg2:L12: Call Algorithm 3 with args, theta_s, theta_p, slist, Np, Ns
         CcAffordancePlanner::closure_error_optimizer(slist, Np, Ns, theta_p,

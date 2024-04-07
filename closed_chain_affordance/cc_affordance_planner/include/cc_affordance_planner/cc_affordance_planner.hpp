@@ -106,7 +106,9 @@ class CcAffordancePlanner
      * traj_full_or_partial indicating full or partial trajectory with values, "Full", "Partial", or "Unset"; joint_traj
      * representing the joint trajectory; and planning_time representing time taken for planning in microseconds.
      */
-    PlannerResult affordance_stepper(const Eigen::MatrixXd &slist, const double &theta_adf,
+    /* PlannerResult affordance_stepper(const Eigen::MatrixXd &slist, const double &theta_adf, */
+    /*                                  const size_t &task_offset_tau); */
+    PlannerResult affordance_stepper(const Eigen::MatrixXd &slist, const Eigen::VectorXd &sec_goal,
                                      const size_t &task_offset_tau);
     /**
      * @brief Given a list of closed-chain Screws, initial primary and secondary joint guesses, and desired secondary
