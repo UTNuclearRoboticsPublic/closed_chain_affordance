@@ -54,6 +54,7 @@ struct PlannerResult
     std::string traj_full_or_partial;
     std::vector<Eigen::VectorXd> joint_traj;
     std::chrono::microseconds planning_time; // ms
+    std::string update_method = "inverse";
 };
 
 /**
@@ -122,8 +123,14 @@ class CcAffordancePlanner
      * @return Eigen::VectorXd containing the inverse kinematics solution (including the exact secondary joint goals as
      * well)
      */
-    std::optional<Eigen::VectorXd> cc_ik_solver(const Eigen::MatrixXd &slist, const Eigen::VectorXd &theta_pg,
-                                                const Eigen::VectorXd &theta_sg, const Eigen::VectorXd &theta_sd);
+    std::optional<Eigen::VectorXd> call_cc_ik_solver(const Eigen::MatrixXd &slist, const Eigen::VectorXd &theta_pg,
+                                                     const Eigen::VectorXd &theta_sg, const Eigen::VectorXd &theta_sd);
+
+  private:
+    constexpr static size_t twist_length_ = 6; // length of a twist vector
+    size_t nof_pjoints_;                       // number of primary joints
+    size_t nof_sjoints_;                       // number of secondary joints
+    bool dls_flag_ = false;
 
     /**
      * @brief Given a list of closed-chain screw axes, primary and secondary network matrices, and primary and secondary
@@ -135,13 +142,14 @@ class CcAffordancePlanner
      * @param theta_p Eigen::VectorXd containing primary joint angles
      * @param theta_s Eigen::VectorXd containing secondary joint angles
      */
-    void closure_error_optimizer(const Eigen::MatrixXd &slist, const Eigen::MatrixXd &Np, const Eigen::MatrixXd &Ns,
-                                 Eigen::VectorXd &theta_p,
-                                 Eigen::VectorXd &theta_s); // theta_sg and theta_p returned by referece
+    void adjust_for_closure_error(const Eigen::MatrixXd &slist, const Eigen::MatrixXd &Np, const Eigen::MatrixXd &Ns,
+                                  Eigen::VectorXd &theta_p,
+                                  Eigen::VectorXd &theta_s); // theta_sg and theta_p returned by referece
 
-  private:
-    constexpr static size_t twist_length_ = 6; // length of a twist vector
-    size_t nof_pjoints_;                       // number of primary joints
-    size_t nof_sjoints_;                       // number of secondary joints
+    void update_theta_p_with_dls(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
+                                 const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &N, const double &lambda = 1.1);
+
+    void update_theta_p_with_inverse(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
+                                     const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &pinv_N);
 };
 #endif // CC_AFFORDANCE_PLANNER

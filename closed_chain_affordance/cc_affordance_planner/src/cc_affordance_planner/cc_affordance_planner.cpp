@@ -46,11 +46,10 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
         // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
         // theta_sd
         theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) + p_aff_step_deltatheta_a; //**Alg1:L12
-        std::cout << "\n**CCA theta_sd: " << theta_sd.transpose() << std::endl;
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
         std::optional<Eigen::VectorXd> ik_result =
-            CcAffordancePlanner::cc_ik_solver(slist, theta_pg, theta_sg, theta_sd);
+            CcAffordancePlanner::call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd);
 
         if (ik_result.has_value()) //**Alg1:L14
         {
@@ -61,7 +60,6 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
             //**Alg1:L16 Update guesses, theta_pg, theta_sg
             theta_sg = traj_point.tail(nof_sjoints_);
             theta_pg = traj_point.head(nof_pjoints_);
-            std::cout << "\n**CCA successful theta_sg: " << theta_sg.transpose() << std::endl;
 
             success_counter_s = success_counter_s + 1; //**Alg1:L17
         }                                              //**Alg1:L18
@@ -92,13 +90,16 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
         plannerResult.traj_full_or_partial = "Unset";
     }
 
+    // Indicate if DLS was used
+    plannerResult.update_method = dls_flag_ ? "dls" : plannerResult.update_method;
+
     return plannerResult;
 }
 
-std::optional<Eigen::VectorXd> CcAffordancePlanner::cc_ik_solver(const Eigen::MatrixXd &slist,
-                                                                 const Eigen::VectorXd &theta_pg,
-                                                                 const Eigen::VectorXd &theta_sg,
-                                                                 const Eigen::VectorXd &theta_sd)
+std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eigen::MatrixXd &slist,
+                                                                      const Eigen::VectorXd &theta_pg,
+                                                                      const Eigen::VectorXd &theta_sg,
+                                                                      const Eigen::VectorXd &theta_sd)
 {
 
     /* Eigen resizings */
@@ -109,7 +110,8 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::cc_ik_solver(const Eigen::Ma
     // p_closure_err_threshold_eps_r: Defined as class public variables
 
     //** Alg2:L2: Set dt as small time increment
-    const double dt = 1e-2; // time step to compute joint velocities
+    const double dt = 1e-2;              // time step to compute joint velocities
+    const double cond_N_threshold = 100; // condition number threshold to consider singularities
 
     // Alg2:L3: Capture guesses
     Eigen::VectorXd theta_p = theta_pg;
@@ -145,49 +147,29 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::cc_ik_solver(const Eigen::Ma
         //**Alg2:L10: Compute N using Eqn. 22
         Eigen::MatrixXd pinv_Ns; // pseudo-inverse of Ns
         pinv_Ns = Ns.completeOrthogonalDecomposition().pseudoInverse();
-        /* pinv_Ns = Ns.transpose(); */
         Eigen::MatrixXd pinv_theta_pdot; // pseudo-inverse of theta_pdot
         pinv_theta_pdot = theta_pdot.completeOrthogonalDecomposition().pseudoInverse();
-        /* pinv_theta_pdot = theta_pdot.transpose(); */
 
         Eigen::MatrixXd N = -pinv_Ns * (Np + rho * pinv_theta_pdot);
 
         oldtheta_p = theta_p; // capture theta_p to compute joint velocities below for Alg2:L8
 
-        //**Alg2:L11: Update theta_p using Eqn. 24
-        Eigen::MatrixXd pinv_N;
-        pinv_N = N.completeOrthogonalDecomposition().pseudoInverse(); // pseudo-inverse of N
-        /* pinv_N = N.transpose(); // pseudo-inverse of N */
-
-        /* theta_p = theta_p + pinv_N * (theta_sd - theta_s); // Update using Newton-Raphson */
-
-        // Damped Least Squares
-        /***********************************************************************************/
-        // Define lambda as a constant or a parameter
-        /* double lambda = 0.2; */
-        double lambda = 0.02;
-
-        std::cout << "N*N.transpose(): \n" << N * N.transpose() << std::endl;
-        // Calculate N*N.transpose() only once
-        Eigen::MatrixXd NNt;
-        NNt.conservativeResize(pinv_Ns.rows(), pinv_Ns.rows());
-        NNt = N * N.transpose();
-
-        // Perform the Damped Least Squares computation
-        Eigen::VectorXd delta_theta =
-            N.transpose() *
-            ((NNt + lambda * lambda * Eigen::MatrixXd::Identity(pinv_Ns.rows(), pinv_Ns.rows()))
-                 .completeOrthogonalDecomposition()
-                 .pseudoInverse()) *
-            (theta_sd - theta_s);
-
-        theta_p += delta_theta;
-
-        /***********************************************************************************/
+        // Update theta_p (by reference)
+        Eigen::MatrixXd pinv_N = N.completeOrthogonalDecomposition().pseudoInverse(); // pseudo-inverse of N
+        double cond_N = N.norm() * pinv_N.norm();
+        if (cond_N > cond_N_threshold) // Use the damped-least-squares method near singularities
+        {
+            dls_flag_ = true;
+            update_theta_p_with_dls(theta_p, theta_sd, theta_s, N);
+        }
+        else // Use the regular inverse method
+        {
+            update_theta_p_with_inverse(theta_p, theta_sd, theta_s, pinv_N);
+        }
 
         //**Alg2:L12: Call Algorithm 3 with args, theta_s, theta_p, slist, Np, Ns
-        CcAffordancePlanner::closure_error_optimizer(slist, Np, Ns, theta_p,
-                                                     theta_s); // theta_s and theta_p returned by reference
+        adjust_for_closure_error(slist, Np, Ns, theta_p,
+                                 theta_s); // theta_s and theta_p returned by reference
 
         // Check error
         err = (((theta_sd - theta_s).norm() > abs(p_accuracy * p_aff_step_deltatheta_a)) ||
@@ -206,7 +188,7 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::cc_ik_solver(const Eigen::Ma
     }
 }
 
-void CcAffordancePlanner::closure_error_optimizer(
+void CcAffordancePlanner::adjust_for_closure_error(
     const Eigen::MatrixXd &slist, const Eigen::MatrixXd &Np, const Eigen::MatrixXd &Ns, Eigen::VectorXd &theta_p,
     Eigen::VectorXd &theta_s) //**Alg3:L5 // theta_s and theta_p returned by reference
 {
@@ -241,4 +223,29 @@ void CcAffordancePlanner::closure_error_optimizer(
     Tse = AffordanceUtil::FKinSpace(des_endlink_htm_, slist, thetalist);
     rho = AffordanceUtil::Adjoint(Tse) *
           AffordanceUtil::se3ToVec(AffordanceUtil::MatrixLog6(AffordanceUtil::TransInv(Tse)));
+}
+
+void CcAffordancePlanner::update_theta_p_with_dls(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
+                                                  const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &N,
+                                                  const double &lambda)
+{
+
+    const Eigen::MatrixXd NNt = N * N.transpose();
+    const Eigen::MatrixXd I = Eigen::MatrixXd::Identity(NNt.rows(), NNt.cols());
+
+    // Compute delta_theta_p using the Damped-Least-Squares method
+    const Eigen::VectorXd delta_theta_p =
+        N.transpose() * ((NNt + std::pow(lambda, 2) * I).completeOrthogonalDecomposition().pseudoInverse()) *
+        (theta_sd - theta_s);
+
+    theta_p += delta_theta_p;
+}
+
+void CcAffordancePlanner::update_theta_p_with_inverse(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
+                                                      const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &pinv_N)
+{
+
+    //**Alg2:L11: Update theta_p using Eqn. 24
+    const Eigen::VectorXd delta_theta_p = pinv_N * (theta_sd - theta_s);
+    theta_p += delta_theta_p; // Update using Newton-Raphson
 }
