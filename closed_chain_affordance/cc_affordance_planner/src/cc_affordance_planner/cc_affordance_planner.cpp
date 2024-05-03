@@ -21,8 +21,10 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
     //**Alg1:L3 and Alg1:L2: Set start guesses and step goal
     Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
-    Eigen::VectorXd theta_sd = sec_goal; // We set the affordance goal in the loop in reference to the start state
-    theta_sd.tail(1).setConstant(0.0);   // start affordance at 0 but gripper orientation as specified
+    /* Eigen::VectorXd theta_sd = sec_goal; // We set the affordance goal in the loop in reference to the start state */
+    /* theta_sd.tail(1).setConstant(0.0);   // start affordance at 0 but gripper orientation as specified */
+    Eigen::VectorXd theta_sd =
+        Eigen::VectorXd::Zero(nof_sjoints_); // We set the affordance goal in the loop in reference to the start state
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal, theta_adf
     const int stepper_max_itr_m = theta_adf / p_aff_step_deltatheta_a + 1;
@@ -45,7 +47,12 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
 
         // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
         // theta_sd
-        theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) + p_aff_step_deltatheta_a; //**Alg1:L12
+        theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - p_aff_step_deltatheta_a; //**Alg1:L12
+        if (task_offset_tau == 2)
+        {
+            theta_sd(nof_sjoints_ - 2) =
+                theta_sd(nof_sjoints_ - 2) - p_aff_step_deltatheta_a; // Ensure orientation does not change
+        }
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
         std::optional<Eigen::VectorXd> ik_result =
@@ -213,7 +220,25 @@ void CcAffordancePlanner::adjust_for_closure_error(
     Nc << Np, Ns; // Combine Np and Ns horizontally
     Eigen::MatrixXd pinv_Nc;
     pinv_Nc = Nc.completeOrthogonalDecomposition().pseudoInverse(); // pseudo-inverse of N
-    const Eigen::VectorXd delta_theta = pinv_Nc * rho;              // correction differential
+
+    double cond_Nc = Nc.norm() * pinv_Nc.norm();
+    Eigen::VectorXd delta_theta(nof_pjoints_ + nof_sjoints_);
+    if (cond_Nc > 100) // Use the damped-least-squares method near singularities
+    {
+        dls_flag_ = true;
+        double lambda = 1.1;
+        const Eigen::MatrixXd NcNct = Nc * Nc.transpose();
+        const Eigen::MatrixXd I = Eigen::MatrixXd::Identity(NcNct.rows(), NcNct.cols());
+
+        delta_theta = Nc.transpose() *
+                      ((NcNct + std::pow(lambda, 2) * I).completeOrthogonalDecomposition().pseudoInverse()) *
+                      rho; // correction differential
+    }
+    else
+    {
+        delta_theta = pinv_Nc * rho; // correction differential
+        /* const Eigen::VectorXd delta_theta = pinv_Nc * rho; // correction differential */
+    }
 
     theta_p = theta_p + delta_theta.head(nof_pjoints_);
     theta_s = theta_s + delta_theta.tail(nof_sjoints_);

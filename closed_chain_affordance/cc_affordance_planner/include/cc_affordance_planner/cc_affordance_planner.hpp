@@ -85,7 +85,7 @@ class CcAffordancePlanner
     double p_aff_step_deltatheta_a = 0.1;
     double p_closure_err_threshold_eps_r = 1e-6;
     double p_accuracy = 10.0;
-    int p_max_itr_l = 50;
+    int p_max_itr_l = 200;
 
     // Constructor
     CcAffordancePlanner();
