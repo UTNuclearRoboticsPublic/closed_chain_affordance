@@ -162,7 +162,8 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
         oldtheta_p = theta_p; // capture theta_p to compute joint velocities below for Alg2:L8
 
         // Update theta_p (by reference)
-        Eigen::MatrixXd pinv_N = N.completeOrthogonalDecomposition().pseudoInverse(); // pseudo-inverse of N
+        /* Eigen::MatrixXd pinv_N = N.completeOrthogonalDecomposition().pseudoInverse(); // pseudo-inverse of N */
+        Eigen::MatrixXd pinv_N = N.transpose(); // pseudo-inverse of N
         double cond_N = N.norm() * pinv_N.norm();
         if (cond_N > cond_N_threshold) // Use the damped-least-squares method near singularities
         {
