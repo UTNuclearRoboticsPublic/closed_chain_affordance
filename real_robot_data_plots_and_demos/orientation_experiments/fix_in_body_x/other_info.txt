@@ -1,0 +1,7 @@
+screw axis: 1, 0, 0
+location: (0.619487, 0.147585,0.220212) wrt arm0_base_link
+goal: (1.0) * M_PI
+step: 0.2
+tau:2 such that the closed-chain is robot, virtual EE (y,z,x), and affordance, and the relevant gripper axis is x-axis, gripper frame x-orientation fixed at 0
+preliminary planning time: 1248459 us
+accuracy: 10%
