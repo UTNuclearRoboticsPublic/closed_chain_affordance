@@ -319,8 +319,8 @@ yyaxis left
 
 % Add grid
 grid on
-xlim([-200 50])
-ylim([0 250])
+xlim([-50 300])
+ylim([50 400])
 
 xlabel(ax_ee_traj_error2, 'y(mm)');
 ylabel(ax_ee_traj_error2, 'z(mm)');
