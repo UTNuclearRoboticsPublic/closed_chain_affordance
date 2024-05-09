@@ -183,7 +183,7 @@ else
 end
 
 % Joint state column headers
-js_end_index = 70; % specify end to truncate saturated readings
+js_end_index = 50; % specify end to truncate saturated readings
 joint_names = {'arm0_shoulder_yaw', 'arm0_shoulder_pitch', 'arm0_elbow_pitch', 'arm0_elbow_roll', 'arm0_wrist_pitch', 'arm0_wrist_roll'};
 
 % Extract data and plot
@@ -200,7 +200,7 @@ grid on
 % Set fontsizes for various plot parameters
 title_fontsize = 50;
 label_fontsize = 50;
-legend_fontsize = 27;
+legend_fontsize = 38;
 tick_fontsize = 50;
 grid_lw = 1.5;
 
@@ -219,15 +219,15 @@ ax_joint_states.XLabel.FontSize = label_fontsize;
 ax_joint_states.YLabel.FontSize = label_fontsize;
 ax_joint_states.ZLabel.FontSize = label_fontsize;
 ax_joint_states.Legend.FontSize = legend_fontsize;
-ax_joint_states.Legend.Location = "northwest";
+ax_joint_states.Legend.Location = "east";
 ax_joint_states.Title.FontSize = title_fontsize;
 ax_joint_states.GridLineWidth = grid_lw;
 
 % Set legend position
-% legend_position = ax_joint_states.Legend.Position;
-% shift_amount_x = 0.3825; 
-% shift_amount_y = 0.1825; 
-% ax_joint_states.Legend.Position = [legend_position(1) + shift_amount_x, legend_position(2)+ shift_amount_y, legend_position(3), legend_position(4)];
+legend_position = ax_joint_states.Legend.Position;
+shift_amount_x = 0.3825; 
+shift_amount_y = 0.1825; 
+ax_joint_states.Legend.Position = [legend_position(1) + shift_amount_x, legend_position(2)+ shift_amount_y, legend_position(3), legend_position(4)];
 
 % Plot Error between predicted and actual EE cartesian trajectory
 fig3 = figure(3); 
@@ -438,9 +438,9 @@ xlabel(ax_ee_or, 'time (t), s');
 ylabel(ax_ee_or, 'ee orientation, rad');
 title(ax_ee_or, ['EE Orientation YZX Euler Angles - ',title_postfix]);
 text(ax_ee_or, 3, -0.8, sprintf('r_p = %.3f*t %.3f : predicted', pred_polyfit_euler_x), ...
-    'Rotation', -25, 'FontWeight', 'bold', 'FontSize',25, 'Color', 'r');
+    'Rotation', -27, 'FontWeight', 'bold', 'FontSize',25, 'Color', 'r');
 text(ax_ee_or, 2.3, -2.0, sprintf('r_a = %.3f*t %.3f : actual', act_polyfit_euler_x), ...
-    'Rotation', -25, 'FontWeight', 'bold', 'FontSize',25);
+    'Rotation', -27, 'FontWeight', 'bold', 'FontSize',25);
 legend([pred_or_plot_euler_y, pred_or_plot_euler_z, pred_or_plot_euler_x_trend, act_or_plot_euler_y, act_or_plot_euler_z, act_or_plot_euler_x_trend], 'Color', 'none');
 
 % Set fontsizes for various plot parameters
