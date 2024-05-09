@@ -59,9 +59,12 @@ end
 %% Read CSV files
 pred_data_relative_filepath = fullfile(script_dir, 'pred_tf_and_joint_states_data.csv'); % can specify relative filepath if needed
 act_data_relative_filepath = fullfile(script_dir, 'act_tf_and_joint_states_data.csv');
+pred_euler_data_relative_filepath = fullfile(script_dir, 'pred_tf_and_joint_states_data_euler.csv'); % can specify relative filepath if needed
+act_euler_data_relative_filepath = fullfile(script_dir, 'act_tf_and_joint_states_data_euler.csv');
 df_pred = readtable(pred_data_relative_filepath);
 df_act = readtable(act_data_relative_filepath);
-
+df_pred_euler = readtable(pred_euler_data_relative_filepath);
+df_act_euler = readtable(act_euler_data_relative_filepath);
 %% Create a figure with subplots
 fig = figure; 
 
@@ -179,7 +182,7 @@ else
 end
 
 % Joint state column headers
-js_end_index = 50; % specify end to truncate saturated readings
+js_end_index = 24; % specify end to truncate saturated readings
 joint_names = {'arm0_shoulder_yaw', 'arm0_shoulder_pitch', 'arm0_elbow_pitch', 'arm0_elbow_roll', 'arm0_wrist_pitch', 'arm0_wrist_roll'};
 
 % Extract data and plot
@@ -196,7 +199,7 @@ grid on
 % Set fontsizes for various plot parameters
 title_fontsize = 50;
 label_fontsize = 50;
-legend_fontsize = 38;
+legend_fontsize = 29;
 tick_fontsize = 50;
 grid_lw = 1.5;
 
@@ -215,15 +218,15 @@ ax_joint_states.XLabel.FontSize = label_fontsize;
 ax_joint_states.YLabel.FontSize = label_fontsize;
 ax_joint_states.ZLabel.FontSize = label_fontsize;
 ax_joint_states.Legend.FontSize = legend_fontsize;
-ax_joint_states.Legend.Location = "east";
+ax_joint_states.Legend.Location = "northwest";
 ax_joint_states.Title.FontSize = title_fontsize;
 ax_joint_states.GridLineWidth = grid_lw;
 
 % Set legend position
-legend_position = ax_joint_states.Legend.Position;
-shift_amount_x = 0.3825; 
-shift_amount_y = 0.1825; 
-ax_joint_states.Legend.Position = [legend_position(1) + shift_amount_x, legend_position(2)+ shift_amount_y, legend_position(3), legend_position(4)];
+% legend_position = ax_joint_states.Legend.Position;
+% shift_amount_x = 0.3825; 
+% shift_amount_y = 0.1825; 
+% ax_joint_states.Legend.Position = [legend_position(1) + shift_amount_x, legend_position(2)+ shift_amount_y, legend_position(3), legend_position(4)];
 
 % Plot Error between predicted and actual EE cartesian trajectory
 fig3 = figure(3); 
@@ -381,6 +384,97 @@ ax_ee_traj_error2.Title.FontSize = title_fontsize;
 ax_ee_traj_error2.GridLineWidth = grid_lw;
 ax_ee_traj_error2.Legend.FontSize = legend_fontsize;
 ax_ee_traj_error2.Legend.Location = "northwest";
+
+
+
+%----------------Orientation Plots--------------------------------
+% Set fontsizes for various plot parameters
+title_fontsize = 35;
+label_fontsize = 35;
+legend_fontsize = 30;
+tick_fontsize = 30;
+grid_lw = 1.5;
+% Plot
+fig5 = figure(5);
+ax_ee_or = subplot(1, 1, 1, 'Parent', fig5);
+
+% Predicted
+pred_or_plot_euler_x = plot(ax_ee_or, df_pred_euler{:, 'Timestep'}, ...
+    df_pred_euler{:, 'EulerX'}, ...
+    'r-o', 'LineWidth', 8, 'DisplayName', 'predicted roll');
+hold on;
+pred_or_plot_euler_z = plot(ax_ee_or, df_pred_euler{:, 'Timestep'}, ...
+    df_pred_euler{:, 'EulerZ'}, ...
+    'b-o', 'LineWidth', 8, 'DisplayName', 'predicted yaw');
+pred_polyfit_euler_y = polyfit(df_pred_euler{:, 'Timestep'}, df_pred_euler{:, 'EulerY'}, 1);
+pred_p_timestep = [min(df_pred_euler{:, 'Timestep'}) max(df_pred_euler{:, 'Timestep'})];
+pred_p_euler_y = polyval(pred_polyfit_euler_y, pred_p_timestep);
+pred_or_plot_euler_y = scatter(ax_ee_or, df_pred_euler{:, 'Timestep'}, ...
+    df_pred_euler{:, 'EulerY'}, ...
+    100, 'filled', 'MarkerFaceColor', 'g', 'SizeData', 150);
+pred_or_plot_euler_y_trend = plot(ax_ee_or, pred_p_timestep, pred_p_euler_y, ...
+    'g', 'LineWidth', 7, 'DisplayName', 'predicted pitch');
+
+
+% Actual
+% Predicted
+act_or_plot_euler_x = plot(ax_ee_or, df_act_euler{:, 'Timestep'}, ...
+    df_act_euler{:, 'EulerX'}, ...
+     '-o', 'LineWidth', 8, 'DisplayName', 'actual roll');
+act_or_plot_euler_x.Color = '#000000';
+hold on;
+act_or_plot_euler_z = plot(ax_ee_or, df_act_euler{:, 'Timestep'}, ...
+    df_act_euler{:, 'EulerZ'}, ...
+    '-o', 'LineWidth', 8, 'DisplayName', 'actual yaw');
+act_or_plot_euler_z.Color = '#A2142F';
+act_polyfit_euler_y = polyfit(df_act_euler{:, 'Timestep'}, df_act_euler{:, 'EulerY'}, 1);
+act_p_timestep = [min(df_act_euler{:, 'Timestep'}) max(df_act_euler{:, 'Timestep'})];
+act_p_euler_y = polyval(act_polyfit_euler_y, act_p_timestep);
+act_or_plot_euler_y = scatter(ax_ee_or, df_act_euler{:, 'Timestep'}, ...
+    df_act_euler{:, 'EulerY'}, ...
+    100, 'filled','SizeData', 150);
+act_or_plot_euler_y.MarkerFaceColor = '#7E2F8E';
+act_or_plot_euler_y_trend = plot(ax_ee_or, act_p_timestep, act_p_euler_y, ...
+    'LineWidth', 7, 'DisplayName', 'actual pitch');
+act_or_plot_euler_y_trend.Color = '#7E2F8E';
+
+% [P, S] = polyfit(df_act_euler{:, 'Timestep'}, df_act_euler{:, 'EulerY'}, 1)
+% R_squared = 1 - (S.normr/norm(df_act_euler{:, 'EulerY'} - mean(df_act_euler{:, 'EulerY'})))^2
+
+% Enforce equal aspect ratio
+axis equal
+pbaspect([1 1 1])
+
+% Add grid
+grid on
+% xlim([-50 300])
+% ylim([50 400])
+
+xlabel(ax_ee_or, 'time (t), s');
+ylabel(ax_ee_or, 'ee orientation, rad');
+title(ax_ee_or, ['EE Orientation XYZ Euler Angles - ',title_postfix]);
+% text(ax_ee_or, 0.2, 0.1, sprintf('p_p = %.3f*t + %.3f : predicted', pred_polyfit_euler_y), ...
+%     'Rotation', -35, 'FontWeight', 'bold', 'FontSize',25, 'Color', 'g');
+% text(ax_ee_or, -0.3, 0.0, sprintf('p_a = %.3f*t %.3f : actual', act_polyfit_euler_y), ...
+    % 'Rotation', -35, 'FontWeight', 'bold', 'FontSize',25, 'Color', '#7E2F8E');
+legend([pred_or_plot_euler_x, pred_or_plot_euler_y_trend, pred_or_plot_euler_z,  act_or_plot_euler_x, act_or_plot_euler_y_trend, act_or_plot_euler_z], 'Color', 'none');
+
+% Set fontsizes for various plot parameters
+ax_ee_or.XAxis.FontSize = tick_fontsize; 
+ax_ee_or.XAxis.FontWeight = 'bold';
+ax_ee_or.YAxis.FontSize = tick_fontsize;
+ax_ee_or.YAxis.FontWeight = 'bold';
+
+ax_ee_or.XLabel.FontSize = label_fontsize;
+ax_ee_or.YLabel.FontSize = label_fontsize; 
+
+ax_ee_or.Title.FontSize = title_fontsize;
+ax_ee_or.GridLineWidth = grid_lw;
+ax_ee_or.Legend.FontSize = legend_fontsize;
+ax_ee_or.Legend.AutoUpdate = 'off';
+ax_ee_or.Legend.Location = "east";
+
+
 
 
 
