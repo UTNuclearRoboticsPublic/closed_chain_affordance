@@ -183,7 +183,7 @@ else
 end
 
 % Joint state column headers
-js_end_index = 50; % specify end to truncate saturated readings
+js_end_index = 48; % specify end to truncate saturated readings
 joint_names = {'arm0_shoulder_yaw', 'arm0_shoulder_pitch', 'arm0_elbow_pitch', 'arm0_elbow_roll', 'arm0_wrist_pitch', 'arm0_wrist_roll'};
 
 % Extract data and plot
@@ -200,7 +200,7 @@ grid on
 % Set fontsizes for various plot parameters
 title_fontsize = 50;
 label_fontsize = 50;
-legend_fontsize = 38;
+legend_fontsize = 30;
 tick_fontsize = 50;
 grid_lw = 1.5;
 
@@ -225,8 +225,10 @@ ax_joint_states.GridLineWidth = grid_lw;
 
 % Set legend position
 legend_position = ax_joint_states.Legend.Position;
-shift_amount_x = 0.3825; 
-shift_amount_y = 0.1825; 
+% shift_amount_x = 0.3825; 
+% shift_amount_y = 0.1825; 
+shift_amount_x = -0.26; 
+shift_amount_y = 0.225; 
 ax_joint_states.Legend.Position = [legend_position(1) + shift_amount_x, legend_position(2)+ shift_amount_y, legend_position(3), legend_position(4)];
 
 % Plot Error between predicted and actual EE cartesian trajectory
@@ -323,8 +325,8 @@ yyaxis left
 
 % Add grid
 grid on
-xlim([-50 300])
-ylim([50 400])
+xlim([-200 300])
+ylim([0 500])
 
 xlabel(ax_ee_traj_error2, 'y(mm)');
 ylabel(ax_ee_traj_error2, 'z(mm)');
@@ -374,6 +376,12 @@ ax_ee_traj_error2.Legend.FontSize = legend_fontsize;
 ax_ee_traj_error2.Legend.Location = "northwest";
 
 %----------------Orientation Plots--------------------------------
+% Set fontsizes for various plot parameters
+title_fontsize = 35;
+label_fontsize = 35;
+legend_fontsize = 25;
+tick_fontsize = 30;
+grid_lw = 1.5;
 % Plot
 fig5 = figure(5);
 ax_ee_or = subplot(1, 1, 1, 'Parent', fig5);
@@ -393,7 +401,7 @@ pred_or_plot_euler_x = scatter(ax_ee_or, df_pred_euler{:, 'Timestep'}, ...
     df_pred_euler{:, 'EulerX'}, ...
     100, 'filled', 'MarkerFaceColor', 'r', 'SizeData', 150);
 pred_or_plot_euler_x_trend = plot(ax_ee_or, pred_p_timestep, pred_p_euler_x, ...
-    'r', 'LineWidth', 7, 'DisplayName', 'predicted roll');
+    'r', 'LineWidth', 7, 'DisplayName', 'predicted roll, r_p');
 
 
 % Actual
@@ -415,7 +423,7 @@ act_or_plot_euler_x = scatter(ax_ee_or, df_act_euler{:, 'Timestep'}, ...
     100, 'filled','SizeData', 150);
 act_or_plot_euler_x.MarkerFaceColor = '#000000';
 act_or_plot_euler_x_trend = plot(ax_ee_or, act_p_timestep, act_p_euler_x, ...
-    'LineWidth', 7, 'DisplayName', 'actual roll');
+    'LineWidth', 7, 'DisplayName', 'actual roll, r_a');
 act_or_plot_euler_x_trend.Color = '#000000';
 
 % Enforce equal aspect ratio
@@ -427,14 +435,14 @@ grid on
 % xlim([-50 300])
 % ylim([50 400])
 
-xlabel(ax_ee_or, 'timestep, s');
+xlabel(ax_ee_or, 'time (t), s');
 ylabel(ax_ee_or, 'ee orientation, rad');
 title(ax_ee_or, ['EE Orientation YZX Euler Angles - ',title_postfix]);
-text(ax_ee_or, 3, -1.5, sprintf('r = %.3f*t %.3f : predicted', pred_polyfit_euler_x), ...
-    'Rotation', -35, 'FontWeight', 'bold', 'FontSize',20, 'Color', 'r', 'Interpreter','none');
-text(ax_ee_or, 2.6, -2.4, sprintf('r = %.3f*t %.3f : actual', act_polyfit_euler_x), ...
-    'Rotation', -35, 'FontWeight', 'bold', 'FontSize',20,'Interpreter','none');
-legend([pred_or_plot_euler_y, pred_or_plot_euler_z, pred_or_plot_euler_x_trend, act_or_plot_euler_y, act_or_plot_euler_z, act_or_plot_euler_x_trend], 'Interpreter', 'none', 'Color', 'none');
+text(ax_ee_or, 3, -1.5, sprintf('r_p = %.3f*t %.3f : predicted', pred_polyfit_euler_x), ...
+    'Rotation', -35, 'FontWeight', 'bold', 'FontSize',25, 'Color', 'r');
+text(ax_ee_or, 2.6, -2.4, sprintf('r_a = %.3f*t %.3f : actual', act_polyfit_euler_x), ...
+    'Rotation', -35, 'FontWeight', 'bold', 'FontSize',25);
+legend([pred_or_plot_euler_y, pred_or_plot_euler_z, pred_or_plot_euler_x_trend, act_or_plot_euler_y, act_or_plot_euler_z, act_or_plot_euler_x_trend], 'Color', 'none');
 
 % Set fontsizes for various plot parameters
 ax_ee_or.XAxis.FontSize = tick_fontsize; 
@@ -443,7 +451,7 @@ ax_ee_or.YAxis.FontSize = tick_fontsize;
 ax_ee_or.YAxis.FontWeight = 'bold';
 
 ax_ee_or.XLabel.FontSize = label_fontsize;
-ax_ee_or.YLabel.FontSize = label_fontsize;  % Primary Y-axis label
+ax_ee_or.YLabel.FontSize = label_fontsize; 
 
 ax_ee_or.Title.FontSize = title_fontsize;
 ax_ee_or.GridLineWidth = grid_lw;
