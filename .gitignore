@@ -2,3 +2,5 @@
 *.swp
 # all build folders
 build/
+# Malab autosave files
+*.asv
