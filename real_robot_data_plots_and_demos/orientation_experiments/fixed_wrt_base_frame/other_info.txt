@@ -1,0 +1,7 @@
+screw axis: 0, 1, 0
+location:   0.693979, -0.0252093, 0.219907 wrt arm0_base_link
+goal: (1.0 / 2.0) * M_PI
+step: 0.2
+tau:2 such that space frame orientation is preserved. Closed-chain consists of the robot, gripper y axis and affordance
+preliminary planning time: 547988 us
+accuracy: 10%
