@@ -5,3 +5,4 @@ step: 0.2
 tau:2 such that the closed-chain is robot, virtual EE (y,z,x), and affordance, and the relevant gripper axis is x-axis, gripper frame x-orientation fixed at 0
 preliminary planning time: 91305 us
 accuracy: 10%
+Euler angles: yzx

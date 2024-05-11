@@ -52,9 +52,9 @@ end
 title_postfix = strtrim(title_postfix);
 
 % Remove any trailing numbers
-if isstrprop(title_postfix(end), 'digit') 
-    title_postfix =  title_postfix(1:end-1);
-end
+% if isstrprop(title_postfix(end), 'digit') 
+%     title_postfix =  title_postfix(1:end-1);
+% end
 
 %% Read CSV files
 pred_data_relative_filepath = fullfile(script_dir, 'pred_tf_and_joint_states_data.csv'); % can specify relative filepath if needed

@@ -52,9 +52,9 @@ end
 title_postfix = strtrim(title_postfix);
 
 % Remove any trailing numbers
-if isstrprop(title_postfix(end), 'digit') 
-    title_postfix =  title_postfix(1:end-1);
-end
+% if isstrprop(title_postfix(end), 'digit') 
+%     title_postfix =  title_postfix(1:end-1);
+% end
 
 %% Read CSV files
 pred_data_relative_filepath = fullfile(script_dir, 'pred_tf_and_joint_states_data.csv'); % can specify relative filepath if needed
@@ -208,7 +208,7 @@ grid_lw = 1.5;
 xlabel(ax_joint_states, 'time (s)');
 ylabel(ax_joint_states, 'joint states (rad)');
 legend(ax_joint_states,'Interpreter', 'none', 'Color', 'none'); % Don't interpret underscores as cues for subscripts, and don't fill the legend box
-title(ax_joint_states, ['Actual Joint States vs. Time - Valve Turn - ',title_postfix]);
+title(ax_joint_states, ['Actual Joint States vs. Time - ',title_postfix]);
 
 % Set fontsizes for various plot parameters
 ax_joint_states.XAxis.FontSize = tick_fontsize; 
@@ -328,7 +328,7 @@ ylim([50 450])
 
 xlabel(ax_ee_traj_error2, 'y(mm)');
 ylabel(ax_ee_traj_error2, 'z(mm)');
-title(ax_ee_traj_error2, ['EE Trajectory and Error - Valve Turn - ',title_postfix]);
+title(ax_ee_traj_error2, ['EE Trajectory and Error - ',title_postfix]);
 
 yyaxis right
 plot(ax_ee_traj_error2, ...

@@ -5,3 +5,4 @@ step: 0.2
 tau:1 such that the closed-chain is robot and affordance without the virtual EE
 preliminary planning time: 111846 us
 accuracy: 10%
+Euler Angles: XYZ

@@ -52,9 +52,9 @@ end
 title_postfix = strtrim(title_postfix);
 
 % Remove any trailing numbers
-if isstrprop(title_postfix(end), 'digit') 
-    title_postfix =  title_postfix(1:end-1);
-end
+% if isstrprop(title_postfix(end), 'digit') 
+%     title_postfix =  title_postfix(1:end-1);
+% end
 
 %% Read CSV files
 pred_data_relative_filepath = fullfile(script_dir, 'pred_tf_and_joint_states_data.csv'); % can specify relative filepath if needed
@@ -450,7 +450,7 @@ grid on
 
 xlabel(ax_ee_or, 'time (t), s');
 ylabel(ax_ee_or, 'ee orientation, rad');
-title(ax_ee_or, ['EE Orientation XYZ Euler Angles - ',title_postfix]);
+title(ax_ee_or, ['EE Orientation - ',title_postfix]);
 text(ax_ee_or, 0.2, 0.1, sprintf('p_p = %.3f*t + %.3f : predicted', pred_polyfit_euler_y), ...
     'Rotation', -35, 'FontWeight', 'bold', 'FontSize',25, 'Color', 'g');
 text(ax_ee_or, -0.3, 0.0, sprintf('p_a = %.3f*t %.3f : actual', act_polyfit_euler_y), ...
