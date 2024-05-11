@@ -5,3 +5,4 @@ step: 0.2
 tau:2 such that space frame orientation is preserved. Closed-chain consists of the robot, gripper y axis and affordance
 preliminary planning time: 547988 us
 accuracy: 10%
+Euler angles: xyz

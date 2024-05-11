@@ -1,0 +1,4 @@
+case 1: unchanging in fixed frame
+case 2: unchanging in gripper frame
+case 3: roll unchanging in gripper frame
+case 4: free

@@ -452,7 +452,7 @@ grid on
 
 xlabel(ax_ee_or, 'time (t), s');
 ylabel(ax_ee_or, 'ee orientation, rad');
-title(ax_ee_or, ['EE Orientation XYZ Euler Angles - ',title_postfix]);
+title(ax_ee_or, ['EE Orientation - ',title_postfix]);
 % text(ax_ee_or, 0.2, 0.1, sprintf('p_p = %.3f*t + %.3f : predicted', pred_polyfit_euler_y), ...
 %     'Rotation', -35, 'FontWeight', 'bold', 'FontSize',25, 'Color', 'g');
 % text(ax_ee_or, -0.3, 0.0, sprintf('p_a = %.3f*t %.3f : actual', act_polyfit_euler_y), ...
