@@ -3,6 +3,7 @@ location: (0.616291,0.0574117,0.225832) wrt arm0_base_link
 goal: (7.0/3.0) * M_PI
 step: 0.2
 tau:1 such that the closed-chain is robot, virtual EE (y,z,x), and affordance
-preliminary planning time: 66930 us
+preliminary planning time: 64395, 63951, 63906, 65217, 64102us
 accuracy: 10%
 Euler Angles: YZX best represent orientation probably cuz virtual EE was in that order
+update method: transpose
