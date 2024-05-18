@@ -2,4 +2,6 @@ affordance_goal: 0.1999m along x axis
 affordance steps: 0.05m
 accuracy: 10%
 planning_time (us): 7527, 7795, 7706, 7605, 7752
+tau: 1
+closed_chain_model: robot, virtual x,y,z, affordance
 update method: inverse

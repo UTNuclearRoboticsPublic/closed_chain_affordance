@@ -3,4 +3,5 @@ affordance steps: 0.05m
 accuracy: 10%
 planning_time (us): 15375, 15441, 15598, 15574, 15424
 closed_chain_model: robot, virtual x,y,z, affordance
+tau: 1
 update method: inverse
