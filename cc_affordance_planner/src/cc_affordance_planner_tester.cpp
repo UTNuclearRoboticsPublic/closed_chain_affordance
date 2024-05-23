@@ -1,6 +1,8 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <affordance_util/affordance_util.hpp>
 #include <cc_affordance_planner/cc_affordance_planner.hpp>
+#include <iomanip>
 
 // This tester includes hardcoded UR5 robot info to test the CC Affordance
 // planner
@@ -9,6 +11,8 @@
 */
 int main()
 {
+    // Precision for testing
+    std::cout << std::fixed << std::setprecision(4); // Display up to 4 decimal places
 
     //** Geometry
     const double mconv = 1000.0; // conversion factor from mm to m
@@ -23,44 +27,51 @@ int main()
 
     //** Creation of screw axes
     // Screw axis locations from base frame in home position
-    Eigen::MatrixXd q(3, nof_joints_total);
+    Eigen::MatrixXd q(3, nof_joints);
     q.col(0) << 0, 0, H1;
     q.col(1) << 0, W3, H1;
     q.col(2) << L1, W3 - W4, H1;
     q.col(3) << L1 + L2, W3 - W4, H1;
     q.col(4) << L1 + L2, W3 - W4 + W6, H1;
     q.col(5) << L1 + L2, W3 - W4 + W6, H1 - H2;
-    q.col(6) << L1 + L2, W3 - W4 + W6 + W2, H1 - H2; // Imaginary joint
-    q.col(7) << L1 + L2, W3 - W4 + W6 + W2, H1 - H2; // Imaginary joint
-    q.col(8) << L1 + L2, W3 - W4 + W6 + W2, H1 - H2; // Imaginary joint
-    q.col(9) << L1 + L2, W3 - W4 + W6 + W2 + aff,
-        H1 - H2; // Location of affordance frame
 
     // Type and alignment of screw axes
-    Eigen::MatrixXd w(3, 10);
+    Eigen::MatrixXd w(3, nof_joints);
     w.col(0) << 0, 0, 1;
     w.col(1) << 0, 1, 0;
     w.col(2) << 0, 1, 0;
     w.col(3) << 0, 1, 0;
     w.col(4) << 0, 0, -1;
     w.col(5) << 0, 1, 0;
-    w.col(6) << 1, 0, 0; // Imaginary joint
-    w.col(7) << 0, 1, 0; // Imaginary joint
-    w.col(8) << 0, 0, 1; // Imaginary joint
-    w.col(9) << 1, 0, 0; // Affordance
 
-    Eigen::MatrixXd slist(6, nof_joints_total);
+    Eigen::MatrixXd robot_slist(6, nof_joints);
 
     // Construct screw axes and frames
     for (int i = 0; i < w.cols(); i++)
     {
         Eigen::Vector3d wcurr = w.col(i); // required to convert to VectorXd type for use with cross
         Eigen::Vector3d qcurr = q.col(i); // required to convert to VectorXd type for use with cross
-        slist.col(i) << wcurr, -wcurr.cross(qcurr);
+        robot_slist.col(i) << wcurr, -wcurr.cross(qcurr);
     }
 
+    // Matrix representing EE transformation
+    Eigen::Matrix4d M = Eigen::Matrix4d::Identity();
+    M.block<3, 1>(0, 3) << L1 + L2, W3 - W4 + W6 + W2, H1 - H2;
+
+    // Affordance screw
+    Eigen::Vector3d w_aff(1, 0, 0);
+    Eigen::Vector3d q_aff(L1 + L2, W3 - W4 + W6 + W2 + aff, H1 - H2);
+    Eigen::VectorXd aff_screw = AffordanceUtil::get_screw(w_aff, q_aff);
+
+    // Robot start configuration, home position in this case
+    Eigen::VectorXd thetalist(6);
+    thetalist = Eigen::VectorXd::Zero(6);
+
+    // Closed-chain screws
+    Eigen::MatrixXd cc_slist = AffordanceUtil::compose_cc_model_slist(robot_slist, thetalist, M, aff_screw);
+
     // Output screw axes for debugging purposes
-    /* std::cout << "Here is the list of screws: \n" << slist << std::endl; */
+    /* std::cout << "Here is the list of screws: \n" << cc_slist << std::endl; */
 
     // Start angles
     const double aff_goal = 0.35;
@@ -77,8 +88,7 @@ int main()
     sec_goal.tail(1).setConstant(aff_goal);
 
     // Run the planner
-    /* PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper(slist, aff_goal, task_offset); */
-    PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper(slist, sec_goal, task_offset);
+    PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper(cc_slist, sec_goal, task_offset);
 
     // Print the first point in the trajectory if planner succeeds and display the Matlab solution as well
     if (plannerResult.success)
@@ -87,10 +97,12 @@ int main()
         std::cout << "Planner succeeded with " << plannerResult.traj_full_or_partial
                   << " solution, and here is the first point in the trajectory: \n"
                   << solution.at(0) << std::endl;
-        std::cout << "The entire planning took " << plannerResult.planning_time.count() << " microseconds."
-                  << std::endl;
-        Eigen::Matrix<double, 10, 1> matlab_solution;
-        matlab_solution << -0.0006, 0.0118, 0.0008, -0.0093, 0.0031, -0.0017, -0.0994, -0.0019, 0.0036, 0.0994;
+        std::cout << "The entire planning took " << plannerResult.planning_time.count() << " microseconds and "
+                  << plannerResult.update_method << " method was used" << std::endl;
+        Eigen::VectorXd matlab_solution(9); // Excluding affordance
+        /* matlab_solution << -0.0006, 0.0118, 0.0008, -0.0093, 0.0031, -0.0017, -0.0994, -0.0019, 0.0036, */
+        /*     0.0994; // including affordance */
+        matlab_solution << -0.0006, 0.0118, 0.0008, -0.0093, 0.0031, -0.0017, -0.0994, -0.0019, 0.0036;
         std::cout << "The first point of the solution from Matlab for the same setup, i.e. UR5 pure rotation with "
                      "affordance step 0.1, "
                      "and accuracy 1% (or "
@@ -98,7 +110,8 @@ int main()
                   << matlab_solution << std::endl;
 
         // Check if the planner and matlab solution are equal upto 3 decimal places
-        bool are_equal = solution.at(0).isApprox(matlab_solution, 1e-3);
+        bool are_equal =
+            solution.at(0).head(9).isApprox(matlab_solution, 1e-3); // Just compare solution, excluding affordance
         if (are_equal)
         {
             std::cout << "The planner solution first point matches the one from Matlab." << std::endl;

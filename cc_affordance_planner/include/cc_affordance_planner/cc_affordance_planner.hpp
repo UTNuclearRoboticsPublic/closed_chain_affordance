@@ -53,7 +53,7 @@ struct PlannerResult
     bool success;
     std::string traj_full_or_partial;
     std::vector<Eigen::VectorXd> joint_traj;
-    std::chrono::microseconds planning_time; // ms
+    std::chrono::microseconds planning_time;
     std::string update_method = "inverse";
 };
 
@@ -97,7 +97,8 @@ class CcAffordancePlanner
      *
      * @param slist Eigen::MatrixXd containing as columns 6x1 Screws representing all joints of the closed-chain model,
      * i.e. robot joints, virtual ee joint, affordance joint
-     * @param theta_adf Affordance goal for the affordance
+     * @param theta_sdf Eigen::VectorXd containing secondary joint angle goals including EE orientation and affordance
+     * such that the affordance goal is the end element.
      * @param task_offset_tau A numeric parameter indicating the length of the secondary joint vector.
      * The value 1 implies only affordance control, 2 represents affordance control
      * along with fixing the gripper x-axis, 3 involves fixing the gripper x and y axes,
@@ -107,9 +108,7 @@ class CcAffordancePlanner
      * traj_full_or_partial indicating full or partial trajectory with values, "Full", "Partial", or "Unset"; joint_traj
      * representing the joint trajectory; and planning_time representing time taken for planning in microseconds.
      */
-    /* PlannerResult affordance_stepper(const Eigen::MatrixXd &slist, const double &theta_adf, */
-    /*                                  const size_t &task_offset_tau); */
-    PlannerResult affordance_stepper(const Eigen::MatrixXd &slist, const Eigen::VectorXd &sec_goal,
+    PlannerResult affordance_stepper(const Eigen::MatrixXd &slist, const Eigen::VectorXd &theta_sdf,
                                      const size_t &task_offset_tau);
     /**
      * @brief Given a list of closed-chain Screws, initial primary and secondary joint guesses, and desired secondary
@@ -130,11 +129,13 @@ class CcAffordancePlanner
     constexpr static size_t twist_length_ = 6; // length of a twist vector
     size_t nof_pjoints_;                       // number of primary joints
     size_t nof_sjoints_;                       // number of secondary joints
-    bool dls_flag_ = false;
+    double cond_N_threshold_ = 100;            // condition number threshold for N to be considered singular
+    bool dls_flag_ = false;                    // flag indicating whether DLS method was used
+    double lambda_ = 1.1;                      // damping factor for the DLS method
 
     /**
      * @brief Given a list of closed-chain screw axes, primary and secondary network matrices, and primary and secondary
-     * joint angles, returns joint angles corrected for closed-chain closure error
+     * joint angles, returns by reference joint angles corrected for closed-chain closure error.
      *
      * @param slist Eigen::MatrixXd containing as columns 6x1 Screws of the closed-chain mechanism
      * @param Np Eigen::MatrixXd representing primary network matrix
@@ -143,13 +144,18 @@ class CcAffordancePlanner
      * @param theta_s Eigen::VectorXd containing secondary joint angles
      */
     void adjust_for_closure_error(const Eigen::MatrixXd &slist, const Eigen::MatrixXd &Np, const Eigen::MatrixXd &Ns,
-                                  Eigen::VectorXd &theta_p,
-                                  Eigen::VectorXd &theta_s); // theta_sg and theta_p returned by referece
+                                  Eigen::VectorXd &theta_p, Eigen::VectorXd &theta_s);
 
-    void update_theta_p_with_dls(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
-                                 const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &N, const double &lambda = 1.1);
-
-    void update_theta_p_with_inverse(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
-                                     const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &pinv_N);
+    /**
+     * @brief Given the primary joint angles, desired and current secondary joint angles, and constraint Jacobian,
+     * returns by reference updated primary joint angles using the pseudoinverse method or DLS if near singularities.
+     *
+     * @param theta_p Eigen::VectorXd containing primary joint angles
+     * @param theta_sd Eigen::VectorXd containing desired secondary joint angles
+     * @param theta_s Eigen::VectorXd containing secondary joint angles
+     * @param N Eigen::MatrixXd representing the constraint Jacobian
+     */
+    void update_theta_p(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd, const Eigen::VectorXd &theta_s,
+                        const Eigen::MatrixXd &N);
 };
 #endif // CC_AFFORDANCE_PLANNER
