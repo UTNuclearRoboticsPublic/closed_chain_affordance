@@ -17,7 +17,7 @@ This repository encompasses two C++ packages, namely `affordance_util` and `cc_a
 
 2. Navigate to the `affordance_util` directory and create a `build` folder at the same level as the `src` folder and navigate to it:
    ```
-   cd ~/temp_cca_ws/closed_chain_affordance
+   cd closed_chain_affordance/closed_chain_affordance/affordance_util/
    ```
    ```
    mkdir build
@@ -42,6 +42,13 @@ This repository encompasses two C++ packages, namely `affordance_util` and `cc_a
    ```
 
 6. Repeat the above process for the `cc_affordance_planner` package.
+   ```
+   cd ~/temp_cca_ws/closed_chain_affordance/closed_chain_affordance/cc_affordance_planner
+   mkdir build && cd build
+   cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+   cmake --build .
+   sudo cmake --install .
+   ```
 
 7. Remove the temporary directory along with this repo clone since we don't need them anymore:
    ```
