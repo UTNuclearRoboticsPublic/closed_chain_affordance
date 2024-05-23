@@ -3,6 +3,7 @@
 This repository encompasses two C++ packages, namely `affordance_util` and `cc_affordance_planner`, collectively forming a standalone library framework for affordance planning based on the closed-chain affordance model described in the paper referenced at `<paper_reference>`.
 
 ## Installation Instructions
+Follow these steps to install the `affordance_util` and `cc_affordance_planner` libraries:
 
 1. Create a temporary directory and clone this repository in there:
    ```
@@ -48,7 +49,13 @@ This repository encompasses two C++ packages, namely `affordance_util` and `cc_a
    cd && rm -rf ~/temp_cca_ws
    ```
 
-At this point, if you need to use these libraries in other projects, you can do so by adding the following to your CMakeLists file and linking the libraries, for instance, `affordance_util` against your desired targets:
+## ROS2 Implementation
+
+If using ROS2 to interface the closed-chain affordance planner with a physical robot, go to the main branch of this repository and follow instructions there:</br>
+   [ROS2 implementation instructions](https://github.com/UTNuclearRobotics/closed_chain_affordance/tree/main)
+   
+## Optional Usage Information
+If you need to use these libraries in other projects, you can do so by adding the following to your CMakeLists file and linking the libraries, for instance, `affordance_util` against your desired targets:
 ```cmake
 FIND_LIBRARY(affordance_util_LIBRARIES affordance_util /usr/local/lib)
 ```
@@ -66,7 +73,3 @@ ls /usr/local/lib/ | grep cc_affordance_planner
 ls /usr/local/include/ | grep cc_affordance_planner
 ```
 
-## ROS2 Implementation
-
-If using ROS2 to interface the closed-chain affordance planner with a physical robot, go to the main branch of this repository and follow instructions there:</br>
-   [ROS2 implementation instructions](https://github.com/UTNuclearRobotics/closed_chain_affordance/tree/main)
