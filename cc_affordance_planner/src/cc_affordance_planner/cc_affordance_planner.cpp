@@ -1,8 +1,107 @@
 #include <cc_affordance_planner/cc_affordance_planner.hpp>
 
-CcAffordancePlanner::CcAffordancePlanner() {}
-PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &slist, const Eigen::VectorXd &theta_sdf,
-                                                      const size_t &task_offset_tau)
+namespace CcAffordancePlanner
+{
+
+PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, const Eigen::MatrixXd &slist,
+                                        const Eigen::VectorXd &theta_sdf, const size_t &task_offset_tau)
+{
+    PlannerResult plannerResult; // function result
+    std::atomic<bool> result_obtained{false};
+    std::mutex mtx;
+    std::condition_variable cv;
+
+    // Create the inverse and transpose objects
+    CcAffordancePlannerInverse ccAffordancePlannerInverse(plannerConfig);
+    CcAffordancePlannerTranspose ccAffordancePlannerTranspose(plannerConfig);
+    const CcAffordancePlanner *ccAffordancePlannerInversePtr = &ccAffordancePlannerInverse;
+    const CcAffordancePlanner *ccAffordancePlannerTransposePtr = &ccAffordancePlannerTranspose;
+
+    // Run the inverse and transpose planners concurrently in separate threads
+    std::jthread inverse_thread([&]() {
+        PlannerResult result =
+            ccAffordancePlannerInversePtr->generate_joint_trajectory(slist, theta_sdf, task_offset_tau);
+        result.update_method += "inverse";
+        {
+            std::unique_lock<std::mutex> lock(mtx);
+            plannerResult = std::move(result);
+            result_obtained = true;
+        }
+        cv.notify_all();
+    });
+
+    std::jthread transpose_thread([&]() {
+        PlannerResult result =
+            ccAffordancePlannerTransposePtr->generate_joint_trajectory(slist, theta_sdf, task_offset_tau);
+        result.update_method += "transpose";
+        {
+            std::unique_lock<std::mutex> lock(mtx);
+            plannerResult = std::move(result);
+            result_obtained = true;
+        }
+        cv.notify_all();
+    });
+
+    // Wait until a result is found and return
+    std::unique_lock<std::mutex> lock(mtx);
+    cv.wait(lock, [&]() { return result_obtained; });
+
+    // TODO: If the finished planner did not succeed, wait for the other planner
+    // TODO: If partial trajectory is returned, maybe wait for the other planner to see if full trajectory could be
+    // generated
+    return plannerResult;
+}
+
+void CcAffordancePlannerTranspose::update_theta_p(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
+                                                  const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &N)
+{
+
+    //**Alg2:L11: Update theta_p using Eqn. 24 but approximate the inverse with transpose
+    const Eigen::VectorXd delta_theta_p = N.transpose() * (theta_sd - theta_s);
+
+    // Update thate_p using Newton-Raphson
+    theta_p += delta_theta_p;
+}
+
+void CcAffordancePlannerInverse::update_theta_p(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
+                                                const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &N)
+{
+
+    const Eigen::MatrixXd pinv_N = N.completeOrthogonalDecomposition().pseudoInverse(); // pseudo-inverse of N
+    const double cond_N = N.norm() * pinv_N.norm();
+    Eigen::VectorXd delta_theta_p(nof_pjoints_);
+
+    // If N is near-singular use Damped Least Squares
+    if (cond_N > cond_N_threshold_)
+    {
+        dls_flag_ = true;
+        const Eigen::MatrixXd NNt = N * N.transpose();
+        const Eigen::MatrixXd I = Eigen::MatrixXd::Identity(NNt.rows(), NNt.cols());
+
+        // Compute delta_theta_p using the Damped-Least-Squares method
+        delta_theta_p = N.transpose() *
+                        ((NNt + std::pow(lambda_, 2) * I).completeOrthogonalDecomposition().pseudoInverse()) *
+                        (theta_sd - theta_s);
+    }
+    else // Use the regular inverse method
+    {
+        //**Alg2:L11: Update theta_p using Eqn. 24
+        delta_theta_p = pinv_N * (theta_sd - theta_s);
+    }
+
+    // Update thate_p using Newton-Raphson
+    theta_p += delta_theta_p;
+}
+CcAffordancePlanner::CcAffordancePlanner(const PlannerConfig &plannerConfig)
+    : deltatheta_a_(plannerConfig.aff_step),
+      accuracy_(plannerConfig.accuracy),
+      eps_r_(plannerConfig.closure_err_threshold),
+      max_itr_l_(plannerConfig.max_itr)
+{
+}
+PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::MatrixXd &slist,
+                                                             const Eigen::VectorXd &theta_sdf,
+                                                             const size_t &task_offset_tau)
 {
 
     const double theta_adf = theta_sdf.tail(1)(0);
@@ -10,7 +109,7 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
 
     auto start_time = std::chrono::high_resolution_clock::now(); // Monitor clock to track planning time
 
-    //**Alg1:L1: Define affordance step, p_aff_step_deltatheta_a : Defined as class public variable
+    //**Alg1:L1: Define affordance step, deltatheta_a_ : Defined as class public variable
 
     //** Alg1:L2: Determine relevant matrix and vector sizes based on task_offset_tau
     nof_pjoints_ = slist.cols() - task_offset_tau;
@@ -23,7 +122,7 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
     theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal, theta_adf
-    const int stepper_max_itr_m = theta_adf / p_aff_step_deltatheta_a + 1;
+    const int stepper_max_itr_m = theta_adf / deltatheta_a_ + 1;
 
     //**Alg1:L5: Initialize loop counter, loop_counter_k; success counter, success_counter_s
     int loop_counter_k = 0;
@@ -38,12 +137,12 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
         // If last iteration, adjust affordance step accordingly
         if (loop_counter_k == (stepper_max_itr_m)) //**Alg1:L9
         {
-            p_aff_step_deltatheta_a = theta_adf - p_aff_step_deltatheta_a * (stepper_max_itr_m - 1); //**Alg1:L10
-        }                                                                                            //**Alg1:L11
+            deltatheta_a_ = theta_adf - deltatheta_a_ * (stepper_max_itr_m - 1); //**Alg1:L10
+        }                                                                        //**Alg1:L11
 
         // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
         // theta_sd
-        theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - p_aff_step_deltatheta_a; //**Alg1:L12
+        theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a_; //**Alg1:L12
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
         std::optional<Eigen::VectorXd> ik_result =
@@ -89,7 +188,7 @@ PlannerResult CcAffordancePlanner::affordance_stepper(const Eigen::MatrixXd &sli
     }
 
     // Indicate if DLS was used
-    plannerResult.update_method = dls_flag_ ? "dls" : plannerResult.update_method;
+    plannerResult.update_method = dls_flag_ ? " and dls" : plannerResult.update_method;
 
     return plannerResult;
 }
@@ -104,8 +203,8 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
     Eigen::VectorXd thetalist; // helper variable holding theta_p, theta_s
     thetalist.conservativeResize(slist.cols());
 
-    //**Alg2:L1: Set max. no. of iterations, p_max_itr_l, and error thresholds, p_task_err_threshold_eps_s,
-    // p_closure_err_threshold_eps_r: Defined as class public variables
+    //**Alg2:L1: Set max. no. of iterations, max_itr_l_, and error thresholds, p_task_err_threshold_eps_s,
+    // eps_r_: Defined as class public variables
 
     //** Alg2:L2: Set dt as small time increment
     const double dt = 1e-2; // time step to compute joint velocities
@@ -124,11 +223,10 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
     Eigen::Matrix<double, twist_length_, 1> rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
 
     // Compute error
-    bool err =
-        (((theta_sd - theta_s).norm() > abs(p_accuracy * p_aff_step_deltatheta_a)) ||
-         rho.norm() > p_closure_err_threshold_eps_r); // Need to think about this more in terms of gripper or goals
+    bool err = (((theta_sd - theta_s).norm() > abs(accuracy_ * deltatheta_a_)) ||
+                rho.norm() > eps_r_); // Need to think about this more in terms of gripper or goals
 
-    while (err && loop_counter_i < p_max_itr_l) //**Alg2:L6
+    while (err && loop_counter_i < max_itr_l_) //**Alg2:L6
     {
         loop_counter_i = loop_counter_i + 1; //**Alg2:L7
 
@@ -159,8 +257,7 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
                                  theta_s); // theta_s and theta_p returned by reference
 
         // Check error
-        err = (((theta_sd - theta_s).norm() > abs(p_accuracy * p_aff_step_deltatheta_a)) ||
-               rho.norm() > p_closure_err_threshold_eps_r);
+        err = (((theta_sd - theta_s).norm() > abs(accuracy_ * deltatheta_a_)) || rho.norm() > eps_r_);
 
     } //**Alg2:L13
 
@@ -213,32 +310,4 @@ void CcAffordancePlanner::adjust_for_closure_error(
           AffordanceUtil::se3ToVec(AffordanceUtil::MatrixLog6(AffordanceUtil::TransInv(Tse)));
 }
 
-void CcAffordancePlanner::update_theta_p(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
-                                         const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &N)
-{
-
-    const Eigen::MatrixXd pinv_N = N.completeOrthogonalDecomposition().pseudoInverse(); // pseudo-inverse of N
-    const double cond_N = N.norm() * pinv_N.norm();
-    Eigen::VectorXd delta_theta_p(nof_pjoints_);
-
-    // If N is near-singular use Damped Least Squares
-    if (cond_N > cond_N_threshold_)
-    {
-        dls_flag_ = true;
-        const Eigen::MatrixXd NNt = N * N.transpose();
-        const Eigen::MatrixXd I = Eigen::MatrixXd::Identity(NNt.rows(), NNt.cols());
-
-        // Compute delta_theta_p using the Damped-Least-Squares method
-        delta_theta_p = N.transpose() *
-                        ((NNt + std::pow(lambda_, 2) * I).completeOrthogonalDecomposition().pseudoInverse()) *
-                        (theta_sd - theta_s);
-    }
-    else // Use the regular inverse method
-    {
-        //**Alg2:L11: Update theta_p using Eqn. 24
-        delta_theta_p = pinv_N * (theta_sd - theta_s);
-    }
-
-    // Update thate_p using Newton-Raphson
-    theta_p += delta_theta_p;
-}
+} // namespace CcAffordancePlanner

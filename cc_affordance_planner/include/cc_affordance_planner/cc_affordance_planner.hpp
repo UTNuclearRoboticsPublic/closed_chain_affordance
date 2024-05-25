@@ -39,14 +39,17 @@
 #include <chrono>
 #include <iostream>
 #include <optional>
+#include <thread>
 #include <vector>
 
-// Struct to store result from planner
+namespace CcAffordancePlanner
+{
 /**
- * @brief Designed to contain the result of an IK planner with fields:
+ * @brief Designed to contain the result of the Closed-chain Affordance planner with fields:
  * success indicating success; traj_full_or_partial indicating full or partial trajectory with values, "Full",
- * "Partial", or "Unset"; joint_traj representing the joint trajectory; and planning_time representing time taken for
- * planning in microseconds.
+ * "Partial", or "Unset"; joint_traj representing the joint trajectory; planning_time representing time taken for
+ * planning in microseconds; and update_method indicating the type of update scheme used, for instance "inverse",
+ * "inverse with dls", and "transpose".
  */
 struct PlannerResult
 {
@@ -54,26 +57,63 @@ struct PlannerResult
     std::string traj_full_or_partial;
     std::vector<Eigen::VectorXd> joint_traj;
     std::chrono::microseconds planning_time;
-    std::string update_method = "inverse";
+    std::string update_method = ""; // Default is empty
 };
 
+/**
+ * @brief Designed to contain the configuration settings for the Closed-chain Affordance planner with fields: aff_step
+ * indicating the density of the generated trajectory as the distance between two points on the affordance path;
+ * accuracy indicating the accuracy of the planner as percentage; closure_err_threshold indicating the threshold for the
+ * closed-chain closure error; and max_itr indicating the maximum interations for the closed-chain IK solver.
+ */
+struct PlannerConfig
+{
+
+    double aff_step;
+    double accuracy;
+    double closure_err_threshold;
+    int max_itr;
+};
+
+PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, const Eigen::MatrixXd &slist,
+                                        const Eigen::VectorXd &theta_sdf, const size_t &task_offset_tau);
+
+class CcAffordancePlannerTranspose : public CcAffordancePlanner
+{
+  public:
+    explicit CcAffordancePlannerTranspose(const PlannerConfig &plannerConfig) : CcAffordancePlanner(plannerConfig) {}
+
+  private:
+    virtual void update_theta_p(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
+                                const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &N) override;
+};
+
+class CcAffordancePlannerInverse : public CcAffordancePlanner
+{
+  public:
+    explicit CcAffordancePlannerInverse(const PlannerConfig &plannerConfig) : CcAffordancePlanner(plannerConfig) {}
+
+  private:
+    virtual void update_theta_p(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
+                                const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &N) override;
+};
 /**
  * @brief Differential joint trajectory planner for a given affordance.
  *        Construct this planner with an empty constructor and set the following planner parameters, which are available
  *        as public variables:
  *
- *        - Use the parameter p_aff_step_deltatheta_a to specify the trajectory density with an affordance step.
+ *        - Use the parameter deltatheta_a_ to specify the trajectory density with an affordance step.
  *          For example, an affordance goal of 0.5 rad could have an affordance step of 0.1 rad,
  *          resulting in a trajectory with 5 points, where from start to end, the intermediate affordance goals
  *          are 0.1, 0.2, 0.3, 0.4, and 0.5 rad.
  *
- *        - Another important parameter is p_accuracy, which represents the threshold for the affordance goal (and
+ *        - Another important parameter is accuracy_, which represents the threshold for the affordance goal (and
  *          step). For instance, if 10% accuracy is desired for 1rad goal, set accuracy to 0.1. This will produce joint
  *          solutions that result in an affordance goal of 1 +- 0.1
  *
  *        - Advanced users can utilize two additional parameters:
- *          - p_closure_err_threshold_eps_r: Specify the error threshold for the closed-chain closure error.
- *          - p_max_itr_l: Specify the maximum iterations for the closed-chain inverse kinematics solver.
+ *          - eps_r_: Specify the error threshold for the closed-chain closure error.
+ *          - max_itr_l_: Specify the maximum iterations for the closed-chain inverse kinematics solver.
  *
  * @note The provided parameters allow users to control the trajectory density, accuracy, and solver behavior.
  */
@@ -81,14 +121,8 @@ struct PlannerResult
 class CcAffordancePlanner
 {
   public:
-    // See Doxygen brief above
-    double p_aff_step_deltatheta_a = 0.1;
-    double p_closure_err_threshold_eps_r = 1e-6;
-    double p_accuracy = 10.0;
-    int p_max_itr_l = 200;
-
     // Constructor
-    CcAffordancePlanner();
+    explicit CcAffordancePlanner(const PlannerConfig &plannerConfig);
 
     // Methods
     /**
@@ -108,8 +142,8 @@ class CcAffordancePlanner
      * traj_full_or_partial indicating full or partial trajectory with values, "Full", "Partial", or "Unset"; joint_traj
      * representing the joint trajectory; and planning_time representing time taken for planning in microseconds.
      */
-    PlannerResult affordance_stepper(const Eigen::MatrixXd &slist, const Eigen::VectorXd &theta_sdf,
-                                     const size_t &task_offset_tau);
+    PlannerResult generate_joint_trajectory(const Eigen::MatrixXd &slist, const Eigen::VectorXd &theta_sdf,
+                                            const size_t &task_offset_tau);
     /**
      * @brief Given a list of closed-chain Screws, initial primary and secondary joint guesses, and desired secondary
      * joint goals, computes the closed-chain inverse kinematics solution.
@@ -126,6 +160,12 @@ class CcAffordancePlanner
                                                      const Eigen::VectorXd &theta_sg, const Eigen::VectorXd &theta_sd);
 
   private:
+    //--Planner config parameters
+    double deltatheta_a_ = 0.1; // affordance step
+    double accuracy_ = 10.0;    // accuracy of the affordance goal
+    double eps_r_ = 1e-6;       // closure error threshold
+    int max_itr_l_ = 200;       // max interations for IK solver
+    //--EOF Planner config parameters
     constexpr static size_t twist_length_ = 6; // length of a twist vector
     size_t nof_pjoints_;                       // number of primary joints
     size_t nof_sjoints_;                       // number of secondary joints
@@ -155,7 +195,8 @@ class CcAffordancePlanner
      * @param theta_s Eigen::VectorXd containing secondary joint angles
      * @param N Eigen::MatrixXd representing the constraint Jacobian
      */
-    void update_theta_p(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd, const Eigen::VectorXd &theta_s,
-                        const Eigen::MatrixXd &N);
+    virtual void update_theta_p(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
+                                const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &N) = 0;
 };
+} // namespace CcAffordancePlanner
 #endif // CC_AFFORDANCE_PLANNER
