@@ -33,7 +33,7 @@
 #ifndef CC_AFFORDANCE_PLANNER
 #define CC_AFFORDANCE_PLANNER
 
-#include "jthread.hpp"
+#include "jthread/jthread.hpp"
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <affordance_util/affordance_util.hpp>
