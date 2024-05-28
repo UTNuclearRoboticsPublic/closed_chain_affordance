@@ -70,7 +70,7 @@ template <int N> struct convert<Eigen::Matrix<double, N, 1>>
 };
 } // namespace YAML
 
-namespace AffordanceUtil
+namespace affordance_util
 {
 /**
  * @brief Struct to describe a joint with its name, axis, and location
@@ -305,6 +305,6 @@ Eigen::Matrix<double, 6, 1> get_screw(const Eigen::Vector3d &w, const Eigen::Vec
  */
 bool NearZero(const double &near);
 
-}; // namespace AffordanceUtil
+}; // namespace affordance_util
 
 #endif // AFFORDANCE_UTIL

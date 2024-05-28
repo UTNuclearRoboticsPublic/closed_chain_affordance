@@ -235,7 +235,7 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
 
         //**Alg2:L8: Compute Np, Ns as screw-based Jacobians
         thetalist << theta_p, theta_s;
-        Eigen::MatrixXd jac = AffordanceUtil::JacobianSpace(slist, thetalist);
+        Eigen::MatrixXd jac = affordance_util::JacobianSpace(slist, thetalist);
         Eigen::MatrixXd Np = jac.leftCols(nof_pjoints_);
         Eigen::MatrixXd Ns = jac.rightCols(nof_sjoints_);
 
@@ -288,12 +288,12 @@ void CcAffordancePlanner::adjust_for_closure_error(
     const Eigen::Matrix4d des_endlink_htm_ = Eigen::Matrix4d::Identity(); // Desired HTM for the end link
     thetalist << theta_p, theta_s;
     Eigen::Matrix4d Tse =
-        AffordanceUtil::FKinSpace(des_endlink_htm_, slist, thetalist); // HTM of actual end of ground link
+        affordance_util::FKinSpace(des_endlink_htm_, slist, thetalist); // HTM of actual end of ground link
 
     //**Alg3:L2: Compute closure error
     Eigen::Matrix<double, twist_length_, 1> rho =
-        AffordanceUtil::Adjoint(Tse) *
-        AffordanceUtil::se3ToVec(AffordanceUtil::MatrixLog6(AffordanceUtil::TransInv(Tse)));
+        affordance_util::Adjoint(Tse) *
+        affordance_util::se3ToVec(affordance_util::MatrixLog6(affordance_util::TransInv(Tse)));
 
     //**Alg3:L3: Adjust joint angles for closure error
     Eigen::MatrixXd Nc(Np.rows(), Np.cols() + Ns.cols());
@@ -308,9 +308,9 @@ void CcAffordancePlanner::adjust_for_closure_error(
 
     // Compute final error
     thetalist << theta_p, theta_s;
-    Tse = AffordanceUtil::FKinSpace(des_endlink_htm_, slist, thetalist);
-    rho = AffordanceUtil::Adjoint(Tse) *
-          AffordanceUtil::se3ToVec(AffordanceUtil::MatrixLog6(AffordanceUtil::TransInv(Tse)));
+    Tse = affordance_util::FKinSpace(des_endlink_htm_, slist, thetalist);
+    rho = affordance_util::Adjoint(Tse) *
+          affordance_util::se3ToVec(affordance_util::MatrixLog6(affordance_util::TransInv(Tse)));
 }
 
 } // namespace cc_affordance_planner

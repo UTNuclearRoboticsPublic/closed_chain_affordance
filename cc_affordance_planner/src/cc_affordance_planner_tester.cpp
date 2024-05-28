@@ -61,14 +61,14 @@ int main()
     // Affordance screw
     Eigen::Vector3d w_aff(1, 0, 0);
     Eigen::Vector3d q_aff(L1 + L2, W3 - W4 + W6 + W2 + aff, H1 - H2);
-    Eigen::VectorXd aff_screw = AffordanceUtil::get_screw(w_aff, q_aff);
+    Eigen::VectorXd aff_screw = affordance_util::get_screw(w_aff, q_aff);
 
     // Robot start configuration, home position in this case
     Eigen::VectorXd thetalist(6);
     thetalist = Eigen::VectorXd::Zero(6);
 
     // Closed-chain screws
-    Eigen::MatrixXd cc_slist = AffordanceUtil::compose_cc_model_slist(robot_slist, thetalist, M, aff_screw);
+    Eigen::MatrixXd cc_slist = affordance_util::compose_cc_model_slist(robot_slist, thetalist, M, aff_screw);
 
     // Output screw axes for debugging purposes
     /* std::cout << "Here is the list of screws: \n" << cc_slist << std::endl; */

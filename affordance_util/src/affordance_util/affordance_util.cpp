@@ -35,7 +35,7 @@ template <int N> Node convert<Eigen::Matrix<double, N, 1>>::encode(const Eigen::
 }
 } // namespace YAML
 
-namespace AffordanceUtil
+namespace affordance_util
 {
 
 Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::VectorXd &thetalist,
@@ -396,4 +396,4 @@ bool NearZero(const double &near)
     const double nearZeroTol_ = 1e-6;
     return std::abs(near) < nearZeroTol_;
 }
-} // namespace AffordanceUtil
+} // namespace affordance_util
