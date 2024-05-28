@@ -1,6 +1,6 @@
 #include <cc_affordance_planner/cc_affordance_planner.hpp>
 
-namespace CcAffordancePlanner
+namespace cc_affordance_planner
 {
 
 PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, const Eigen::MatrixXd &slist,
@@ -14,8 +14,8 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, cons
     // Create the inverse and transpose objects
     CcAffordancePlannerInverse ccAffordancePlannerInverse(plannerConfig);
     CcAffordancePlannerTranspose ccAffordancePlannerTranspose(plannerConfig);
-    const CcAffordancePlanner *ccAffordancePlannerInversePtr = &ccAffordancePlannerInverse;
-    const CcAffordancePlanner *ccAffordancePlannerTransposePtr = &ccAffordancePlannerTranspose;
+    CcAffordancePlanner *ccAffordancePlannerInversePtr = &ccAffordancePlannerInverse;
+    CcAffordancePlanner *ccAffordancePlannerTransposePtr = &ccAffordancePlannerTranspose;
 
     // Run the inverse and transpose planners concurrently in separate threads
     std::jthread inverse_thread([&]() {
@@ -43,12 +43,15 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, cons
     });
 
     // Wait until a result is found and return
-    std::unique_lock<std::mutex> lock(mtx);
-    cv.wait(lock, [&]() { return result_obtained; });
+    {
+        std::unique_lock<std::mutex> lock(mtx);
+        cv.wait(lock, [&result_obtained]() { return result_obtained.load(); }); // capture result_obtained by reference
+    }
 
-    // TODO: If the finished planner did not succeed, wait for the other planner
-    // TODO: If partial trajectory is returned, maybe wait for the other planner to see if full trajectory could be
-    // generated
+    // Future work: If the finished planner did not succeed, wait for the other planner
+    // Future work: If partial trajectory is returned, maybe wait for the other planner to see if full trajectory could
+    // be generated
+
     return plannerResult;
 }
 
@@ -145,8 +148,8 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
         theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a_; //**Alg1:L12
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
-        std::optional<Eigen::VectorXd> ik_result =
-            CcAffordancePlanner::call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd);
+        /* std::optional<Eigen::VectorXd> ik_result = call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd); */
+        std::optional<Eigen::VectorXd> ik_result = this->call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd);
 
         if (ik_result.has_value()) //**Alg1:L14
         {
@@ -250,11 +253,11 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
         oldtheta_p = theta_p; // capture theta_p to compute joint velocities below for Alg2:L8
 
         // Update theta_p using Newton-Raphson
-        update_theta_p(theta_p, theta_sd, theta_s, N); // returned by reference
+        this->update_theta_p(theta_p, theta_sd, theta_s, N); // returned by reference
 
         //**Alg2:L12: Call Algorithm 3 with args, theta_s, theta_p, slist, Np, Ns
-        adjust_for_closure_error(slist, Np, Ns, theta_p,
-                                 theta_s); // theta_s and theta_p returned by reference
+        this->adjust_for_closure_error(slist, Np, Ns, theta_p,
+                                       theta_s); // theta_s and theta_p returned by reference
 
         // Check error
         err = (((theta_sd - theta_s).norm() > abs(accuracy_ * deltatheta_a_)) || rho.norm() > eps_r_);
@@ -310,4 +313,4 @@ void CcAffordancePlanner::adjust_for_closure_error(
           AffordanceUtil::se3ToVec(AffordanceUtil::MatrixLog6(AffordanceUtil::TransInv(Tse)));
 }
 
-} // namespace CcAffordancePlanner
+} // namespace cc_affordance_planner

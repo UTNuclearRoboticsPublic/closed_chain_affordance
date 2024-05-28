@@ -76,19 +76,21 @@ int main()
     // Start angles
     const double aff_goal = 0.35;
 
-    // Construct the planner object
-    CcAffordancePlanner ccAffordancePlanner;
+    // Configure the planner
+    cc_affordance_planner::PlannerConfig plannerConfig;
+    plannerConfig.aff_step = 0.1;
+    plannerConfig.accuracy = 0.01;
+    /* plannerConfig.closure_err_threshold = 1e-6; */
+    /* plannerConfig.max_itr = 200; */
 
     // Set algorithm parameters
-    ccAffordancePlanner.p_aff_step_deltatheta_a = 0.1;
-    /* ccAffordancePlanner.p_task_err_threshold_eps_s = 0.001; */
-    ccAffordancePlanner.p_accuracy = 0.01;
     const int task_offset = 1;
     Eigen::VectorXd sec_goal(1);
     sec_goal.tail(1).setConstant(aff_goal);
 
     // Run the planner
-    PlannerResult plannerResult = ccAffordancePlanner.affordance_stepper(cc_slist, sec_goal, task_offset);
+    cc_affordance_planner::PlannerResult plannerResult =
+        cc_affordance_planner::generate_joint_trajectory(plannerConfig, cc_slist, sec_goal, task_offset);
 
     // Print the first point in the trajectory if planner succeeds and display the Matlab solution as well
     if (plannerResult.success)
