@@ -26,7 +26,7 @@ add_library(${PROJECT_NAME} STATIC
 )
 
 # Link this package's library against affordance_util
-target_link_libraries(${PROJECT_NAME} affordance_util yaml-cpp)
+target_link_libraries(${PROJECT_NAME} affordance_util yaml-cpp pthread)
 
 # Add include directories
 target_include_directories(${PROJECT_NAME} PUBLIC

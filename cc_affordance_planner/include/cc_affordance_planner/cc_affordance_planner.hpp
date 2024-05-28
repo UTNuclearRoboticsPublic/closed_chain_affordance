@@ -33,16 +33,18 @@
 #ifndef CC_AFFORDANCE_PLANNER
 #define CC_AFFORDANCE_PLANNER
 
+#include "jthread.hpp"
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <affordance_util/affordance_util.hpp>
+#include <atomic>
 #include <chrono>
-#include <iostream>
+#include <condition_variable>
+#include <mutex>
 #include <optional>
-#include <thread>
 #include <vector>
 
-namespace CcAffordancePlanner
+namespace cc_affordance_planner
 {
 /**
  * @brief Designed to contain the result of the Closed-chain Affordance planner with fields:
@@ -69,34 +71,15 @@ struct PlannerResult
 struct PlannerConfig
 {
 
-    double aff_step;
-    double accuracy;
-    double closure_err_threshold;
-    int max_itr;
+    double aff_step = 0.1;
+    double accuracy = 10.0 / 100.0;
+    double closure_err_threshold = 1e-6;
+    int max_itr = 200;
 };
 
 PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, const Eigen::MatrixXd &slist,
                                         const Eigen::VectorXd &theta_sdf, const size_t &task_offset_tau);
 
-class CcAffordancePlannerTranspose : public CcAffordancePlanner
-{
-  public:
-    explicit CcAffordancePlannerTranspose(const PlannerConfig &plannerConfig) : CcAffordancePlanner(plannerConfig) {}
-
-  private:
-    virtual void update_theta_p(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
-                                const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &N) override;
-};
-
-class CcAffordancePlannerInverse : public CcAffordancePlanner
-{
-  public:
-    explicit CcAffordancePlannerInverse(const PlannerConfig &plannerConfig) : CcAffordancePlanner(plannerConfig) {}
-
-  private:
-    virtual void update_theta_p(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
-                                const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &N) override;
-};
 /**
  * @brief Differential joint trajectory planner for a given affordance.
  *        Construct this planner with an empty constructor and set the following planner parameters, which are available
@@ -159,19 +142,21 @@ class CcAffordancePlanner
     std::optional<Eigen::VectorXd> call_cc_ik_solver(const Eigen::MatrixXd &slist, const Eigen::VectorXd &theta_pg,
                                                      const Eigen::VectorXd &theta_sg, const Eigen::VectorXd &theta_sd);
 
+  protected:
+    size_t nof_pjoints_;            // number of primary joints
+    size_t nof_sjoints_;            // number of secondary joints
+    double cond_N_threshold_ = 100; // condition number threshold for N to be considered singular
+    bool dls_flag_ = false;         // flag indicating whether DLS method was used
+    double lambda_ = 1.1;           // damping factor for the DLS method
+
   private:
     //--Planner config parameters
-    double deltatheta_a_ = 0.1; // affordance step
-    double accuracy_ = 10.0;    // accuracy of the affordance goal
-    double eps_r_ = 1e-6;       // closure error threshold
-    int max_itr_l_ = 200;       // max interations for IK solver
+    double deltatheta_a_; // affordance step
+    double accuracy_;     // accuracy of the affordance goal
+    double eps_r_;        // closure error threshold
+    int max_itr_l_;       // max interations for IK solver
     //--EOF Planner config parameters
     constexpr static size_t twist_length_ = 6; // length of a twist vector
-    size_t nof_pjoints_;                       // number of primary joints
-    size_t nof_sjoints_;                       // number of secondary joints
-    double cond_N_threshold_ = 100;            // condition number threshold for N to be considered singular
-    bool dls_flag_ = false;                    // flag indicating whether DLS method was used
-    double lambda_ = 1.1;                      // damping factor for the DLS method
 
     /**
      * @brief Given a list of closed-chain screw axes, primary and secondary network matrices, and primary and secondary
@@ -198,5 +183,26 @@ class CcAffordancePlanner
     virtual void update_theta_p(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
                                 const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &N) = 0;
 };
-} // namespace CcAffordancePlanner
+
+class CcAffordancePlannerTranspose : public CcAffordancePlanner
+{
+  public:
+    explicit CcAffordancePlannerTranspose(const PlannerConfig &plannerConfig) : CcAffordancePlanner(plannerConfig) {}
+
+  private:
+    virtual void update_theta_p(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
+                                const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &N) override;
+};
+
+class CcAffordancePlannerInverse : public CcAffordancePlanner
+{
+  public:
+    explicit CcAffordancePlannerInverse(const PlannerConfig &plannerConfig) : CcAffordancePlanner(plannerConfig) {}
+
+  private:
+    virtual void update_theta_p(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
+                                const Eigen::VectorXd &theta_s, const Eigen::MatrixXd &N) override;
+};
+
+} // namespace cc_affordance_planner
 #endif // CC_AFFORDANCE_PLANNER
