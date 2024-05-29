@@ -37,7 +37,6 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <affordance_util/affordance_util.hpp>
-#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
@@ -108,6 +107,8 @@ class CcAffordancePlanner
     explicit CcAffordancePlanner(const PlannerConfig &plannerConfig);
 
     // Methods
+    PlannerResult generate_joint_trajectory(const Eigen::MatrixXd &slist, const Eigen::VectorXd &theta_sdf,
+                                            const size_t &task_offset_tau, std::stop_token st);
     /**
      * @brief After setting the planner parameters described in the class documentation, call this function to generate
      * the differential joint trajectory to execute a given affordance.
@@ -127,6 +128,10 @@ class CcAffordancePlanner
      */
     PlannerResult generate_joint_trajectory(const Eigen::MatrixXd &slist, const Eigen::VectorXd &theta_sdf,
                                             const size_t &task_offset_tau);
+
+    std::optional<Eigen::VectorXd> call_cc_ik_solver(const Eigen::MatrixXd &slist, const Eigen::VectorXd &theta_pg,
+                                                     const Eigen::VectorXd &theta_sg, const Eigen::VectorXd &theta_sd,
+                                                     std::stop_token st);
     /**
      * @brief Given a list of closed-chain Screws, initial primary and secondary joint guesses, and desired secondary
      * joint goals, computes the closed-chain inverse kinematics solution.
