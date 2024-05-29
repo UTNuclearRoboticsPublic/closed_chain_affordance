@@ -39,13 +39,12 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, cons
         cv.notify_all();
     });
 
-    // Wake the thread up when a result is found
+    // Wake the main thread up when a result is found and set the planner result as that result
     {
         std::unique_lock<std::mutex> lock(mtx);
         cv.wait(lock, [&result_obtained]() { return result_obtained.load(); });
     }
-
-    plannerResult = std::move(firstResult);
+    plannerResult = firstResult;
 
     // Check which method returned and cooperatively kill the other thread
     if ((plannerResult.update_method == "inverse") || (plannerResult.update_method == "dls and inverse"))
@@ -116,10 +115,10 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
                                                              const size_t &task_offset_tau, std::stop_token st)
 {
 
-    const double theta_adf = theta_sdf.tail(1)(0);
-    PlannerResult plannerResult; // Result of the planner
-
     auto start_time = std::chrono::high_resolution_clock::now(); // Monitor clock to track planning time
+
+    PlannerResult plannerResult; // Result of the planner
+    const double theta_adf = theta_sdf.tail(1)(0);
 
     //**Alg1:L1: Define affordance step, deltatheta_a_ : Defined as class public variable
 
@@ -142,8 +141,6 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
 
     while (loop_counter_k < stepper_max_itr_m && !st.stop_requested()) //**Alg1:L6
     {
-        std::cout << "Entered loop" << std::endl;
-
         loop_counter_k = loop_counter_k + 1; //**Alg1:L7:
 
         //**Alg1:L8: Update aff step goal:
@@ -158,7 +155,6 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
         theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a_; //**Alg1:L12
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
-        /* std::optional<Eigen::VectorXd> ik_result = call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd); */
         std::optional<Eigen::VectorXd> ik_result = this->call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd, st);
 
         if (ik_result.has_value()) //**Alg1:L14
@@ -200,10 +196,6 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
         plannerResult.traj_full_or_partial = "Unset";
     }
 
-    if (st.stop_requested())
-    {
-        std::cout << "Stop requested" << std::endl;
-    }
     // Indicate if DLS was used
     plannerResult.update_method = dls_flag_ ? "dls and " : plannerResult.update_method;
 
@@ -215,10 +207,10 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
                                                              const size_t &task_offset_tau)
 {
 
+    auto start_time = std::chrono::high_resolution_clock::now(); // Monitor clock to track planning time
+
     const double theta_adf = theta_sdf.tail(1)(0);
     PlannerResult plannerResult; // Result of the planner
-
-    auto start_time = std::chrono::high_resolution_clock::now(); // Monitor clock to track planning time
 
     //**Alg1:L1: Define affordance step, deltatheta_a_ : Defined as class public variable
 
@@ -256,7 +248,6 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
         theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a_; //**Alg1:L12
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
-        /* std::optional<Eigen::VectorXd> ik_result = call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd); */
         std::optional<Eigen::VectorXd> ik_result = this->call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd);
 
         if (ik_result.has_value()) //**Alg1:L14
