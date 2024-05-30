@@ -97,10 +97,14 @@ struct PlannerConfig
  * i.e., robot joints, virtual ee joint, affordance joint.
  * @param theta_sdf Eigen::VectorXd containing secondary joint angle goals including EE orientation and affordance
  * such that the affordance goal is the end element.
- * @param task_offset_tau A numeric parameter indicating the length of the secondary joint vector.
- * The value 1 implies only affordance control, 2 represents affordance control
- * along with fixing the gripper x-axis, 3 involves fixing the gripper x and y axes,
- * and 4 involves fixing the gripper x, y, and z axes.
+ * @param task_offset_tau A numeric parameter indicating the length of the secondary joint vector:
+ *        - A value of 1 implies only affordance control.
+ *        - A value of 2 represents affordance control along with controlling the gripper orientation about the next
+ *	    adjacent virtual gripper axis (x, y, or z).
+ *        - A value of 3 involves controlling affordance along with the EE orientation about the next two virtual
+ *          gripper axes.
+ *        - A value of 4 refers to affordance control along with all aspects of EE orientation.
+ *
  * @param slist Eigen::MatrixXd containing as columns 6x1 Screws of the closed-chain mechanism.
  *
  * @return Struct containing the result of the planning with fields:
