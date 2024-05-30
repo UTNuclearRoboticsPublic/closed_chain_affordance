@@ -77,9 +77,9 @@ namespace affordance_util
  */
 struct ScrewInfo
 {
-    std::string type;           // Screw type. Possible fields are "translation", "rotation", "screw"
-    Eigen::Vector3d axis;       // Screw axis
-    Eigen::Vector3d location;   // Screw location from a frame of interest
+    std::string type;     // Screw type. Possible fields are "translation", "rotation", "screw"
+    Eigen::Vector3d axis; // Screw axis
+    Eigen::Vector3d location = Eigen::VectorXd::Zero(3); // Screw location from a frame of interest
     std::string location_frame; // Name of the screw frame, useful when looking up with apriltag
     double pitch;               // Pitch of the screw. Default is rotation
 };
