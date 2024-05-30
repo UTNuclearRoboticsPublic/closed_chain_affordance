@@ -380,6 +380,32 @@ Eigen::Matrix4d MatrixLog6(const Eigen::Matrix4d &T)
     return expmat;
 }
 
+Eigen::Matrix<double, 6, 1> get_screw(const affordance_util::ScrewInfo &si)
+{
+
+    Eigen::VectorXd screw(6); // Output of the function
+
+    if (si.type == "translation")
+    {
+        screw << Eigen::Vector3d::Zero(), si.axis;
+    }
+    else if (si.type == "rotation")
+    {
+        screw.head(3) = si.axis;
+        screw.tail(3) = si.location.cross(si.axis);
+    }
+    else if (si.type == "screw")
+    {
+        screw.head(3) = si.axis;
+        screw.tail(3) = si.location.cross(si.axis) + si.pitch * si.axis;
+    }
+    else
+    {
+        screw = Eigen::VectorXd::Zero(6);
+    }
+
+    return screw;
+}
 Eigen::Matrix<double, 6, 1> get_screw(const Eigen::Vector3d &w, const Eigen::Vector3d &q)
 {
 

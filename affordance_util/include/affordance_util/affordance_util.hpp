@@ -73,6 +73,17 @@ template <int N> struct convert<Eigen::Matrix<double, N, 1>>
 namespace affordance_util
 {
 /**
+ * @brief Struct providing information about a screw
+ */
+struct ScrewInfo
+{
+    std::string type;           // Screw type. Possible fields are "translation", "rotation", "screw"
+    Eigen::Vector3d axis;       // Screw axis
+    Eigen::Vector3d location;   // Screw location from a frame of interest
+    std::string location_frame; // Name of the screw frame, useful when looking up with apriltag
+    double pitch;               // Pitch of the screw. Default is rotation
+};
+/**
  * @brief Struct to describe a joint with its name, axis, and location
  */
 struct JointData
@@ -287,6 +298,16 @@ Eigen::Matrix4d MatrixLog6(const Eigen::Matrix4d &T);
 
 /**
  * @brief Given a screw axis and its location, returns the 6x1 screw vector
+ *
+ * @param si affordance_util::ScrewInfo containing information about the screw. For translation, two fields are
+ * necessary: si.type = "translation" and si.axis. For other cases, supply location and pitch as well.
+ *
+ * @return Eigen::Matrix<double, 6, 1> containing the 6x1 screw vector
+ */
+Eigen::Matrix<double, 6, 1> get_screw(const affordance_util::ScrewInfo &si);
+
+/**
+ * @brief For revolute screws. given a screw axis and location, returns the 6x1 screw vector
  *
  * @param w Eigen::Vector3d containing screw axis
  * @param q Eigen::Vector3d containing the location of the screw axis

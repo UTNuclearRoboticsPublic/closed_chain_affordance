@@ -110,5 +110,33 @@ int main()
     }
     std::cout << std::endl;
 
+    ScrewInfo si;
+    si.type = "translation";
+    si.axis << 1.0, 0.0, 0.0;
+    std::cout << "\n Testing get_screw" << std::endl;
+    std::cout << "\n Translation input axis: " << si.axis.transpose() << std::endl;
+    std::cout << "\n Translation output: " << get_screw(si).transpose() << std::endl;
+    si.type = "screw";
+    si.axis << 1.0, 0.0, 0.0;
+    si.location << 1.0, 2.0, 3.0;
+    si.pitch = 0.2;
+    std::cout << "\n Screw motion input axis: " << si.axis.transpose() << std::endl;
+    std::cout << "\n Screw motion axis location: " << si.location.transpose() << std::endl;
+    std::cout << "\n Screw motion pitch: " << si.pitch << std::endl;
+    std::cout << "\n Screw motion output: " << get_screw(si).transpose() << std::endl;
+    si.type = "rotation";
+    si.axis << 1.0, 0.0, 0.0;
+    si.location << 1.0, 2.0, 3.0;
+    std::cout << "\n Rotation input axis: " << si.axis.transpose() << std::endl;
+    std::cout << "\n Rotation axis location: " << si.location.transpose() << std::endl;
+    std::cout << "\n Rotation output: " << get_screw(si).transpose() << std::endl;
+
+    Eigen::Vector3d screw_axis(1.0, 0.0, 0.0);
+    Eigen::Vector3d screw_location(1.0, 2.0, 3.0);
+    std::cout << "\n Testing get_screw rotation overload" << std::endl;
+    std::cout << "\n Rotation input axis: " << screw_axis.transpose() << std::endl;
+    std::cout << "\n Rotation axis location: " << screw_location.transpose() << std::endl;
+    std::cout << "\n Rotation output: " << get_screw(screw_axis, screw_location).transpose() << std::endl;
+
     return 0;
 }
