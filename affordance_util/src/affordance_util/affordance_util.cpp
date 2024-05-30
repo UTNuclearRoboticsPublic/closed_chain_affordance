@@ -39,7 +39,8 @@ namespace affordance_util
 {
 
 Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::VectorXd &thetalist,
-                                       const Eigen::Matrix4d &M, const Eigen::Matrix<double, 6, 1> &aff_screw)
+                                       const Eigen::Matrix4d &M, const Eigen::Matrix<double, 6, 1> &aff_screw,
+                                       const std::string &vir_screw_order)
 {
 
     const size_t screw_length = 6;                    // Length of the screw vector
@@ -63,10 +64,27 @@ Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const
 
     // Virtual EE screw axes
     Eigen::Matrix<double, screw_axis_length, nof_vir_ee_joints> w_vir; // Virtual EE screw axes
-    w_vir.col(0) << 1, 0, 0;                                           // x
-    w_vir.col(1) << 0, 1, 0;                                           // y
-    w_vir.col(2) << 0, 0, 1;                                           // z
 
+    // Assign virtual EE screw axes in requested order
+    switch (vir_screw_order)
+    {
+    case "yzx":
+        w_vir.col(0) << 0, 1, 0; // y
+        w_vir.col(1) << 0, 0, 1; // z
+        w_vir.col(2) << 1, 0, 0; // x
+        break;
+    case "zxy":
+        w_vir.col(0) << 0, 0, 1; // z
+        w_vir.col(1) << 1, 0, 0; // x
+        w_vir.col(2) << 0, 1, 0; // y
+        break;
+    default:
+        w_vir.col(0) << 1, 0, 0; // x
+        w_vir.col(1) << 0, 1, 0; // y
+        w_vir.col(2) << 0, 0, 1; // z
+    }
+
+    // Compute virtual EE screws
     for (size_t i = 0; i < nof_vir_ee_joints; ++i)
     {
         app_slist.col(i) = get_screw(w_vir.col(i), q_vir);

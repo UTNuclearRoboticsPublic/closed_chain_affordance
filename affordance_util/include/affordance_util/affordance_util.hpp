@@ -114,11 +114,14 @@ struct RobotConfig
  * @param thetalist Eigen::VectorXd containing robot joint states at affordance start pose
  * @param M Eigen::Matrix4d containing the HTM for the robot palm in home position
  * @param aff_screw Eigen::VectorXd containing 6x1 affordance screw
+ * @param vir_screw_order std::string indicating the order for the virtual EE screws. Possible values are "xyz", "yzx"
+ * and "zxy". Default is "xyz"
  *
  * @return Eigen::MatrixXd containing as columns all 6x1 screws encompassing the closed-chain affordance model
  */
 Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::VectorXd &thetalist,
-                                       const Eigen::Matrix4d &M, const Eigen::Matrix<double, 6, 1> &aff_screw);
+                                       const Eigen::Matrix4d &M, const Eigen::Matrix<double, 6, 1> &aff_screw,
+                                       const std::string &vir_screw_order = "xyz");
 
 /**
  * @brief Given a file path to a yaml file containing robot information,
