@@ -66,19 +66,20 @@ Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const
     Eigen::Matrix<double, screw_axis_length, nof_vir_ee_joints> w_vir; // Virtual EE screw axes
 
     // Assign virtual EE screw axes in requested order
-    switch (vir_screw_order)
+    if (vir_screw_order == "yzx")
     {
-    case "yzx":
         w_vir.col(0) << 0, 1, 0; // y
         w_vir.col(1) << 0, 0, 1; // z
         w_vir.col(2) << 1, 0, 0; // x
-        break;
-    case "zxy":
+    }
+    else if (vir_screw_order == "zxy")
+    {
         w_vir.col(0) << 0, 0, 1; // z
         w_vir.col(1) << 1, 0, 0; // x
         w_vir.col(2) << 0, 1, 0; // y
-        break;
-    default:
+    }
+    else
+    {
         w_vir.col(0) << 1, 0, 0; // x
         w_vir.col(1) << 0, 1, 0; // y
         w_vir.col(2) << 0, 0, 1; // z
