@@ -12,7 +12,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # Include eigen library
 set(EIGEN3_INCLUDE_DIR "/usr/include/eigen3")
-include_directories(${EIGEN3_INCLUDE_DIR})
+include_directories(include ${EIGEN3_INCLUDE_DIR})
 
 # Find the affordance_util library
 FIND_LIBRARY(affordance_util_LIBRARIES affordance_util /usr/local/lib)
@@ -26,7 +26,7 @@ add_library(${PROJECT_NAME} STATIC
 )
 
 # Link this package's library against affordance_util
-target_link_libraries(${PROJECT_NAME} affordance_util yaml-cpp)
+target_link_libraries(${PROJECT_NAME} affordance_util yaml-cpp pthread)
 
 # Add include directories
 target_include_directories(${PROJECT_NAME} PUBLIC
@@ -38,9 +38,15 @@ install(TARGETS ${PROJECT_NAME}
     ARCHIVE DESTINATION lib
 )
 
-# Install header files
+# Install the header file
 install(FILES include/${PROJECT_NAME}/${PROJECT_NAME}.hpp
-    DESTINATION include/${PROJECT_NAME}
+        DESTINATION include/${PROJECT_NAME}
+)
+
+# Install jthread headers
+install(DIRECTORY include/jthread
+        DESTINATION include
+        FILES_MATCHING PATTERN "*.hpp"
 )
 
 # Library Tester

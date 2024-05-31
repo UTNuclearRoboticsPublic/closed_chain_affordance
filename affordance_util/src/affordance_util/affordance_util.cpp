@@ -35,11 +35,12 @@ template <int N> Node convert<Eigen::Matrix<double, N, 1>>::encode(const Eigen::
 }
 } // namespace YAML
 
-namespace AffordanceUtil
+namespace affordance_util
 {
 
 Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::VectorXd &thetalist,
-                                       const Eigen::Matrix4d &M, const Eigen::Matrix<double, 6, 1> &aff_screw)
+                                       const Eigen::Matrix4d &M, const Eigen::Matrix<double, 6, 1> &aff_screw,
+                                       const std::string &vir_screw_order)
 {
 
     const size_t screw_length = 6;                    // Length of the screw vector
@@ -63,10 +64,28 @@ Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const
 
     // Virtual EE screw axes
     Eigen::Matrix<double, screw_axis_length, nof_vir_ee_joints> w_vir; // Virtual EE screw axes
-    w_vir.col(0) << 1, 0, 0;                                           // x
-    w_vir.col(1) << 0, 1, 0;                                           // y
-    w_vir.col(2) << 0, 0, 1;                                           // z
 
+    // Assign virtual EE screw axes in requested order
+    if (vir_screw_order == "yzx")
+    {
+        w_vir.col(0) << 0, 1, 0; // y
+        w_vir.col(1) << 0, 0, 1; // z
+        w_vir.col(2) << 1, 0, 0; // x
+    }
+    else if (vir_screw_order == "zxy")
+    {
+        w_vir.col(0) << 0, 0, 1; // z
+        w_vir.col(1) << 1, 0, 0; // x
+        w_vir.col(2) << 0, 1, 0; // y
+    }
+    else
+    {
+        w_vir.col(0) << 1, 0, 0; // x
+        w_vir.col(1) << 0, 1, 0; // y
+        w_vir.col(2) << 0, 0, 1; // z
+    }
+
+    // Compute virtual EE screws
     for (size_t i = 0; i < nof_vir_ee_joints; ++i)
     {
         app_slist.col(i) = get_screw(w_vir.col(i), q_vir);
@@ -380,6 +399,32 @@ Eigen::Matrix4d MatrixLog6(const Eigen::Matrix4d &T)
     return expmat;
 }
 
+Eigen::Matrix<double, 6, 1> get_screw(const affordance_util::ScrewInfo &si)
+{
+
+    Eigen::VectorXd screw(6); // Output of the function
+
+    if (si.type == "translation")
+    {
+        screw << Eigen::Vector3d::Zero(), si.axis;
+    }
+    else if (si.type == "rotation")
+    {
+        screw.head(3) = si.axis;
+        screw.tail(3) = si.location.cross(si.axis);
+    }
+    else if (si.type == "screw")
+    {
+        screw.head(3) = si.axis;
+        screw.tail(3) = si.location.cross(si.axis) + si.pitch * si.axis;
+    }
+    else
+    {
+        screw = Eigen::VectorXd::Zero(6);
+    }
+
+    return screw;
+}
 Eigen::Matrix<double, 6, 1> get_screw(const Eigen::Vector3d &w, const Eigen::Vector3d &q)
 {
 
@@ -396,4 +441,4 @@ bool NearZero(const double &near)
     const double nearZeroTol_ = 1e-6;
     return std::abs(near) < nearZeroTol_;
 }
-} // namespace AffordanceUtil
+} // namespace affordance_util
