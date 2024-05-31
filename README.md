@@ -10,7 +10,7 @@ Follow these steps to install the `affordance_util` and `cc_affordance_planner` 
    mkdir ~/temp_cca_ws && cd ~/temp_cca_ws
    ```
    ```
-   git clone -b cpp git@github.com:UTNuclearRobotics/closed_chain_affordance.git
+   git clone git@github.com:UTNuclearRoboticsPublic/closed_chain_affordance.git
    ```
 
 2. Navigate to the `affordance_util` directory and create a `build` folder at the same level as the `src` folder and navigate to it:
@@ -51,15 +51,15 @@ Follow these steps to install the `affordance_util` and `cc_affordance_planner` 
 
 ## ROS2 Implementation
 
-If using ROS2 to interface the closed-chain affordance planner with a physical robot, go to the main branch of this repository and follow instructions there:</br>
+If using ROS2 to interface the installed closed-chain affordance planner with a physical robot, go to the following repository and follow instructions there:</br>
    [ROS2 implementation instructions](https://github.com/UTNuclearRobotics/closed_chain_affordance/tree/main)
-   
+
 ## Optional Usage Information
 If you need to use these libraries in other projects, you can do so by adding the following to your CMakeLists file and linking the libraries, for instance, `affordance_util` against your desired targets:
 ```cmake
 FIND_LIBRARY(affordance_util_LIBRARIES affordance_util /usr/local/lib)
 ```
-Note: Verify that the libraries were indeed installed in the /usr/local/lib folder and that the header files were placed in the /usr/local/include folder. This can be done by ensuring each of the following commands return some output. If installed elsewhere, replace the path in the above call.
+Note: Verify that the libraries were indeed installed in the /usr/local/lib folder and that the header files were placed in the /usr/local/include folder. This can be done by ensuring each of the following commands returns some output. If installed elsewhere, replace the path in the above call.
 ```
 ls /usr/local/lib/ | grep affordance_util
 ```
@@ -72,4 +72,5 @@ ls /usr/local/lib/ | grep cc_affordance_planner
 ```
 ls /usr/local/include/ | grep cc_affordance_planner
 ```
-
+### Author
+Janak Panthi aka Crasun Jans
