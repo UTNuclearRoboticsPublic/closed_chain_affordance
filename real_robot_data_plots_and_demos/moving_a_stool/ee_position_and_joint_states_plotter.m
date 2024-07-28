@@ -286,6 +286,9 @@ ax_ee_traj_error2 = subplot(1, 1, 1, 'Parent', fig4);
 plot(ax_ee_traj_error2, df_pred{:, 'PredEEX'} * 1000, ...
     df_pred{:, 'PredEEY'} * 1000, ...
     'b-o', 'LineWidth', 8, 'DisplayName', 'predicted trajectory');
+labels = 1:1:length(df_pred{:, 'PredEEX'} );
+labelpoints(df_pred{:, 'PredEEX'} * 1000, ...  % Efficient indexing
+     df_pred{:, 'PredEEY'} * 1000, labels,'SE', 0.4, 1, 'Fontsize', 12)
 hold on;
 plot(ax_ee_traj_error2, df_act{:, 'ActEEX'} * 1000, ...
     df_act{:, 'ActEEY'} * 1000, ...
@@ -304,6 +307,9 @@ xlim([0 800])
 xlabel(ax_ee_traj_error2, 'x(mm)');
 ylabel(ax_ee_traj_error2, 'y(mm)');
 title(ax_ee_traj_error2, ['EE Trajectory and Error - ',title_postfix]);
+
+
+
 
 yyaxis right
 plot(ax_ee_traj_error2, ...
