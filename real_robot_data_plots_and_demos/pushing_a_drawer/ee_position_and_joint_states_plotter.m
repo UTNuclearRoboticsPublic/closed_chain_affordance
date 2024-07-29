@@ -289,7 +289,7 @@ ax_ee_traj_final = subplot(1, 1, 1, 'Parent', fig4);
 % Plot both lines first
 plot(ax_ee_traj_final, df_pred{:, 'PredEEX'} * 1000, ...
     df_pred{:, 'PredEEY'} * 1000, ...
-    'b-o', 'LineWidth', 10, 'MarkerSize', 15, 'DisplayName', 'predicted trajectory');
+    'b-o', 'LineWidth', 10, 'MarkerSize', 12, 'DisplayName', 'predicted trajectory');
 point_labels = 1:1:length(df_pred{:, 'PredEEX'} );
 labelpoints(df_pred{:, 'PredEEX'} * 1000, ...
      df_pred{:, 'PredEEY'} * 1000, point_labels,'SE', 0.4, 1, 'Fontsize', 25, 'Color', 'b');
@@ -316,7 +316,7 @@ ylabel(ax_ee_traj_final, 'y(mm)');
 hLegend = legend(ax_ee_traj_final, 'Interpreter', 'none', 'Color', 'none');
 hLegend.Box = 'on'; % Turn on the legend box (if not already on)
 hLegend.Color = 'white'; % Set the background color of the legend box
-ax_ee_traj_final.Legend.Location = "northwest";
+ax_ee_traj_final.Legend.Location = "southwest";
 
 % Set fontsizes for various plot parameters
 title_fontsize = 35;
