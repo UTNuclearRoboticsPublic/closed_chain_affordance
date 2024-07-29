@@ -208,7 +208,7 @@ grid_lw = 1.5;
 xlabel(ax_joint_states, 'time (s)');
 ylabel(ax_joint_states, 'joint states (rad)');
 legend(ax_joint_states,'Interpreter', 'none', 'Color', 'none'); % Don't interpret underscores as cues for subscripts, and don't fill the legend box
-title(ax_joint_states, ['Actual Joint States vs. Time - ',title_postfix]);
+% title(ax_joint_states, ['Actual Joint States vs. Time - ',title_postfix]);
 
 % Set fontsizes for various plot parameters
 ax_joint_states.XAxis.FontSize = tick_fontsize; 
@@ -304,14 +304,47 @@ ax_ee_traj_error.GridLineWidth = grid_lw;
 
 % Plot
 fig4 = figure(4);
-ax_ee_traj_error2 = subplot(1, 1, 1, 'Parent', fig4);
+ax_ee_traj_final = subplot(1, 1, 1, 'Parent', fig4);
 
 % Plot both lines first
-plot(ax_ee_traj_error2, df_pred{:, 'PredEEY'} * 1000, ...
+plot(ax_ee_traj_final, df_pred{:, 'PredEEY'} * 1000, ...
     df_pred{:, 'PredEEZ'} * 1000, ...
-    'b-o', 'LineWidth', 8, 'DisplayName', 'predicted trajectory');
+    'b-o', 'LineWidth', 8, 'MarkerSize', 13, 'DisplayName', 'predicted trajectory');
+point_labels = 1:1:length(df_pred{:, 'PredEEY'} );
+point_label_font_size = 15;
+point_label_offset_y = -10;
+labelpoints((df_pred{1:5, 'PredEEY'} * 1000)+point_label_offset_y, ...
+     df_pred{1:5, 'PredEEZ'} * 1000, point_labels(1:5),'NW', 0.0, 1, 'Fontsize', point_label_font_size, 'Color', 'b');
+point_label_offset_y = -8;
+labelpoints((df_pred{6:6, 'PredEEY'} * 1000)+point_label_offset_y, ...
+     df_pred{6:6, 'PredEEZ'} * 1000, point_labels(6:6),'NW', 0.0, 1, 'Fontsize', point_label_font_size, 'Color', 'b');
+point_label_offset_z = 6;
+labelpoints((df_pred{7:8, 'PredEEY'} * 1000), ...
+     df_pred{7:8, 'PredEEZ'} * 1000 + point_label_offset_z, point_labels(7:8),'N', 0.0, 1, 'Fontsize', point_label_font_size, 'Color', 'b');
+point_label_offset_y_2 = 10;
+labelpoints((df_pred{9:15, 'PredEEY'} * 1000)+point_label_offset_y_2, ...
+     df_pred{9:15, 'PredEEZ'} * 1000, point_labels(9:15),'NE', 0.0, 1, 'Fontsize', point_label_font_size, 'Color', 'b');
+point_label_offset_y = 10;
+labelpoints((df_pred{16:16, 'PredEEY'} * 1000)+ point_label_offset_y, ...
+     df_pred{16:16, 'PredEEZ'} * 1000 , point_labels(16:16),'E', 0.0, 1, 'Fontsize', point_label_font_size, 'Color', 'b');
+point_label_offset_y_3 = 12;
+labelpoints((df_pred{17:22, 'PredEEY'} * 1000)+point_label_offset_y_3, ...
+     df_pred{17:22, 'PredEEZ'} * 1000, point_labels(17:22),'SE', 0.0, 1, 'Fontsize', point_label_font_size, 'Color', 'b');
+labelpoints((df_pred{23:25, 'PredEEY'} * 1000), ...
+     df_pred{23:25, 'PredEEZ'} * 1000 - point_label_offset_z, point_labels(23:25),'S', 0.0, 1, 'Fontsize', point_label_font_size, 'Color', 'b');
+point_label_offset_y_4 = -12;
+labelpoints((df_pred{26:29, 'PredEEY'} * 1000)+point_label_offset_y_4, ...
+     df_pred{26:29, 'PredEEZ'} * 1000, point_labels(26:29),'SW', 0.0, 1, 'Fontsize', point_label_font_size, 'Color', 'b');
+labelpoints((df_pred{30:32, 'PredEEY'} * 1000)+point_label_offset_y_4, ...
+     df_pred{30:32, 'PredEEZ'} * 1000, point_labels(30:32),'W', 0.0, 1, 'Fontsize', point_label_font_size, 'Color', 'b');
+point_label_offset_y_5 = -8;
+labelpoints((df_pred{33:end-1, 'PredEEY'} * 1000)+point_label_offset_y_5, ...
+     df_pred{33:end-1, 'PredEEZ'} * 1000, point_labels(33:end-1),'NW', 0.0, 1, 'Fontsize', point_label_font_size, 'Color', 'b');
+point_label_offset_z = 5;
+labelpoints((df_pred{end:end, 'PredEEY'} * 1000), ...
+     df_pred{end:end, 'PredEEZ'} * 1000+point_label_offset_z, point_labels(end:end),'N', 0.0, 1, 'Fontsize', point_label_font_size, 'Color', 'b');
 hold on;
-plot(ax_ee_traj_error2, df_act{:, 'ActEEY'} * 1000, ...
+plot(ax_ee_traj_final, df_act{:, 'ActEEY'} * 1000, ...
     df_act{:, 'ActEEZ'} * 1000, ...
     'k-o', 'LineWidth', 8, 'DisplayName', 'actual trajectory');
 
@@ -319,59 +352,77 @@ plot(ax_ee_traj_error2, df_act{:, 'ActEEY'} * 1000, ...
 axis equal
 pbaspect([1 1 1])
 % Add left y-axis
-yyaxis left
+% yyaxis left
 
 % Add grid
 grid on
 xlim([-150 250])
 ylim([50 450])
 
-xlabel(ax_ee_traj_error2, 'y(mm)');
-ylabel(ax_ee_traj_error2, 'z(mm)');
-title(ax_ee_traj_error2, ['EE Trajectory and Error - ',title_postfix]);
-
-yyaxis right
-plot(ax_ee_traj_error2, ...
-     df_pred{:, 'PredEEY'} * 1000, ...  % Efficient indexing
-     d, ...
-     'Color', '#A2142F', ...
-     'LineStyle', '-', ...  % Use 'LineStyle' for line style
-     'Marker', 'o', ...     % Use 'Marker' for marker style
-     'LineWidth', 8, 'DisplayName', 'trajectory error');
-ylabel(ax_ee_traj_error2, 'ee trajectory error (mm)');
-% Create legend for the left plot elements
-hLegend = legend(ax_ee_traj_error2, 'Interpreter', 'none', 'Color', 'none');
+xlabel(ax_ee_traj_final, 'y(mm)');
+ylabel(ax_ee_traj_final, 'z(mm)');
+% title(ax_ee_traj_final, ['EE Trajectory and Error - ',title_postfix]);
+hLegend = legend(ax_ee_traj_final, 'Interpreter', 'none', 'Color', 'none');
 hLegend.Box = 'on'; % Turn on the legend box (if not already on)
 hLegend.Color = 'white'; % Set the background color of the legend box
-yaxis_right = ax_ee_traj_error2.YAxis(2);  % Index 2 for the second (right) y-axis
-yaxis_right.Color = '#A2142F';  % Example using a color name
+ax_ee_traj_final.Legend.Location = "northwest";
 
 
 % Set fontsizes for various plot parameters
 title_fontsize = 35;
 label_fontsize = 35;
-legend_fontsize = 22;
+legend_fontsize = 25;
 tick_fontsize = 30;
 grid_lw = 1.5;
 
 
 % Set fontsizes for various plot parameters
-ax_ee_traj_error2.XAxis.FontSize = tick_fontsize; 
-ax_ee_traj_error2.XAxis.FontWeight = 'bold';
-ax_ee_traj_error2.YAxis(1).FontSize = tick_fontsize;  % Primary Y-axis
-ax_ee_traj_error2.YAxis(1).FontWeight = 'bold';
-ax_ee_traj_error2.YAxis(2).FontSize = tick_fontsize;  % Secondary Y-axis
-ax_ee_traj_error2.YAxis(2).FontWeight = 'bold';
+ax_ee_traj_final.XAxis.FontSize = tick_fontsize; 
+ax_ee_traj_final.XAxis.FontWeight = 'bold';
+ax_ee_traj_final.YAxis.FontSize = tick_fontsize;  % Primary Y-axis
+ax_ee_traj_final.YAxis.FontWeight = 'bold';
 
-ax_ee_traj_error2.XLabel.FontSize = label_fontsize;
-ax_ee_traj_error2.YLabel(1).FontSize = label_fontsize;  % Primary Y-axis label
-% ax_ee_traj_error.YLabel(2).FontSize = label_fontsize;  % Secondary Y-axis label
+ax_ee_traj_final.XLabel.FontSize = label_fontsize;
+ax_ee_traj_final.YLabel.FontSize = label_fontsize;  % Primary Y-axis label
 
-ax_ee_traj_error2.ZLabel.FontSize = label_fontsize;
-ax_ee_traj_error2.Title.FontSize = title_fontsize;
-ax_ee_traj_error2.GridLineWidth = grid_lw;
-ax_ee_traj_error2.Legend.FontSize = legend_fontsize;
-ax_ee_traj_error2.Legend.Location = "northwest";
+ax_ee_traj_final.ZLabel.FontSize = label_fontsize;
+ax_ee_traj_final.Title.FontSize = title_fontsize;
+ax_ee_traj_final.GridLineWidth = grid_lw;
+ax_ee_traj_final.Legend.FontSize = legend_fontsize;
+% ax_ee_traj_error2.Legend.Location = "west";
+
+
+fig5 = figure(5);
+ax_ee_traj_error_final = subplot(1, 1, 1, 'Parent', fig5);
+
+% yyaxis right
+plot(ax_ee_traj_error_final, ...
+     point_labels, ...  % Efficient indexing
+     d, ...
+     'Color', '#A2142F', ...
+     'LineStyle', '-', ...  % Use 'LineStyle' for line style
+     'Marker', 'o', ...     % Use 'Marker' for marker style
+     'LineWidth', 8, 'MarkerSize', 12, 'DisplayName', 'trajectory error');
+xlabel(ax_ee_traj_error_final, 'predicted trajectory point index');
+ylabel(ax_ee_traj_error_final, 'ee trajectory error (mm)');
+% title(ax_ee_traj_error3, ['EE Trajectory Error - ',title_postfix]);
+
+grid on
+
+% Set fontsizes for various plot parameters
+ax_ee_traj_error_final.XAxis.FontSize = tick_fontsize; 
+ax_ee_traj_error_final.XAxis.FontWeight = 'bold';
+ax_ee_traj_error_final.XTick = point_labels
+
+ax_ee_traj_error_final.YAxis.FontSize = tick_fontsize;  % Primary Y-axis
+ax_ee_traj_error_final.YAxis.FontWeight = 'bold';
+
+ax_ee_traj_error_final.XLabel.FontSize = label_fontsize;
+ax_ee_traj_error_final.YLabel.FontSize = label_fontsize;  % Primary Y-axis label
+
+ax_ee_traj_error_final.ZLabel.FontSize = label_fontsize;
+ax_ee_traj_error_final.Title.FontSize = title_fontsize;
+ax_ee_traj_error_final.GridLineWidth = grid_lw;
 
 
 %----------------Orientation Plots--------------------------------
@@ -382,8 +433,8 @@ legend_fontsize = 25;
 tick_fontsize = 30;
 grid_lw = 1.5;
 % Plot
-fig5 = figure(5);
-ax_ee_or = subplot(1, 1, 1, 'Parent', fig5);
+fig6 = figure(6);
+ax_ee_or = subplot(1, 1, 1, 'Parent', fig6);
 
 % Predicted
 pred_or_plot_euler_y = plot(ax_ee_or, df_pred_euler{:, 'Timestep'}, ...
@@ -436,7 +487,7 @@ grid on
 
 xlabel(ax_ee_or, 'time (t), s');
 ylabel(ax_ee_or, 'ee orientation, rad');
-title(ax_ee_or, ['EE Orientation - ',title_postfix]);
+% title(ax_ee_or, ['EE Orientation - ',title_postfix]);
 text(ax_ee_or, 3, -0.8, sprintf('r_p = %.3f*t %.3f : predicted', pred_polyfit_euler_x), ...
     'Rotation', -25, 'FontWeight', 'bold', 'FontSize',25, 'Color', 'r');
 text(ax_ee_or, 2.3, -2.0, sprintf('r_a = %.3f*t %.3f : actual', act_polyfit_euler_x), ...
