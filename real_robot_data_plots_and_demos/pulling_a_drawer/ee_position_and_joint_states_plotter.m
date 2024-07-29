@@ -366,10 +366,6 @@ hLegend.Color = 'white'; % Set the background color of the legend box
 ax_ee_traj_final.Legend.FontSize = legend_fontsize;
 ax_ee_traj_final.Legend.Location = "southwest";
 
-hLegend = legend(ax_ee_traj_final, 'Interpreter', 'none', 'Color', 'none');
-hLegend.Box = 'on'; % Turn on the legend box (if not already on)
-hLegend.Color = 'white'; % Set the background color of the legend box
-
 
 % Set fontsizes for various plot parameters
 title_fontsize = 35;
@@ -393,13 +389,6 @@ ax_ee_traj_final.Title.FontSize = title_fontsize;
 ax_ee_traj_final.GridLineWidth = grid_lw;
 ax_ee_traj_final.Legend.FontSize = legend_fontsize;
 % ax_ee_traj_error2.Legend.Location = "west";
-
-% Set legend position
-legend_position = ax_ee_traj_final.Legend.Position;
-shift_amount_x = -0.10; 
-shift_amount_y = -0.38; 
-ax_ee_traj_final.Legend.Position = [legend_position(1) + shift_amount_x, legend_position(2)+ shift_amount_y, legend_position(3), legend_position(4)];
-
 
 
 fig5 = figure(5);
