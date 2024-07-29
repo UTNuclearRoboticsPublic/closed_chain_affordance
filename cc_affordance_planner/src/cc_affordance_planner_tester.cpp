@@ -18,8 +18,8 @@ int main()
     const double mconv = 1000.0; // conversion factor from mm to m
     const double W1 = 109.0 / mconv, W2 = 82.0 / mconv, L1 = 425.0 / mconv, L2 = 392.0 / mconv, H1 = 89.0 / mconv,
                  H2 = 95.0 / mconv, W3 = 135.85 / mconv, W4 = 119.7 / mconv,
-                 W6 = 93.0 / mconv;    // Link lengths
-    const double aff = -100.0 / mconv; // affordance location from the last joint
+                 W6 = 93.0 / mconv;           // Link lengths
+    const double aff_offset = -100.0 / mconv; // affordance location from the last joint
 
     const size_t nof_joints = 6, nof_virtual_joints = 3,
                  nof_affordance = 1; // number of joints
@@ -58,17 +58,18 @@ int main()
     Eigen::Matrix4d M = Eigen::Matrix4d::Identity();
     M.block<3, 1>(0, 3) << L1 + L2, W3 - W4 + W6 + W2, H1 - H2;
 
-    // Affordance screw
-    Eigen::Vector3d w_aff(1, 0, 0);
-    Eigen::Vector3d q_aff(L1 + L2, W3 - W4 + W6 + W2 + aff, H1 - H2);
-    Eigen::VectorXd aff_screw = affordance_util::get_screw(w_aff, q_aff);
+    // Affordance
+    affordance_util::ScrewInfo aff;
+    aff.type = "rotation";
+    aff.axis = Eigen::Vector3d(1, 0, 0);
+    aff.location = Eigen::Vector3d(L1 + L2, W3 - W4 + W6 + W2 + aff_offset, H1 - H2);
 
     // Robot start configuration, home position in this case
     Eigen::VectorXd thetalist(6);
     thetalist = Eigen::VectorXd::Zero(6);
 
     // Closed-chain screws
-    Eigen::MatrixXd cc_slist = affordance_util::compose_cc_model_slist(robot_slist, thetalist, M, aff_screw);
+    Eigen::MatrixXd cc_slist = affordance_util::compose_cc_model_slist(robot_slist, thetalist, M, aff);
 
     // Output screw axes for debugging purposes
     /* std::cout << "Here is the list of screws: \n" << cc_slist << std::endl; */
