@@ -6,11 +6,12 @@ namespace cc_affordance_planner
 PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, const Eigen::MatrixXd &slist,
                                         const Eigen::VectorXd &theta_sdf, const size_t &task_offset_tau)
 {
-    PlannerResult plannerResult; // function result
-    PlannerResult firstResult;   // first result obtained
+    PlannerResult transposeResult; // Result from the transpose planner
+    PlannerResult inverseResult;   // Result from the inverse planner
     std::mutex mtx;
     std::condition_variable cv;
-    std::atomic<bool> result_obtained{false};
+    std::atomic<bool> transpose_result_obtained{false};
+    std::atomic<bool> inverse_result_obtained{false};
 
     // Create the inverse and transpose objects
     CcAffordancePlannerInverse ccAffordancePlannerInverse(plannerConfig);
@@ -20,47 +21,78 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, cons
 
     // Run the inverse and transpose planners concurrently in separate threads
     std::jthread inverse_thread([&](std::stop_token st) {
-        firstResult = ccAffordancePlannerInversePtr->generate_joint_trajectory(slist, theta_sdf, task_offset_tau, st);
+        inverseResult = ccAffordancePlannerInversePtr->generate_joint_trajectory(slist, theta_sdf, task_offset_tau, st);
         {
             std::unique_lock<std::mutex> lock(mtx);
-            firstResult.update_method += "inverse";
-            result_obtained = true;
+            inverseResult.update_method += "inverse";
+            inverse_result_obtained = true;
         }
         cv.notify_all();
     });
 
     std::jthread transpose_thread([&](std::stop_token st) {
-        firstResult = ccAffordancePlannerTransposePtr->generate_joint_trajectory(slist, theta_sdf, task_offset_tau, st);
+        transposeResult =
+            ccAffordancePlannerTransposePtr->generate_joint_trajectory(slist, theta_sdf, task_offset_tau, st);
         {
             std::unique_lock<std::mutex> lock(mtx);
-            firstResult.update_method += "transpose";
-            result_obtained = true;
+            transposeResult.update_method += "transpose";
+            transpose_result_obtained = true;
         }
         cv.notify_all();
     });
 
-    // Wake the main thread up when a result is found and set the planner result as that result
+    // Wake the main thread up when a result is found
     {
         std::unique_lock<std::mutex> lock(mtx);
-        cv.wait(lock, [&result_obtained]() { return result_obtained.load(); });
+        cv.wait(lock, [&inverse_result_obtained, &transpose_result_obtained]() {
+            return (inverse_result_obtained.load() || transpose_result_obtained.load());
+        });
     }
-    plannerResult = firstResult;
 
-    // Check which method returned and cooperatively kill the other thread
-    if ((plannerResult.update_method == "inverse") || (plannerResult.update_method == "dls and inverse"))
+    // Analyze the result
+    if (inverse_result_obtained.load()) // Inverse planner returned first
     {
-        transpose_thread.request_stop();
+        if (inverseResult.traj_full_or_partial == "full")
+        {
+
+            transpose_thread.request_stop();
+            return inverseResult;
+        }
+        else
+        // If inverse planner returned partial or no trajectory then, wait for the transpose planner
+        {
+            transpose_thread.join();
+        }
     }
-    else
+    else // Transpose planner must have returned first
     {
-        inverse_thread.request_stop();
+        if (transposeResult.traj_full_or_partial == "full")
+        {
+
+            inverse_thread.request_stop();
+            return transposeResult;
+        }
+        else
+        // If transpose planner returned partial or no trajectory then, wait for the inverse planner
+        {
+            inverse_thread.join();
+        }
     }
 
-    // Future work: If the finished planner did not succeed, wait for the other planner
-    // Future work: If partial trajectory is returned, maybe wait for the other planner to see if full trajectory could
-    // be generated
+    // At this point, both planners have run. Analyze which trajectory is fuller.
+    if ((inverseResult.traj_full_or_partial == "partial") && (transposeResult.traj_full_or_partial == "unset"))
+    {
 
-    return plannerResult;
+        return inverseResult;
+    }
+    else if ((inverseResult.traj_full_or_partial == "unset") && (transposeResult.traj_full_or_partial == "partial"))
+    {
+        return transposeResult;
+    }
+    else // both must be partial so, return whichever has a longer trajectory
+    {
+        return (inverseResult.joint_traj.size() > transposeResult.joint_traj.size()) ? inverseResult : transposeResult;
+    }
 }
 
 void CcAffordancePlannerTranspose::update_theta_p(Eigen::VectorXd &theta_p, const Eigen::VectorXd &theta_sd,
@@ -183,17 +215,17 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
 
         if (loop_counter_k == success_counter_s)
         {
-            plannerResult.traj_full_or_partial = "Full";
+            plannerResult.traj_full_or_partial = "full";
         }
         else
         {
-            plannerResult.traj_full_or_partial = "Partial";
+            plannerResult.traj_full_or_partial = "partial";
         }
     }
     else
     {
         plannerResult.success = false;
-        plannerResult.traj_full_or_partial = "Unset";
+        plannerResult.traj_full_or_partial = "unset";
     }
 
     // Indicate if DLS was used
@@ -276,17 +308,17 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
 
         if (loop_counter_k == success_counter_s)
         {
-            plannerResult.traj_full_or_partial = "Full";
+            plannerResult.traj_full_or_partial = "full";
         }
         else
         {
-            plannerResult.traj_full_or_partial = "Partial";
+            plannerResult.traj_full_or_partial = "partial";
         }
     }
     else
     {
         plannerResult.success = false;
-        plannerResult.traj_full_or_partial = "Unset";
+        plannerResult.traj_full_or_partial = "unset";
     }
 
     // Indicate if DLS was used
