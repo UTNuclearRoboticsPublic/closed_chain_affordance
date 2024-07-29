@@ -77,9 +77,10 @@ namespace affordance_util
  */
 struct ScrewInfo
 {
-    std::string type;     // Screw type. Possible fields are "translation", "rotation", "screw"
-    Eigen::Vector3d axis; // Screw axis
-    Eigen::Vector3d location = Eigen::VectorXd::Zero(3); // Screw location from a frame of interest
+    std::string type; // Screw type. Possible fields are "translation", "rotation", "screw"
+    Eigen::Vector3d axis = Eigen::VectorXd::Zero(3);             // Screw axis
+    Eigen::Vector3d location = Eigen::VectorXd::Zero(3);         // Screw location from a frame of interest
+    Eigen::VectorXd screw = Eigen::Matrix<double, 6, 1>::Zero(); // Screw vector
     std::string location_frame; // Name of the screw frame, useful when looking up with apriltag
     double pitch;               // Pitch of the screw. Default is rotation
 };
@@ -113,14 +114,14 @@ struct RobotConfig
  * @param robot_slist Eigen::MatrixXd containing as columns 6x1 screws representing robot joints
  * @param thetalist Eigen::VectorXd containing robot joint states at affordance start pose
  * @param M Eigen::Matrix4d containing the HTM for the robot palm in home position
- * @param aff_screw Eigen::VectorXd containing 6x1 affordance screw
+ * @param aff ScrewInfo containing information about affordance
  * @param vir_screw_order std::string indicating the order for the virtual EE screws. Possible values are "xyz", "yzx"
  * and "zxy". Default is "xyz"
  *
  * @return Eigen::MatrixXd containing as columns all 6x1 screws encompassing the closed-chain affordance model
  */
 Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::VectorXd &thetalist,
-                                       const Eigen::Matrix4d &M, const Eigen::Matrix<double, 6, 1> &aff_screw,
+                                       const Eigen::Matrix4d &M, ScrewInfo &aff,
                                        const std::string &vir_screw_order = "xyz");
 
 /**
@@ -305,9 +306,10 @@ Eigen::Matrix4d MatrixLog6(const Eigen::Matrix4d &T);
  * @param si affordance_util::ScrewInfo containing information about the screw. For translation, two fields are
  * necessary: si.type = "translation" and si.axis. For other cases, supply location and pitch as well.
  *
- * @return Eigen::Matrix<double, 6, 1> containing the 6x1 screw vector
+ * @return Eigen::Matrix<double, 6, 1> containing the 6x1 screw vector. Also fills out screw axis and returns the
+ * ScrewInfo by reference if screw vector is specified but axis is not.
  */
-Eigen::Matrix<double, 6, 1> get_screw(const affordance_util::ScrewInfo &si);
+Eigen::Matrix<double, 6, 1> get_screw(affordance_util::ScrewInfo &si);
 
 /**
  * @brief For revolute screws. given a screw axis and location, returns the 6x1 screw vector

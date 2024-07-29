@@ -39,68 +39,107 @@ namespace affordance_util
 {
 
 Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::VectorXd &thetalist,
-                                       const Eigen::Matrix4d &M, const Eigen::Matrix<double, 6, 1> &aff_screw,
-                                       const std::string &vir_screw_order)
+                                       const Eigen::Matrix4d &M, ScrewInfo &aff, const std::string &vir_screw_order)
 {
-
-    const size_t screw_length = 6;                    // Length of the screw vector
-    const size_t screw_axis_length = 3;               // Length of the screw axis
-    const size_t nof_vir_ee_joints = 3;               // Number of virtual ee joints
-    const size_t nof_sjoints = nof_vir_ee_joints + 1; // Number of joints to be appended, + 1 for one affordance
-
-    // Compute robot Jacobian
-    Eigen::MatrixXd robot_jacobian = JacobianSpace(robot_slist, thetalist);
-
-    // Append virtual EE screw axes as well as the affordance screw.
-    // Note: In the future it might be desired to append the virtual EE screws as Jacobians as well. This would allow
-    // one to track the orientation of the gripper as the magnitudes (joint angles) of these screws. Currently, we model
-    // the Virtual EE screws as aligned with the space frame at the start pose of the affordance. An advantage of this
-    // is physical intuition in controlling the gripper.
-    Eigen::MatrixXd app_slist(screw_length, nof_sjoints);
-
-    // Extract robot palm location
-    const Eigen::Matrix4d ee_htm = FKinSpace(M, robot_slist, thetalist);
-    const Eigen::Vector3d q_vir = ee_htm.block<3, 1>(0, 3); // Translation part of the HTM
-
-    // Virtual EE screw axes
-    Eigen::Matrix<double, screw_axis_length, nof_vir_ee_joints> w_vir; // Virtual EE screw axes
-
-    // Assign virtual EE screw axes in requested order
-    if (vir_screw_order == "yzx")
+    try
     {
-        w_vir.col(0) << 0, 1, 0; // y
-        w_vir.col(1) << 0, 0, 1; // z
-        w_vir.col(2) << 1, 0, 0; // x
+        // Compute robot Jacobian
+        Eigen::MatrixXd robot_jacobian = JacobianSpace(robot_slist, thetalist);
+        Eigen::MatrixXd slist;
+
+        // If aff screw is not set, compute it
+        if (aff.screw.isZero())
+        {
+            aff.screw = affordance_util::get_screw(aff);
+        }
+
+        // If pure rotation, the motion of the last closed-chain joint is in the opposite direction of the affordance
+        // since the ground link is fixed and it is the affordance link that moves instead
+        Eigen::VectorXd aff_screw(6);
+
+        if (aff.type == "rotation")
+        {
+            aff_screw = -aff.screw;
+        }
+        else
+        {
+
+            aff_screw = aff.screw;
+        }
+
+        if (vir_screw_order == "none")
+        {
+            const size_t nof_sjoints = 1; // 1 for one affordance
+            slist.conservativeResize(robot_slist.rows(), (robot_slist.cols() + nof_sjoints));
+            slist << robot_jacobian, aff_screw;
+        }
+        else
+        {
+            const size_t screw_length = 6;                    // Length of the screw vector
+            const size_t screw_axis_length = 3;               // Length of the screw axis
+            const size_t nof_vir_ee_joints = 3;               // Number of virtual ee joints
+            const size_t nof_sjoints = nof_vir_ee_joints + 1; // Number of joints to be appended, + 1 for one affordance
+
+            // Append virtual EE screw axes as well as the affordance screw.
+            // Note: In the future it might be desired to append the virtual EE screws as Jacobians as well. This would
+            // allow one to track the orientation of the gripper as the magnitudes (joint angles) of these screws.
+            // Currently, we model the Virtual EE screws as aligned with the space frame at the start pose of the
+            // affordance. An advantage of this is physical intuition in controlling the gripper.
+            Eigen::MatrixXd app_slist(screw_length, nof_sjoints);
+
+            // Extract robot palm location
+            const Eigen::Matrix4d ee_htm = FKinSpace(M, robot_slist, thetalist);
+            const Eigen::Vector3d q_vir = ee_htm.block<3, 1>(0, 3); // Translation part of the HTM
+
+            // Virtual EE screw axes
+            Eigen::Matrix<double, screw_axis_length, nof_vir_ee_joints> w_vir; // Virtual EE screw axes
+
+            // Assign virtual EE screw axes in requested order
+            if (vir_screw_order == "yzx")
+            {
+                w_vir.col(0) << 0, 1, 0; // y
+                w_vir.col(1) << 0, 0, 1; // z
+                w_vir.col(2) << 1, 0, 0; // x
+            }
+            else if (vir_screw_order == "zxy")
+            {
+                w_vir.col(0) << 0, 0, 1; // z
+                w_vir.col(1) << 1, 0, 0; // x
+                w_vir.col(2) << 0, 1, 0; // y
+            }
+            else if (vir_screw_order == "xyz")
+            {
+                w_vir.col(0) << 1, 0, 0; // x
+                w_vir.col(1) << 0, 1, 0; // y
+                w_vir.col(2) << 0, 0, 1; // z
+            }
+            else
+            {
+
+                throw std::runtime_error("Invalid virtual screw order specified while composing cc model slist");
+            }
+
+            // Compute virtual EE screws
+            for (size_t i = 0; i < nof_vir_ee_joints; ++i)
+            {
+                app_slist.col(i) = get_screw(w_vir.col(i), q_vir);
+            }
+
+            // Affordance screw
+            app_slist.col(nof_sjoints - 1) = aff_screw;
+
+            // Altogether
+            slist.conservativeResize(robot_slist.rows(), (robot_slist.cols() + nof_sjoints));
+            slist << robot_jacobian, app_slist;
+        }
+
+        return slist;
     }
-    else if (vir_screw_order == "zxy")
+    catch (const std::exception &e)
     {
-        w_vir.col(0) << 0, 0, 1; // z
-        w_vir.col(1) << 1, 0, 0; // x
-        w_vir.col(2) << 0, 1, 0; // y
+        std::cerr << "Exception occured while composing cc model slist: " << e.what() << std::endl;
+        return Eigen::MatrixXd();
     }
-    else
-    {
-        w_vir.col(0) << 1, 0, 0; // x
-        w_vir.col(1) << 0, 1, 0; // y
-        w_vir.col(2) << 0, 0, 1; // z
-    }
-
-    // Compute virtual EE screws
-    for (size_t i = 0; i < nof_vir_ee_joints; ++i)
-    {
-        app_slist.col(i) = get_screw(w_vir.col(i), q_vir);
-    }
-
-    // Affordance screw
-    app_slist.col(3) =
-        -aff_screw; // The motion of the last closed-chain joint is in the opposite direction of the affordance since
-                    // the ground link is fixed and it is the affordance link that moves instead
-
-    // Altogether
-    Eigen::MatrixXd slist(robot_slist.rows(), (robot_slist.cols() + app_slist.cols()));
-    slist << robot_jacobian, app_slist;
-
-    return slist;
 }
 
 RobotConfig robot_builder(const std::string &config_file_path)
@@ -112,6 +151,10 @@ RobotConfig robot_builder(const std::string &config_file_path)
 
         // Load the YAML file
         const YAML::Node config = YAML::LoadFile(config_file_path);
+        if (!config)
+        {
+            throw std::runtime_error("Robot screw list cannot be built without a valid robot config yaml file");
+        }
 
         // Access the reference frame info
         const YAML::Node &refFrameNode = config["ref_frame"];
@@ -171,7 +214,10 @@ RobotConfig robot_builder(const std::string &config_file_path)
     catch (const YAML::Exception &e)
     {
         std::cerr << "Error reading YAML file: " << e.what() << std::endl;
-        throw std::runtime_error("Robot screw list cannot be built without a valid robot config yaml file");
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Standard exception: " << e.what() << std::endl;
     }
 }
 Eigen::MatrixXd Adjoint(const Eigen::Matrix4d &htm)
@@ -399,31 +445,42 @@ Eigen::Matrix4d MatrixLog6(const Eigen::Matrix4d &T)
     return expmat;
 }
 
-Eigen::Matrix<double, 6, 1> get_screw(const affordance_util::ScrewInfo &si)
+Eigen::Matrix<double, 6, 1> get_screw(affordance_util::ScrewInfo &si)
 {
 
     Eigen::VectorXd screw(6); // Output of the function
 
-    if (si.type == "translation")
+    // If Screw is specified and axis is not, compute and fill out axis from Screw
+    if (si.axis.isZero() && !si.screw.isZero())
     {
-        screw << Eigen::Vector3d::Zero(), si.axis;
-    }
-    else if (si.type == "rotation")
-    {
-        screw.head(3) = si.axis;
-        screw.tail(3) = si.location.cross(si.axis);
-    }
-    else if (si.type == "screw")
-    {
-        screw.head(3) = si.axis;
-        screw.tail(3) = si.location.cross(si.axis) + si.pitch * si.axis;
-    }
-    else
-    {
-        screw = Eigen::VectorXd::Zero(6);
+
+        si.axis = si.screw.head(3);
     }
 
-    return screw;
+    // If Screw is not specified, compute it
+    if (si.screw.isZero())
+    {
+        if (si.type == "translation")
+        {
+            si.screw << Eigen::Vector3d::Zero(), si.axis;
+        }
+        else if (si.type == "rotation")
+        {
+            si.screw.head(3) = si.axis;
+            si.screw.tail(3) = si.location.cross(si.axis);
+        }
+        else if (si.type == "screw")
+        {
+            si.screw.head(3) = si.axis;
+            si.screw.tail(3) = si.location.cross(si.axis) + si.pitch * si.axis;
+        }
+        else
+        {
+            throw std::runtime_error("Invalid screw type specified when getting screw");
+        }
+    }
+
+    return si.screw;
 }
 Eigen::Matrix<double, 6, 1> get_screw(const Eigen::Vector3d &w, const Eigen::Vector3d &q)
 {
