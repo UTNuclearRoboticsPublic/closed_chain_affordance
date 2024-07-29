@@ -182,7 +182,7 @@ grid on
 % Set fontsizes for various plot parameters
 title_fontsize = 50;
 label_fontsize = 50;
-legend_fontsize = 40;
+legend_fontsize = 35;
 tick_fontsize = 50;
 grid_lw = 1.5;
 
@@ -190,7 +190,7 @@ grid_lw = 1.5;
 xlabel(ax_joint_states, 'time (s)');
 ylabel(ax_joint_states, 'joint states (rad)');
 legend(ax_joint_states,'Interpreter', 'none', 'Color', 'none'); % Don't interpret underscores as cues for subscripts, and don't fill the legend box
-title(ax_joint_states, ['Actual Joint States vs. Time - ',title_postfix]);
+% title(ax_joint_states, ['Actual Joint States vs. Time - ',title_postfix]);
 
 % Set fontsizes for various plot parameters
 ax_joint_states.XAxis.FontSize = tick_fontsize; 
@@ -207,8 +207,8 @@ ax_joint_states.GridLineWidth = grid_lw;
 
 % Set legend position
 legend_position = ax_joint_states.Legend.Position;
-shift_amount_x = -0.4; 
-shift_amount_y = 0.23; 
+shift_amount_x = -0.32; 
+shift_amount_y = 0.185; 
 ax_joint_states.Legend.Position = [legend_position(1) + shift_amount_x, legend_position(2)+ shift_amount_y, legend_position(3), legend_position(4)];
 
 % Plot Error between predicted and actual EE cartesian trajectory
@@ -284,14 +284,17 @@ ax_ee_traj_error.GridLineWidth = grid_lw;
 
 % Plot
 fig4 = figure(4);
-ax_ee_traj_error2 = subplot(1, 1, 1, 'Parent', fig4);
+ax_ee_traj_final = subplot(1, 1, 1, 'Parent', fig4);
 
 % Plot both lines first
-plot(ax_ee_traj_error2, df_pred{:, 'PredEEX'} * 1000, ...
+plot(ax_ee_traj_final, df_pred{:, 'PredEEX'} * 1000, ...
     df_pred{:, 'PredEEY'} * 1000, ...
-    'b-o', 'LineWidth', 8, 'DisplayName', 'predicted trajectory');
+    'b-o', 'LineWidth', 10, 'MarkerSize', 15, 'DisplayName', 'predicted trajectory');
+point_labels = 1:1:length(df_pred{:, 'PredEEX'} );
+labelpoints(df_pred{:, 'PredEEX'} * 1000, ...
+     df_pred{:, 'PredEEY'} * 1000, point_labels,'SE', 0.4, 1, 'Fontsize', 25, 'Color', 'b');
 hold on;
-plot(ax_ee_traj_error2, df_act{:, 'ActEEX'} * 1000, ...
+plot(ax_ee_traj_final, df_act{:, 'ActEEX'} * 1000, ...
     df_act{:, 'ActEEY'} * 1000, ...
     'k-o', 'LineWidth', 8, 'DisplayName', 'actual trajectory');
 
@@ -299,33 +302,21 @@ plot(ax_ee_traj_error2, df_act{:, 'ActEEX'} * 1000, ...
 axis equal
 pbaspect([1 1 1])
 % Add left y-axis
-yyaxis left
+% yyaxis left
 
 % Add grid
 grid on
-xlim([450 750])
-ylim([0 10])
+% xlim([450 750])
+% ylim([0 10])
 
-xlabel(ax_ee_traj_error2, 'x(mm)');
-ylabel(ax_ee_traj_error2, 'y(mm)');
-title(ax_ee_traj_error2, ['EE Trajectory and Error - ',title_postfix]);
+xlabel(ax_ee_traj_final, 'x(mm)');
+ylabel(ax_ee_traj_final, 'y(mm)');
+% title(ax_ee_traj_final, ['EE Trajectory and Error - ',title_postfix]);
 
-yyaxis right
-plot(ax_ee_traj_error2, ...
-     df_pred{:, 'PredEEX'} * 1000, ...  % Efficient indexing
-     d, ...
-     'Color', '#A2142F', ...
-     'LineStyle', '-', ...  % Use 'LineStyle' for line style
-     'Marker', 'o', ...     % Use 'Marker' for marker style
-     'LineWidth', 8, 'DisplayName', 'trajectory error');
-ylabel(ax_ee_traj_error2, 'ee trajectory error (mm)');
-% Create legend for the left plot elements
-hLegend = legend(ax_ee_traj_error2, 'Interpreter', 'none', 'Color', 'none');
+hLegend = legend(ax_ee_traj_final, 'Interpreter', 'none', 'Color', 'none');
 hLegend.Box = 'on'; % Turn on the legend box (if not already on)
 hLegend.Color = 'white'; % Set the background color of the legend box
-yaxis_right = ax_ee_traj_error2.YAxis(2);  % Index 2 for the second (right) y-axis
-yaxis_right.Color = '#A2142F';  % Example using a color name
-
+ax_ee_traj_final.Legend.Location = "northwest";
 
 % Set fontsizes for various plot parameters
 title_fontsize = 35;
@@ -336,23 +327,49 @@ grid_lw = 1.5;
 
 
 % Set fontsizes for various plot parameters
-ax_ee_traj_error2.XAxis.FontSize = tick_fontsize; 
-ax_ee_traj_error2.XAxis.FontWeight = 'bold';
-ax_ee_traj_error2.YAxis(1).FontSize = tick_fontsize;  % Primary Y-axis
-ax_ee_traj_error2.YAxis(1).FontWeight = 'bold';
-ax_ee_traj_error2.YAxis(2).FontSize = tick_fontsize;  % Secondary Y-axis
-ax_ee_traj_error2.YAxis(2).FontWeight = 'bold';
+ax_ee_traj_final.XAxis.FontSize = tick_fontsize; 
+ax_ee_traj_final.XAxis.FontWeight = 'bold';
+ax_ee_traj_final.YAxis.FontSize = tick_fontsize;  % Primary Y-axis
+ax_ee_traj_final.YAxis.FontWeight = 'bold';
 
-ax_ee_traj_error2.XLabel.FontSize = label_fontsize;
-ax_ee_traj_error2.YLabel(1).FontSize = label_fontsize;  % Primary Y-axis label
-% ax_ee_traj_error.YLabel(2).FontSize = label_fontsize;  % Secondary Y-axis label
+ax_ee_traj_final.XLabel.FontSize = label_fontsize;
+ax_ee_traj_final.YLabel.FontSize = label_fontsize;  % Primary Y-axis label
 
-ax_ee_traj_error2.ZLabel.FontSize = label_fontsize;
-ax_ee_traj_error2.Title.FontSize = title_fontsize;
-ax_ee_traj_error2.GridLineWidth = grid_lw;
-ax_ee_traj_error2.Legend.FontSize = legend_fontsize;
-ax_ee_traj_error2.Legend.Location = "northwest";
+ax_ee_traj_final.ZLabel.FontSize = label_fontsize;
+ax_ee_traj_final.Title.FontSize = title_fontsize;
+ax_ee_traj_final.GridLineWidth = grid_lw;
+ax_ee_traj_final.Legend.FontSize = legend_fontsize;
+% ax_ee_traj_error2.Legend.Location = "west";
 
 
+fig5 = figure(5);
+ax_ee_traj_error_final = subplot(1, 1, 1, 'Parent', fig5);
 
+% yyaxis right
+plot(ax_ee_traj_error_final, ...
+     point_labels, ...  % Efficient indexing
+     d, ...
+     'Color', '#A2142F', ...
+     'LineStyle', '-', ...  % Use 'LineStyle' for line style
+     'Marker', 'o', ...     % Use 'Marker' for marker style
+     'LineWidth', 8, 'MarkerSize', 12, 'DisplayName', 'trajectory error');
+xlabel(ax_ee_traj_error_final, 'predicted trajectory point index');
+ylabel(ax_ee_traj_error_final, 'ee trajectory error (mm)');
+% title(ax_ee_traj_error3, ['EE Trajectory Error - ',title_postfix]);
 
+grid on
+
+% Set fontsizes for various plot parameters
+ax_ee_traj_error_final.XAxis.FontSize = tick_fontsize; 
+ax_ee_traj_error_final.XAxis.FontWeight = 'bold';
+ax_ee_traj_error_final.XTick = point_labels
+
+ax_ee_traj_error_final.YAxis.FontSize = tick_fontsize;  % Primary Y-axis
+ax_ee_traj_error_final.YAxis.FontWeight = 'bold';
+
+ax_ee_traj_error_final.XLabel.FontSize = label_fontsize;
+ax_ee_traj_error_final.YLabel.FontSize = label_fontsize;  % Primary Y-axis label
+
+ax_ee_traj_error_final.ZLabel.FontSize = label_fontsize;
+ax_ee_traj_error_final.Title.FontSize = title_fontsize;
+ax_ee_traj_error_final.GridLineWidth = grid_lw;
