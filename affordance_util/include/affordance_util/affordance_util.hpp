@@ -118,11 +118,11 @@ struct RobotConfig
  * @param vir_screw_order std::string indicating the order for the virtual EE screws. Possible values are "xyz", "yzx"
  * and "zxy". Default is "xyz"
  *
- * @return Eigen::MatrixXd containing as columns all 6x1 screws encompassing the closed-chain affordance model
+ * @return Eigen::MatrixXd containing as columns all 6x1 screws encompassing the closed-chain affordance model. Also
+ * fills out screw axis in aff and returns it by reference if screw vector is specified in aff but axis is not.
  */
 Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::VectorXd &thetalist,
-                                       const Eigen::Matrix4d &M, ScrewInfo &aff,
-                                       const std::string &vir_screw_order = "xyz");
+                                       Eigen::Matrix4d &M, ScrewInfo &aff, const std::string &vir_screw_order = "xyz");
 
 /**
  * @brief Given a file path to a yaml file containing robot information,

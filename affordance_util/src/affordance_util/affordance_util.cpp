@@ -39,7 +39,7 @@ namespace affordance_util
 {
 
 Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::VectorXd &thetalist,
-                                       const Eigen::Matrix4d &M, ScrewInfo &aff, const std::string &vir_screw_order)
+                                       Eigen::Matrix4d &M, ScrewInfo &aff, const std::string &vir_screw_order)
 {
     try
     {
