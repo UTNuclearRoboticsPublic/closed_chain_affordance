@@ -73,6 +73,14 @@ template <int N> struct convert<Eigen::Matrix<double, N, 1>>
 namespace affordance_util
 {
 /**
+ * @brief Struct providing information about a closed-chain affordance model
+ */
+struct CcModel
+{
+    Eigen::MatrixXd cc_slist; // List of closed-chain screws
+    double approach_limit;    // Limit of the approach screw
+}
+/**
  * @brief Struct providing information about a screw
  */
 struct ScrewInfo
@@ -108,21 +116,40 @@ struct RobotConfig
 };
 
 /**
- * @brief Given a robot screw list, robot palm HTM, robot joint states at affordance start pose, and affordance screw,
- * returns the closed-chain affordance model screw list.
+ * @brief Given a robot screw list, robot joint states at affordance start pose, robot palm HTM, affordance
+ * information, order of virtual screws, and HTM representing end of approach motion, returns the closed-chain
+ * affordance model including approach motion.
+ * @param robot_slist Eigen::MatrixXd containing as columns 6x1 screws representing robot joints
+ * @param thetalist Eigen::VectorXd containing robot joint states at affordance start pose
+ * @param M Eigen::Matrix4d containing the HTM for the robot palm in home position
+ * @param aff ScrewInfo containing information about affordance
+ * @param vir_screw_order std::string indicating the order for the virtual EE screws. Possible values are "xyz", "yzx"
+ * "zxy", and "none". Default is "xyz"
+ * @param approach_end_pose Eigen::MatrixXd representing the approach motion end pose HTM
+ *
+ * @return affordance_util::CcModel containing the closed-chain affordance screws and approach limit. Also
+ * fills out screw axis in aff and returns it by reference if screw vector is specified in aff but axis is not.
+ */
+CcModel compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::VectorXd &thetalist,
+                               const Eigen::Matrix4d &M, ScrewInfo &aff, const std::string &vir_screw_order,
+                               const Eigen::MatrixXd &approach_end_pose);
+/**
+ * @brief Given a robot screw list, robot joint states at affordance start pose, robot palm HTM, affordance
+ * information, and order of virtual screws, returns the closed-chain affordance model screw list.
  *
  * @param robot_slist Eigen::MatrixXd containing as columns 6x1 screws representing robot joints
  * @param thetalist Eigen::VectorXd containing robot joint states at affordance start pose
  * @param M Eigen::Matrix4d containing the HTM for the robot palm in home position
  * @param aff ScrewInfo containing information about affordance
  * @param vir_screw_order std::string indicating the order for the virtual EE screws. Possible values are "xyz", "yzx"
- * and "zxy". Default is "xyz"
+ * "zxy", and "none". Default is "xyz"
  *
  * @return Eigen::MatrixXd containing as columns all 6x1 screws encompassing the closed-chain affordance model. Also
  * fills out screw axis in aff and returns it by reference if screw vector is specified in aff but axis is not.
  */
 Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::VectorXd &thetalist,
-                                       Eigen::Matrix4d &M, ScrewInfo &aff, const std::string &vir_screw_order = "xyz");
+                                       const Eigen::Matrix4d &M, ScrewInfo &aff,
+                                       const std::string &vir_screw_order = "xyz");
 
 /**
  * @brief Given a file path to a yaml file containing robot information,
