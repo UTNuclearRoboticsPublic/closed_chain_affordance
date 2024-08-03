@@ -361,11 +361,12 @@ ylabel(ax_ee_traj_error_final, 'ee trajectory error (mm)');
 % title(ax_ee_traj_error3, ['EE Trajectory Error - ',title_postfix]);
 
 grid on
+xlim([point_labels(1) point_labels(end)]);
 
 % Set fontsizes for various plot parameters
 ax_ee_traj_error_final.XAxis.FontSize = tick_fontsize; 
 ax_ee_traj_error_final.XAxis.FontWeight = 'bold';
-ax_ee_traj_error_final.XTick = point_labels
+ax_ee_traj_error_final.XTick = point_labels;
 
 ax_ee_traj_error_final.YAxis.FontSize = tick_fontsize;  % Primary Y-axis
 ax_ee_traj_error_final.YAxis.FontWeight = 'bold';

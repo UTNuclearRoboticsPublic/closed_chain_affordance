@@ -386,7 +386,8 @@ ylabel(ax_ee_traj_error_final, 'ee trajectory error (mm)');
 % title(ax_ee_traj_error3, ['EE Trajectory Error - ',title_postfix]);
 
 grid on
-
+ylimits = ylim;
+ylim([0 ylimits(2)]);
 % Set fontsizes for various plot parameters
 ax_ee_traj_error_final.XAxis.FontSize = tick_fontsize; 
 ax_ee_traj_error_final.XAxis.FontWeight = 'bold';
