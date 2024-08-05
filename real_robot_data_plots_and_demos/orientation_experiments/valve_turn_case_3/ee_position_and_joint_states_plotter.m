@@ -390,6 +390,10 @@ ax_ee_traj_final.Legend.FontSize = legend_fontsize;
 
 
 fig5 = figure(5);
+title_fontsize = 35;
+label_fontsize = 45;
+tick_fontsize = 40;
+grid_lw = 1.5;
 ax_ee_traj_error_final = subplot(1, 1, 1, 'Parent', fig5);
 
 % yyaxis right

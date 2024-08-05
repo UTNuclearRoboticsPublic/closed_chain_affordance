@@ -346,6 +346,11 @@ ax_ee_traj_final.Legend.Position = [legend_position(1) + shift_amount_x, legend_
 
 
 fig5 = figure(5);
+title_fontsize = 35;
+label_fontsize = 45;
+legend_fontsize = 25;
+tick_fontsize = 40;
+grid_lw = 1.5;
 ax_ee_traj_error_final = subplot(1, 1, 1, 'Parent', fig5);
 
 % yyaxis right
