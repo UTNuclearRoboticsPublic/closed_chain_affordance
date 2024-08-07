@@ -150,7 +150,8 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
     auto start_time = std::chrono::high_resolution_clock::now(); // Monitor clock to track planning time
 
     PlannerResult plannerResult; // Result of the planner
-    const double theta_adf = theta_sdf.tail(1)(0);
+    /* const double theta_adf = theta_sdf.tail(1)(0); */
+    const double theta_adf = theta_sdf.head(1)(0);
 
     //**Alg1:L1: Define affordance step, deltatheta_a_ : Defined as class public variable
 
@@ -162,10 +163,15 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
     Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
-    theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
+    /* theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified */
+    theta_sd.head(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal, theta_adf
     const int stepper_max_itr_m = theta_adf / deltatheta_a_ + 1;
+    std::cout<<"Here is the stepper max iteration: "<<stepper_max_itr_m<<std::endl;
+    std::cout<<"Here is the delta_theta_a_: "<<deltatheta_a_<<std::endl;
+    std::cout<<"Here is the theta_sdf: "<<theta_sdf<<std::endl;
+    std::cout<<"Here is the theta_adf: "<<theta_adf<<std::endl;
 
     //**Alg1:L5: Initialize loop counter, loop_counter_k; success counter, success_counter_s
     int loop_counter_k = 0;
@@ -184,7 +190,10 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
 
         // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
         // theta_sd
-        theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a_; //**Alg1:L12
+         /* theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a_; */ 
+        theta_sd(0) = theta_sd(0) - deltatheta_a_; //Alg1:L12
+        /* theta_sd(0) = theta_sd(0) + deltatheta_a_; */ 
+    /* std::cout<<"Here is theta_sd: \n"<<theta_sd<<std::endl; */
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
         std::optional<Eigen::VectorXd> ik_result = this->call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd, st);
@@ -241,7 +250,8 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
 
     auto start_time = std::chrono::high_resolution_clock::now(); // Monitor clock to track planning time
 
-    const double theta_adf = theta_sdf.tail(1)(0);
+    /* const double theta_adf = theta_sdf.tail(1)(0); */
+    const double theta_adf = theta_sdf.head(1)(0);
     PlannerResult plannerResult; // Result of the planner
 
     //**Alg1:L1: Define affordance step, deltatheta_a_ : Defined as class public variable
@@ -254,10 +264,15 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
     Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
-    theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
+    /* theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified */
+    theta_sd.head(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal, theta_adf
     const int stepper_max_itr_m = theta_adf / deltatheta_a_ + 1;
+    std::cout<<"Here is the stepper max iteration: "<<stepper_max_itr_m<<std::endl;
+    std::cout<<"Here is the delta_theta_a_: "<<deltatheta_a_<<std::endl;
+    std::cout<<"Here is the theta_sdf: "<<theta_sdf<<std::endl;
+    std::cout<<"Here is the theta_adf: "<<theta_adf<<std::endl;
 
     //**Alg1:L5: Initialize loop counter, loop_counter_k; success counter, success_counter_s
     int loop_counter_k = 0;
@@ -277,7 +292,10 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
 
         // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
         // theta_sd
-        theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a_; //**Alg1:L12
+         /* theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a_; */ 
+        theta_sd(0) = theta_sd(0) - deltatheta_a_; //Alg1:L12
+        /* theta_sd(0) = theta_sd(0) + deltatheta_a_; // Alg1:L12 */
+    /* std::cout<<"Here is theta_sd: \n"<<theta_sd<<std::endl; */
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
         std::optional<Eigen::VectorXd> ik_result = this->call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd);

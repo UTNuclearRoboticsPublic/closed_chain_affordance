@@ -52,12 +52,15 @@ CcModel compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::
         // Compute approach screw
         const Eigen::Matrix4d approach_start_pose = FKinSpace(M, robot_slist, thetalist);
         const Eigen::Matrix<double, 6, 1> approach_twist =
-            Adjoint(approach_start_pose) *
-            se3ToVec(affordance_util::MatrixLog6(affordance_util::TransInv(approach_start_pose) * approach_end_pose));
+            affordance_util::Adjoint(approach_start_pose) *
+            affordance_util::se3ToVec(affordance_util::MatrixLog6(affordance_util::TransInv(approach_start_pose) * approach_end_pose));
         const Eigen::Matrix<double, 6, 1> approach_screw = approach_twist / approach_twist.norm();
 
         // Fill out the approach limit
         cc_model.approach_limit = approach_twist.norm();
+	std::cout<<"Here is the approach limit:\n"<<cc_model.approach_limit<<std::endl;
+	std::cout<<"Here is the approach_start_pose:\n"<<approach_start_pose<<std::endl;
+	std::cout<<"Here is the approach_screw:\n"<<approach_screw<<std::endl;
 
         // If aff screw is not set, compute it
         if (aff.screw.isZero())
@@ -101,8 +104,9 @@ CcModel compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::
             Eigen::MatrixXd app_slist(screw_length, nof_sjoints);
 
             // Extract robot palm location
-            const Eigen::Matrix4d ee_htm = FKinSpace(M, robot_slist, thetalist);
-            const Eigen::Vector3d q_vir = ee_htm.block<3, 1>(0, 3); // Translation part of the HTM
+            /* const Eigen::Matrix4d ee_htm = FKinSpace(M, robot_slist, thetalist); */
+            /* const Eigen::Vector3d q_vir = ee_htm.block<3, 1>(0, 3); // Translation part of the HTM */
+            const Eigen::Vector3d q_vir = approach_end_pose.block<3, 1>(0, 3); // Translation part of the HTM
 
             // Virtual EE screw axes
             Eigen::Matrix<double, screw_axis_length, nof_vir_ee_joints> w_vir; // Virtual EE screw axes
@@ -132,26 +136,32 @@ CcModel compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::
                 throw std::runtime_error("Invalid virtual screw order specified while composing cc model slist");
             }
 
+	    app_slist.col(0) = approach_screw;// first screw in the append slist is approach screw
+
             // Compute virtual EE screws
             for (size_t i = 0; i < nof_vir_ee_joints; ++i)
             {
-                app_slist.col(i) = get_screw(w_vir.col(i), q_vir);
+                app_slist.col(i+1) = get_screw(w_vir.col(i), q_vir);
             }
 
             // Affordance screw
-            app_slist.col(nof_sjoints - 1) = aff_screw;
+            app_slist.col(nof_sjoints - 1) = aff_screw; // last screw in the append slist is affordance
 
             // Altogether
             cc_model.slist.conservativeResize(robot_slist.rows(), (robot_slist.cols() + nof_sjoints));
-            cc_model.slist << robot_jacobian, approach_screw, app_slist;
+	std::cout<<"Here is the robot jacobian:\n"<<robot_jacobian<<std::endl;
+	std::cout<<"Here is the approach screw:\n"<<approach_screw<<std::endl;
+	std::cout<<"Here is the app_slist:\n"<<app_slist<<std::endl;
+            cc_model.slist << robot_jacobian, app_slist;
         }
 
+	std::cout<<"Here is the cc model:\n"<<cc_model.slist<<std::endl;
+	std::cout<<"Here is the approach limit:\n"<<cc_model.approach_limit<<std::endl;
         return cc_model;
     }
     catch (const std::exception &e)
     {
         std::cerr << "Exception occured while composing cc model slist: " << e.what() << std::endl;
-        return Eigen::MatrixXd();
     }
 }
 Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::VectorXd &thetalist,

@@ -77,9 +77,9 @@ namespace affordance_util
  */
 struct CcModel
 {
-    Eigen::MatrixXd cc_slist; // List of closed-chain screws
+    Eigen::MatrixXd slist; // List of closed-chain screws
     double approach_limit;    // Limit of the approach screw
-}
+};
 /**
  * @brief Struct providing information about a screw
  */
