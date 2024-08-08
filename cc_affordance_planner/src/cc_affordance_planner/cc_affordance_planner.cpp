@@ -163,7 +163,7 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
     Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
-    /* theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified */
+    theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
     theta_sd.head(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal, theta_adf
@@ -172,6 +172,7 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
     std::cout<<"Here is the delta_theta_a_: "<<deltatheta_a_<<std::endl;
     std::cout<<"Here is the theta_sdf: "<<theta_sdf<<std::endl;
     std::cout<<"Here is the theta_adf: "<<theta_adf<<std::endl;
+    double afff_step = theta_sdf.tail(1)(0)/(stepper_max_itr_m-1);
 
     //**Alg1:L5: Initialize loop counter, loop_counter_k; success counter, success_counter_s
     int loop_counter_k = 0;
@@ -186,11 +187,13 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
         if (loop_counter_k == (stepper_max_itr_m)) //**Alg1:L9
         {
             deltatheta_a_ = theta_adf - deltatheta_a_ * (stepper_max_itr_m - 1); //**Alg1:L10
+	    afff_step = theta_sdf.tail(1)(0) - afff_step*(stepper_max_itr_m - 1);
         }                                                                        //**Alg1:L11
 
         // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
         // theta_sd
          /* theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a_; */ 
+         theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - afff_step; 
         theta_sd(0) = theta_sd(0) - deltatheta_a_; //Alg1:L12
         /* theta_sd(0) = theta_sd(0) + deltatheta_a_; */ 
     /* std::cout<<"Here is theta_sd: \n"<<theta_sd<<std::endl; */
@@ -264,7 +267,7 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
     Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
-    /* theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified */
+    theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
     theta_sd.head(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal, theta_adf
@@ -273,6 +276,7 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
     std::cout<<"Here is the delta_theta_a_: "<<deltatheta_a_<<std::endl;
     std::cout<<"Here is the theta_sdf: "<<theta_sdf<<std::endl;
     std::cout<<"Here is the theta_adf: "<<theta_adf<<std::endl;
+    double afff_step = theta_sdf.tail(1)(0)/(stepper_max_itr_m-1);
 
     //**Alg1:L5: Initialize loop counter, loop_counter_k; success counter, success_counter_s
     int loop_counter_k = 0;
@@ -288,11 +292,13 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
         if (loop_counter_k == (stepper_max_itr_m)) //**Alg1:L9
         {
             deltatheta_a_ = theta_adf - deltatheta_a_ * (stepper_max_itr_m - 1); //**Alg1:L10
+	    afff_step = theta_sdf.tail(1)(0) - afff_step*(stepper_max_itr_m - 1);
         }                                                                        //**Alg1:L11
 
         // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
         // theta_sd
          /* theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a_; */ 
+         theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - afff_step; 
         theta_sd(0) = theta_sd(0) - deltatheta_a_; //Alg1:L12
         /* theta_sd(0) = theta_sd(0) + deltatheta_a_; // Alg1:L12 */
     /* std::cout<<"Here is theta_sd: \n"<<theta_sd<<std::endl; */
