@@ -19,12 +19,31 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, cons
     CcAffordancePlanner *ccAffordancePlannerInversePtr = &ccAffordancePlannerInverse;
     CcAffordancePlanner *ccAffordancePlannerTransposePtr = &ccAffordancePlannerTranspose;
 
-    // Run the inverse and transpose planners concurrently in separate threads
+    // If a specific update method is requested, run the planner using that
+    if (plannerConfig.update_method == UpdateMethod::INVERSE)
+    {
+        inverseResult = ccAffordancePlannerInversePtr->generate_joint_trajectory(slist, theta_sdf, task_offset_tau);
+        inverseResult.update_method = UpdateMethod::INVERSE;
+        inverseResult.update_trail += "inverse";
+        return inverseResult;
+    }
+
+    if (plannerConfig.update_method == UpdateMethod::TRANSPOSE)
+    {
+        transposeResult = ccAffordancePlannerTransposePtr->generate_joint_trajectory(slist, theta_sdf, task_offset_tau);
+        transposeResult.update_method = UpdateMethod::TRANSPOSE;
+        transposeResult.update_trail += "transpose";
+        return transposeResult;
+    }
+
+    // If a specific update method is not requested, run the inverse and transpose planners concurrently in separate
+    // threads
     std::jthread inverse_thread([&](std::stop_token st) {
         inverseResult = ccAffordancePlannerInversePtr->generate_joint_trajectory(slist, theta_sdf, task_offset_tau, st);
         {
             std::unique_lock<std::mutex> lock(mtx);
-            inverseResult.update_method += "inverse";
+            inverseResult.update_method = UpdateMethod::INVERSE;
+            inverseResult.update_trail += "inverse";
             inverse_result_obtained = true;
         }
         cv.notify_all();
@@ -35,7 +54,8 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, cons
             ccAffordancePlannerTransposePtr->generate_joint_trajectory(slist, theta_sdf, task_offset_tau, st);
         {
             std::unique_lock<std::mutex> lock(mtx);
-            transposeResult.update_method += "transpose";
+            inverseResult.update_method = UpdateMethod::TRANSPOSE;
+            transposeResult.update_trail += "transpose";
             transpose_result_obtained = true;
         }
         cv.notify_all();
@@ -52,7 +72,7 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, cons
     // Analyze the result
     if (inverse_result_obtained.load()) // Inverse planner returned first
     {
-        if (inverseResult.traj_full_or_partial == "full")
+        if (inverseResult.trajectory_description == TrajectoryDescription::FULL)
         {
 
             transpose_thread.request_stop();
@@ -66,7 +86,7 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, cons
     }
     else // Transpose planner must have returned first
     {
-        if (transposeResult.traj_full_or_partial == "full")
+        if (transposeResult.trajectory_description == TrajectoryDescription::FULL)
         {
 
             inverse_thread.request_stop();
@@ -80,18 +100,24 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, cons
     }
 
     // At this point, both planners have run. Analyze which trajectory is fuller.
-    if ((inverseResult.traj_full_or_partial == "partial") && (transposeResult.traj_full_or_partial == "unset"))
+    if ((inverseResult.trajectory_description == TrajectoryDescription::PARTIAL) &&
+        (transposeResult.trajectory_description == TrajectoryDescription::UNSET))
     {
-
+        inverseResult.update_trail += " --> transpose unset --> inverse partial";
         return inverseResult;
     }
-    else if ((inverseResult.traj_full_or_partial == "unset") && (transposeResult.traj_full_or_partial == "partial"))
+    else if ((inverseResult.trajectory_description == TrajectoryDescription::UNSET) &&
+             (transposeResult.trajectory_description == TrajectoryDescription::PARTIAL))
     {
+        transposeResult.update_trail += " --> inverse unset --> transpose partial";
         return transposeResult;
     }
     else // both must be partial so, return whichever has a longer trajectory
     {
-        return (inverseResult.joint_traj.size() > transposeResult.joint_traj.size()) ? inverseResult : transposeResult;
+        inverseResult.update_trail += " --> transpose and inverse partial --> inverse longer traj";
+        transposeResult.update_trail += " --> transpose and inverse partial --> transpose longer traj";
+        return (inverseResult.joint_trajectory.size() > transposeResult.joint_trajectory.size()) ? inverseResult
+                                                                                                 : transposeResult;
     }
 }
 
@@ -168,11 +194,11 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal, theta_adf
     const int stepper_max_itr_m = theta_adf / deltatheta_a_ + 1;
-    std::cout<<"Here is the stepper max iteration: "<<stepper_max_itr_m<<std::endl;
-    std::cout<<"Here is the delta_theta_a_: "<<deltatheta_a_<<std::endl;
-    std::cout<<"Here is the theta_sdf: "<<theta_sdf<<std::endl;
-    std::cout<<"Here is the theta_adf: "<<theta_adf<<std::endl;
-    double afff_step = theta_sdf.tail(1)(0)/(stepper_max_itr_m-1);
+    std::cout << "Here is the stepper max iteration: " << stepper_max_itr_m << std::endl;
+    std::cout << "Here is the delta_theta_a_: " << deltatheta_a_ << std::endl;
+    std::cout << "Here is the theta_sdf: " << theta_sdf << std::endl;
+    std::cout << "Here is the theta_adf: " << theta_adf << std::endl;
+    double afff_step = theta_sdf.tail(1)(0) / (stepper_max_itr_m - 1);
 
     //**Alg1:L5: Initialize loop counter, loop_counter_k; success counter, success_counter_s
     int loop_counter_k = 0;
@@ -187,16 +213,16 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
         if (loop_counter_k == (stepper_max_itr_m)) //**Alg1:L9
         {
             deltatheta_a_ = theta_adf - deltatheta_a_ * (stepper_max_itr_m - 1); //**Alg1:L10
-	    afff_step = theta_sdf.tail(1)(0) - afff_step*(stepper_max_itr_m - 1);
-        }                                                                        //**Alg1:L11
+            afff_step = theta_sdf.tail(1)(0) - afff_step * (stepper_max_itr_m - 1);
+        } //**Alg1:L11
 
         // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
         // theta_sd
-         /* theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a_; */ 
-         theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - afff_step; 
-        theta_sd(0) = theta_sd(0) - deltatheta_a_; //Alg1:L12
-        /* theta_sd(0) = theta_sd(0) + deltatheta_a_; */ 
-    /* std::cout<<"Here is theta_sd: \n"<<theta_sd<<std::endl; */
+        /* theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a_; */
+        theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - afff_step;
+        theta_sd(0) = theta_sd(0) - deltatheta_a_; // Alg1:L12
+        /* theta_sd(0) = theta_sd(0) + deltatheta_a_; */
+        /* std::cout<<"Here is theta_sd: \n"<<theta_sd<<std::endl; */
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
         std::optional<Eigen::VectorXd> ik_result = this->call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd, st);
@@ -205,7 +231,7 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
         {
             //**Alg1:L15: Record solution, theta_p, theta_sg
             const Eigen::VectorXd &traj_point = ik_result.value();
-            plannerResult.joint_traj.push_back(traj_point); // recorded as a point in the trajectory solution
+            plannerResult.joint_trajectory.push_back(traj_point); // recorded as a point in the trajectory solution
 
             //**Alg1:L16 Update guesses, theta_pg, theta_sg
             theta_sg = traj_point.tail(nof_sjoints_);
@@ -221,27 +247,27 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
     plannerResult.planning_time = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
 
     // Set planning result
-    if (!plannerResult.joint_traj.empty())
+    if (!plannerResult.joint_trajectory.empty())
     {
         plannerResult.success = true;
 
         if (loop_counter_k == success_counter_s)
         {
-            plannerResult.traj_full_or_partial = "full";
+            plannerResult.trajectory_description = TrajectoryDescription::FULL;
         }
         else
         {
-            plannerResult.traj_full_or_partial = "partial";
+            plannerResult.trajectory_description = TrajectoryDescription::PARTIAL;
         }
     }
     else
     {
         plannerResult.success = false;
-        plannerResult.traj_full_or_partial = "unset";
+        plannerResult.trajectory_description = TrajectoryDescription::UNSET;
     }
 
     // Indicate if DLS was used
-    plannerResult.update_method = dls_flag_ ? "dls and " : plannerResult.update_method;
+    plannerResult.update_trail = dls_flag_ ? "dls and " : plannerResult.update_trail;
 
     return plannerResult;
 }
@@ -272,11 +298,11 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal, theta_adf
     const int stepper_max_itr_m = theta_adf / deltatheta_a_ + 1;
-    std::cout<<"Here is the stepper max iteration: "<<stepper_max_itr_m<<std::endl;
-    std::cout<<"Here is the delta_theta_a_: "<<deltatheta_a_<<std::endl;
-    std::cout<<"Here is the theta_sdf: "<<theta_sdf<<std::endl;
-    std::cout<<"Here is the theta_adf: "<<theta_adf<<std::endl;
-    double afff_step = theta_sdf.tail(1)(0)/(stepper_max_itr_m-1);
+    std::cout << "Here is the stepper max iteration: " << stepper_max_itr_m << std::endl;
+    std::cout << "Here is the delta_theta_a_: " << deltatheta_a_ << std::endl;
+    std::cout << "Here is the theta_sdf: " << theta_sdf << std::endl;
+    std::cout << "Here is the theta_adf: " << theta_adf << std::endl;
+    double afff_step = theta_sdf.tail(1)(0) / (stepper_max_itr_m - 1);
 
     //**Alg1:L5: Initialize loop counter, loop_counter_k; success counter, success_counter_s
     int loop_counter_k = 0;
@@ -292,16 +318,16 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
         if (loop_counter_k == (stepper_max_itr_m)) //**Alg1:L9
         {
             deltatheta_a_ = theta_adf - deltatheta_a_ * (stepper_max_itr_m - 1); //**Alg1:L10
-	    afff_step = theta_sdf.tail(1)(0) - afff_step*(stepper_max_itr_m - 1);
-        }                                                                        //**Alg1:L11
+            afff_step = theta_sdf.tail(1)(0) - afff_step * (stepper_max_itr_m - 1);
+        } //**Alg1:L11
 
         // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
         // theta_sd
-         /* theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a_; */ 
-         theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - afff_step; 
-        theta_sd(0) = theta_sd(0) - deltatheta_a_; //Alg1:L12
+        /* theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a_; */
+        theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - afff_step;
+        theta_sd(0) = theta_sd(0) - deltatheta_a_; // Alg1:L12
         /* theta_sd(0) = theta_sd(0) + deltatheta_a_; // Alg1:L12 */
-    /* std::cout<<"Here is theta_sd: \n"<<theta_sd<<std::endl; */
+        /* std::cout<<"Here is theta_sd: \n"<<theta_sd<<std::endl; */
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
         std::optional<Eigen::VectorXd> ik_result = this->call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd);
@@ -310,7 +336,7 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
         {
             //**Alg1:L15: Record solution, theta_p, theta_sg
             const Eigen::VectorXd &traj_point = ik_result.value();
-            plannerResult.joint_traj.push_back(traj_point); // recorded as a point in the trajectory solution
+            plannerResult.joint_trajectory.push_back(traj_point); // recorded as a point in the trajectory solution
 
             //**Alg1:L16 Update guesses, theta_pg, theta_sg
             theta_sg = traj_point.tail(nof_sjoints_);
@@ -326,27 +352,27 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
     plannerResult.planning_time = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
 
     // Set planning result
-    if (!plannerResult.joint_traj.empty())
+    if (!plannerResult.joint_trajectory.empty())
     {
         plannerResult.success = true;
 
         if (loop_counter_k == success_counter_s)
         {
-            plannerResult.traj_full_or_partial = "full";
+            plannerResult.trajectory_description = TrajectoryDescription::FULL;
         }
         else
         {
-            plannerResult.traj_full_or_partial = "partial";
+            plannerResult.trajectory_description = TrajectoryDescription::PARTIAL;
         }
     }
     else
     {
         plannerResult.success = false;
-        plannerResult.traj_full_or_partial = "unset";
+        plannerResult.trajectory_description = TrajectoryDescription::UNSET;
     }
 
     // Indicate if DLS was used
-    plannerResult.update_method = dls_flag_ ? "dls and " : plannerResult.update_method;
+    plannerResult.update_trail = dls_flag_ ? "dls and " : plannerResult.update_trail;
 
     return plannerResult;
 }

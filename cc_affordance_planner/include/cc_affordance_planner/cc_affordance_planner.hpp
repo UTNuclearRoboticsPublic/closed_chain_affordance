@@ -47,19 +47,40 @@ namespace cc_affordance_planner
 {
 
 /**
+ * @brief Enum qualitatively describing a trajectory length as FULL, PARTIAL, or UNSET
+ */
+enum TrajectoryDescription
+{
+    FULL,
+    PARTIAL,
+    UNSET
+};
+
+/**
+ * @brief Enum representing update methods for the closed-chain affordance planner
+ */
+enum UpdateMethod
+{
+    INVERSE,
+    TRANSPOSE,
+    BEST
+};
+
+/**
  * @brief Designed to contain the result of the Closed-chain Affordance planner with fields:
  * success indicating success; traj_full_or_partial indicating full or partial trajectory with values, "Full",
- * "Partial", or "Unset"; joint_traj representing the joint trajectory; planning_time representing time taken for
+ * "Partial", or "Unset"; joint_trajectory representing the joint trajectory; planning_time representing time taken for
  * planning in microseconds; and update_method indicating the type of update scheme used, for instance "inverse",
  * "inverse with dls", and "transpose".
  */
 struct PlannerResult
 {
     bool success;
-    std::string traj_full_or_partial;
-    std::vector<Eigen::VectorXd> joint_traj;
+    TrajectoryDescription trajectory_description;
+    std::vector<Eigen::VectorXd> joint_trajectory;
     std::chrono::microseconds planning_time;
-    std::string update_method = ""; // Default is empty
+    UpdateMethod update_method;
+    std::string update_trail = "";
 };
 
 /**
@@ -75,6 +96,7 @@ struct PlannerConfig
     double accuracy = 10.0 / 100.0;
     double closure_err_threshold = 1e-6;
     int max_itr = 200;
+    UpdateMethod update_method = UpdateMethod::BEST;
 };
 
 /**
@@ -90,9 +112,12 @@ struct PlannerConfig
  *        - Another important parameter is accuracy, which represents the threshold for the affordance goal (and
  *          step). For instance, if 10% accuracy is desired for 1 rad goal, set accuracy to 0.1. This will produce joint
  *          solutions that result in an affordance goal of 1 +- 0.1.
- *        - Advanced users can utilize two additional parameters:
+ *        - Advanced users can utilize three additional parameters:
  *          - closure_error_threshold: Specify the error threshold for the closed-chain closure error.
  *          - max_itr: Specify the maximum iterations for the closed-chain inverse kinematics solver.
+ *          - update_method: Specify which update method to use. Possible values are cc_affordance_planner::INVERSE,
+ *	      cc_affordance_planner::TRANSPOSE, and cc_affordance_planner::BEST. The default value is
+ *	      cc_affordance_planner::BEST.
  * @param slist Eigen::MatrixXd containing as columns 6x1 Screws representing all joints of the closed-chain model,
  * i.e., robot joints, virtual ee joint, affordance joint.
  * @param theta_sdf Eigen::VectorXd containing secondary joint angle goals including EE orientation and affordance
@@ -110,7 +135,7 @@ struct PlannerConfig
  * @return Struct containing the result of the planning with fields:
  * success indicating success;
  * traj_full_or_partial indicating full or partial trajectory with values, "Full", "Partial", or "Unset";
- * joint_traj representing the joint trajectory;
+ * joint_trajectory representing the joint trajectory;
  * planning_time representing time taken for planning in microseconds; and
  * update_method indicating whether transpose or inverse method was used.
  */
@@ -142,8 +167,9 @@ class CcAffordancePlanner
      * and 4 involves fixing the gripper x, y, and z axes.
      *
      * @return Struct containing the result of the planning with fields: success indicating success;
-     * traj_full_or_partial indicating full or partial trajectory with values, "Full", "Partial", or "Unset"; joint_traj
-     * representing the joint trajectory; and planning_time representing time taken for planning in microseconds.
+     * traj_full_or_partial indicating full or partial trajectory with values, "Full", "Partial", or "Unset";
+     * joint_trajectory representing the joint trajectory; and planning_time representing time taken for planning in
+     * microseconds.
      */
     PlannerResult generate_joint_trajectory(const Eigen::MatrixXd &slist, const Eigen::VectorXd &theta_sdf,
                                             const size_t &task_offset_tau);
@@ -163,8 +189,9 @@ class CcAffordancePlanner
      * @param st std::stop_token for cooperative interruption when multi-threading
      *
      * @return Struct containing the result of the planning with fields: success indicating success;
-     * traj_full_or_partial indicating full or partial trajectory with values, "Full", "Partial", or "Unset"; joint_traj
-     * representing the joint trajectory; and planning_time representing time taken for planning in microseconds.
+     * traj_full_or_partial indicating full or partial trajectory with values, "Full", "Partial", or "Unset";
+     * joint_trajectory representing the joint trajectory; and planning_time representing time taken for planning in
+     * microseconds.
      */
     PlannerResult generate_joint_trajectory(const Eigen::MatrixXd &slist, const Eigen::VectorXd &theta_sdf,
                                             const size_t &task_offset_tau, std::stop_token st);
