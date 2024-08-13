@@ -81,6 +81,7 @@ int main()
     cc_affordance_planner::PlannerConfig plannerConfig;
     plannerConfig.aff_step = 0.1;
     plannerConfig.accuracy = 0.01;
+    /* plannerConfig.update_method = cc_affordance_planner::UpdateMethod::INVERSE; */
     /* plannerConfig.closure_err_threshold = 1e-6; */
     /* plannerConfig.max_itr = 200; */
 
@@ -96,12 +97,11 @@ int main()
     // Print the first point in the trajectory if planner succeeds and display the Matlab solution as well
     if (plannerResult.success)
     {
-        std::vector<Eigen::VectorXd> solution = plannerResult.joint_traj;
-        std::cout << "Planner succeeded with " << plannerResult.traj_full_or_partial
-                  << " solution, and here is the first point in the trajectory: \n"
+        std::vector<Eigen::VectorXd> solution = plannerResult.joint_trajectory;
+        std::cout << "Planner succeeded with update trail '" << plannerResult.update_trail
+                  << "', and here is the first point in the trajectory: \n"
                   << solution.at(0) << std::endl;
-        std::cout << "The entire planning took " << plannerResult.planning_time.count() << " microseconds and "
-                  << plannerResult.update_method << " method was used" << std::endl;
+        std::cout << "The entire planning took " << plannerResult.planning_time.count() << " microseconds\n";
         Eigen::VectorXd matlab_solution(9); // Excluding affordance
         /* matlab_solution << -0.0006, 0.0118, 0.0008, -0.0093, 0.0031, -0.0017, -0.0994, -0.0019, 0.0036, */
         /*     0.0994; // including affordance */
