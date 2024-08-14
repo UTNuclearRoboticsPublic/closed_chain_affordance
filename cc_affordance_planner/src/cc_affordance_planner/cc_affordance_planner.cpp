@@ -6,6 +6,22 @@ namespace cc_affordance_planner
 PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, const Eigen::MatrixXd &slist,
                                         const Eigen::VectorXd &theta_sdf, const size_t &task_offset_tau)
 {
+    if (plannerConfig.motion_type == MotionType::APPROACH)
+    {
+        return generate_approach_motion_joint_trajectory(plannerConfig, slist, theta_sdf, task_offset_tau);
+    }
+
+    else
+    {
+        return generate_affordance_motion_joint_trajectory(plannerConfig, slist, theta_sdf, task_offset_tau);
+    }
+
+    // TODO: Implement approach and affordance together to return a combined trajectory
+}
+PlannerResult generate_approach_motion_joint_trajectory(const PlannerConfig &plannerConfig,
+                                                        const Eigen::MatrixXd &slist, const Eigen::VectorXd &theta_sdf,
+                                                        const size_t &task_offset_tau)
+{
     PlannerResult transposeResult; // Result from the transpose planner
     PlannerResult inverseResult;   // Result from the inverse planner
     std::mutex mtx;
@@ -22,7 +38,8 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, cons
     // If a specific update method is requested, run the planner using that
     if (plannerConfig.update_method == UpdateMethod::INVERSE)
     {
-        inverseResult = ccAffordancePlannerInversePtr->generate_joint_trajectory(slist, theta_sdf, task_offset_tau);
+        inverseResult =
+            ccAffordancePlannerInversePtr->generate_approach_motion_joint_trajectory(slist, theta_sdf, task_offset_tau);
         inverseResult.update_method = UpdateMethod::INVERSE;
         inverseResult.update_trail += "inverse";
         return inverseResult;
@@ -30,7 +47,8 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, cons
 
     if (plannerConfig.update_method == UpdateMethod::TRANSPOSE)
     {
-        transposeResult = ccAffordancePlannerTransposePtr->generate_joint_trajectory(slist, theta_sdf, task_offset_tau);
+        transposeResult = ccAffordancePlannerTransposePtr->generate_approach_motion_joint_trajectory(slist, theta_sdf,
+                                                                                                     task_offset_tau);
         transposeResult.update_method = UpdateMethod::TRANSPOSE;
         transposeResult.update_trail += "transpose";
         return transposeResult;
@@ -39,7 +57,8 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, cons
     // If a specific update method is not requested, run the inverse and transpose planners concurrently in separate
     // threads
     std::jthread inverse_thread([&](std::stop_token st) {
-        inverseResult = ccAffordancePlannerInversePtr->generate_joint_trajectory(slist, theta_sdf, task_offset_tau, st);
+        inverseResult = ccAffordancePlannerInversePtr->generate_approach_motion_joint_trajectory(slist, theta_sdf,
+                                                                                                 task_offset_tau, st);
         {
             std::unique_lock<std::mutex> lock(mtx);
             inverseResult.update_method = UpdateMethod::INVERSE;
@@ -50,8 +69,131 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig, cons
     });
 
     std::jthread transpose_thread([&](std::stop_token st) {
-        transposeResult =
-            ccAffordancePlannerTransposePtr->generate_joint_trajectory(slist, theta_sdf, task_offset_tau, st);
+        transposeResult = ccAffordancePlannerTransposePtr->generate_approach_motion_joint_trajectory(
+            slist, theta_sdf, task_offset_tau, st);
+        {
+            std::unique_lock<std::mutex> lock(mtx);
+            inverseResult.update_method = UpdateMethod::TRANSPOSE;
+            transposeResult.update_trail += "transpose";
+            transpose_result_obtained = true;
+        }
+        cv.notify_all();
+    });
+
+    // Wake the main thread up when a result is found
+    {
+        std::unique_lock<std::mutex> lock(mtx);
+        cv.wait(lock, [&inverse_result_obtained, &transpose_result_obtained]() {
+            return (inverse_result_obtained.load() || transpose_result_obtained.load());
+        });
+    }
+
+    // Analyze the result
+    if (inverse_result_obtained.load()) // Inverse planner returned first
+    {
+        if (inverseResult.trajectory_description == TrajectoryDescription::FULL)
+        {
+
+            transpose_thread.request_stop();
+            return inverseResult;
+        }
+        else
+        // If inverse planner returned partial or no trajectory then, wait for the transpose planner
+        {
+            transpose_thread.join();
+        }
+    }
+    else // Transpose planner must have returned first
+    {
+        if (transposeResult.trajectory_description == TrajectoryDescription::FULL)
+        {
+
+            inverse_thread.request_stop();
+            return transposeResult;
+        }
+        else
+        // If transpose planner returned partial or no trajectory then, wait for the inverse planner
+        {
+            inverse_thread.join();
+        }
+    }
+
+    // At this point, both planners have run. Analyze which trajectory is fuller.
+    if ((inverseResult.trajectory_description == TrajectoryDescription::PARTIAL) &&
+        (transposeResult.trajectory_description == TrajectoryDescription::UNSET))
+    {
+        inverseResult.update_trail += " --> transpose unset --> inverse partial";
+        return inverseResult;
+    }
+    else if ((inverseResult.trajectory_description == TrajectoryDescription::UNSET) &&
+             (transposeResult.trajectory_description == TrajectoryDescription::PARTIAL))
+    {
+        transposeResult.update_trail += " --> inverse unset --> transpose partial";
+        return transposeResult;
+    }
+    else // both must be partial so, return whichever has a longer trajectory
+    {
+        inverseResult.update_trail += " --> transpose and inverse partial --> inverse longer traj";
+        transposeResult.update_trail += " --> transpose and inverse partial --> transpose longer traj";
+        return (inverseResult.joint_trajectory.size() > transposeResult.joint_trajectory.size()) ? inverseResult
+                                                                                                 : transposeResult;
+    }
+}
+
+PlannerResult generate_affordance_motion_joint_trajectory(const PlannerConfig &plannerConfig,
+                                                          const Eigen::MatrixXd &slist,
+                                                          const Eigen::VectorXd &theta_sdf,
+                                                          const size_t &task_offset_tau)
+{
+    PlannerResult transposeResult; // Result from the transpose planner
+    PlannerResult inverseResult;   // Result from the inverse planner
+    std::mutex mtx;
+    std::condition_variable cv;
+    std::atomic<bool> transpose_result_obtained{false};
+    std::atomic<bool> inverse_result_obtained{false};
+
+    // Create the inverse and transpose objects
+    CcAffordancePlannerInverse ccAffordancePlannerInverse(plannerConfig);
+    CcAffordancePlannerTranspose ccAffordancePlannerTranspose(plannerConfig);
+    CcAffordancePlanner *ccAffordancePlannerInversePtr = &ccAffordancePlannerInverse;
+    CcAffordancePlanner *ccAffordancePlannerTransposePtr = &ccAffordancePlannerTranspose;
+
+    // If a specific update method is requested, run the planner using that
+    if (plannerConfig.update_method == UpdateMethod::INVERSE)
+    {
+        inverseResult = ccAffordancePlannerInversePtr->generate_affordance_motion_joint_trajectory(slist, theta_sdf,
+                                                                                                   task_offset_tau);
+        inverseResult.update_method = UpdateMethod::INVERSE;
+        inverseResult.update_trail += "inverse";
+        return inverseResult;
+    }
+
+    if (plannerConfig.update_method == UpdateMethod::TRANSPOSE)
+    {
+        transposeResult = ccAffordancePlannerTransposePtr->generate_affordance_motion_joint_trajectory(slist, theta_sdf,
+                                                                                                       task_offset_tau);
+        transposeResult.update_method = UpdateMethod::TRANSPOSE;
+        transposeResult.update_trail += "transpose";
+        return transposeResult;
+    }
+
+    // If a specific update method is not requested, run the inverse and transpose planners concurrently in separate
+    // threads
+    std::jthread inverse_thread([&](std::stop_token st) {
+        inverseResult = ccAffordancePlannerInversePtr->generate_affordance_motion_joint_trajectory(slist, theta_sdf,
+                                                                                                   task_offset_tau, st);
+        {
+            std::unique_lock<std::mutex> lock(mtx);
+            inverseResult.update_method = UpdateMethod::INVERSE;
+            inverseResult.update_trail += "inverse";
+            inverse_result_obtained = true;
+        }
+        cv.notify_all();
+    });
+
+    std::jthread transpose_thread([&](std::stop_token st) {
+        transposeResult = ccAffordancePlannerTransposePtr->generate_affordance_motion_joint_trajectory(
+            slist, theta_sdf, task_offset_tau, st);
         {
             std::unique_lock<std::mutex> lock(mtx);
             inverseResult.update_method = UpdateMethod::TRANSPOSE;
@@ -162,24 +304,28 @@ void CcAffordancePlannerInverse::update_theta_p(Eigen::VectorXd &theta_p, const 
     theta_p += delta_theta_p;
 }
 CcAffordancePlanner::CcAffordancePlanner(const PlannerConfig &plannerConfig)
-    : deltatheta_a_(plannerConfig.aff_step),
+    : stepper_max_itr_m_(plannerConfig.trajectory_density),
       accuracy_(plannerConfig.accuracy),
       eps_r_(plannerConfig.closure_err_threshold),
-      max_itr_l_(plannerConfig.max_itr)
+      max_itr_l_(plannerConfig.ik_max_itr)
 {
 }
-PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::MatrixXd &slist,
-                                                             const Eigen::VectorXd &theta_sdf,
-                                                             const size_t &task_offset_tau, std::stop_token st)
+
+PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(const Eigen::MatrixXd &slist,
+                                                                             const Eigen::VectorXd &theta_sdf,
+                                                                             const size_t &task_offset_tau,
+                                                                             std::stop_token st)
 {
 
     auto start_time = std::chrono::high_resolution_clock::now(); // Monitor clock to track planning time
 
-    PlannerResult plannerResult; // Result of the planner
-    /* const double theta_adf = theta_sdf.tail(1)(0); */
-    const double theta_adf = theta_sdf.head(1)(0);
+    PlannerResult plannerResult;                   // Result of the planner
+    const double theta_adf = theta_sdf.tail(1)(0); // affordance screw goal
+    const double theta_pdf = theta_sdf.head(1)(0); // approach screw goal
 
-    //**Alg1:L1: Define affordance step, deltatheta_a_ : Defined as class public variable
+    //**Alg1:L1: Define affordance step, deltatheta_a
+    const double deltatheta_a = theta_adf / stepper_max_itr_m_;
+    const double deltatheta_p = theta_pdf / stepper_max_itr_m_;
 
     //** Alg1:L2: Determine relevant matrix and vector sizes based on task_offset_tau
     nof_pjoints_ = slist.cols() - task_offset_tau;
@@ -190,39 +336,23 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
     theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
-    theta_sd.head(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
+    theta_sd.head(1).setConstant(0.0);    // start approach at 0 but gripper orientation as specified
 
-    //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal, theta_adf
-    const int stepper_max_itr_m = theta_adf / deltatheta_a_ + 1;
-    std::cout << "Here is the stepper max iteration: " << stepper_max_itr_m << std::endl;
-    std::cout << "Here is the delta_theta_a_: " << deltatheta_a_ << std::endl;
-    std::cout << "Here is the theta_sdf: " << theta_sdf << std::endl;
-    std::cout << "Here is the theta_adf: " << theta_adf << std::endl;
-    double afff_step = theta_sdf.tail(1)(0) / (stepper_max_itr_m - 1);
+    //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m_ to final goal: Passed in as planner config
 
     //**Alg1:L5: Initialize loop counter, loop_counter_k; success counter, success_counter_s
     int loop_counter_k = 0;
     int success_counter_s = 0;
 
-    while (loop_counter_k < stepper_max_itr_m && !st.stop_requested()) //**Alg1:L6
+    while (loop_counter_k < stepper_max_itr_m_ && !st.stop_requested()) //**Alg1:L6
     {
         loop_counter_k = loop_counter_k + 1; //**Alg1:L7:
 
-        //**Alg1:L8: Update aff step goal:
-        // If last iteration, adjust affordance step accordingly
-        if (loop_counter_k == (stepper_max_itr_m)) //**Alg1:L9
-        {
-            deltatheta_a_ = theta_adf - deltatheta_a_ * (stepper_max_itr_m - 1); //**Alg1:L10
-            afff_step = theta_sdf.tail(1)(0) - afff_step * (stepper_max_itr_m - 1);
-        } //**Alg1:L11
-
+        //**Alg1:L8: Update aff and approach step goal:
         // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
         // theta_sd
-        /* theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a_; */
-        theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - afff_step;
-        theta_sd(0) = theta_sd(0) - deltatheta_a_; // Alg1:L12
-        /* theta_sd(0) = theta_sd(0) + deltatheta_a_; */
-        /* std::cout<<"Here is theta_sd: \n"<<theta_sd<<std::endl; */
+        theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a;
+        theta_sd(0) = theta_sd(0) - deltatheta_p;
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
         std::optional<Eigen::VectorXd> ik_result = this->call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd, st);
@@ -272,18 +402,20 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
     return plannerResult;
 }
 
-PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::MatrixXd &slist,
-                                                             const Eigen::VectorXd &theta_sdf,
-                                                             const size_t &task_offset_tau)
+PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(const Eigen::MatrixXd &slist,
+                                                                             const Eigen::VectorXd &theta_sdf,
+                                                                             const size_t &task_offset_tau)
 {
 
     auto start_time = std::chrono::high_resolution_clock::now(); // Monitor clock to track planning time
 
-    /* const double theta_adf = theta_sdf.tail(1)(0); */
-    const double theta_adf = theta_sdf.head(1)(0);
-    PlannerResult plannerResult; // Result of the planner
+    PlannerResult plannerResult;                   // Result of the planner
+    const double theta_adf = theta_sdf.tail(1)(0); // affordance screw goal
+    const double theta_pdf = theta_sdf.head(1)(0); // approach screw goal
 
-    //**Alg1:L1: Define affordance step, deltatheta_a_ : Defined as class public variable
+    //**Alg1:L1: Define affordance step, deltatheta_a
+    const double deltatheta_a = theta_adf / stepper_max_itr_m_;
+    const double deltatheta_p = theta_pdf / stepper_max_itr_m_;
 
     //** Alg1:L2: Determine relevant matrix and vector sizes based on task_offset_tau
     nof_pjoints_ = slist.cols() - task_offset_tau;
@@ -294,40 +426,198 @@ PlannerResult CcAffordancePlanner::generate_joint_trajectory(const Eigen::Matrix
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
     theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
-    theta_sd.head(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
+    theta_sd.head(1).setConstant(0.0);    // start approach at 0 but gripper orientation as specified
 
-    //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal, theta_adf
-    const int stepper_max_itr_m = theta_adf / deltatheta_a_ + 1;
-    std::cout << "Here is the stepper max iteration: " << stepper_max_itr_m << std::endl;
-    std::cout << "Here is the delta_theta_a_: " << deltatheta_a_ << std::endl;
-    std::cout << "Here is the theta_sdf: " << theta_sdf << std::endl;
-    std::cout << "Here is the theta_adf: " << theta_adf << std::endl;
-    double afff_step = theta_sdf.tail(1)(0) / (stepper_max_itr_m - 1);
+    //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m_ to final goal: Passed in as planner config
 
     //**Alg1:L5: Initialize loop counter, loop_counter_k; success counter, success_counter_s
     int loop_counter_k = 0;
     int success_counter_s = 0;
 
-    while (loop_counter_k < stepper_max_itr_m) //**Alg1:L6
+    while (loop_counter_k < stepper_max_itr_m_) //**Alg1:L6
+    {
+
+        loop_counter_k = loop_counter_k + 1; //**Alg1:L7:
+
+        //**Alg1:L8: Update aff and approach step goal:
+        // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
+        // theta_sd
+        theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a;
+        theta_sd(0) = theta_sd(0) - deltatheta_p;
+
+        //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
+        std::optional<Eigen::VectorXd> ik_result = this->call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd);
+
+        if (ik_result.has_value()) //**Alg1:L14
+        {
+            //**Alg1:L15: Record solution, theta_p, theta_sg
+            const Eigen::VectorXd &traj_point = ik_result.value();
+            plannerResult.joint_trajectory.push_back(traj_point); // recorded as a point in the trajectory solution
+
+            //**Alg1:L16 Update guesses, theta_pg, theta_sg
+            theta_sg = traj_point.tail(nof_sjoints_);
+            theta_pg = traj_point.head(nof_pjoints_);
+
+            success_counter_s = success_counter_s + 1; //**Alg1:L17
+        }                                              //**Alg1:L18
+
+    } //**Alg1:L19
+
+    // Capture the planning time
+    auto end_time = std::chrono::high_resolution_clock::now();
+    plannerResult.planning_time = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+
+    // Set planning result
+    if (!plannerResult.joint_trajectory.empty())
+    {
+        plannerResult.success = true;
+
+        if (loop_counter_k == success_counter_s)
+        {
+            plannerResult.trajectory_description = TrajectoryDescription::FULL;
+        }
+        else
+        {
+            plannerResult.trajectory_description = TrajectoryDescription::PARTIAL;
+        }
+    }
+    else
+    {
+        plannerResult.success = false;
+        plannerResult.trajectory_description = TrajectoryDescription::UNSET;
+    }
+
+    // Indicate if DLS was used
+    plannerResult.update_trail = dls_flag_ ? "dls and " : plannerResult.update_trail;
+
+    return plannerResult;
+}
+
+PlannerResult CcAffordancePlanner::generate_affordance_motion_joint_trajectory(const Eigen::MatrixXd &slist,
+                                                                               const Eigen::VectorXd &theta_sdf,
+                                                                               const size_t &task_offset_tau,
+                                                                               std::stop_token st)
+{
+
+    auto start_time = std::chrono::high_resolution_clock::now(); // Monitor clock to track planning time
+
+    PlannerResult plannerResult; // Result of the planner
+    const double theta_adf = theta_sdf.tail(1)(0);
+
+    //**Alg1:L1: Define affordance step, deltatheta_a
+    const double deltatheta_a = theta_adf / stepper_max_itr_m_;
+
+    //** Alg1:L2: Determine relevant matrix and vector sizes based on task_offset_tau
+    nof_pjoints_ = slist.cols() - task_offset_tau;
+    nof_sjoints_ = task_offset_tau;
+
+    //**Alg1:L3 and Alg1:L2: Set start guesses and step goal
+    Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
+    Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
+    Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
+    theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
+
+    //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m_ to final goal: Passed in as planner config
+
+    //**Alg1:L5: Initialize loop counter, loop_counter_k; success counter, success_counter_s
+    int loop_counter_k = 0;
+    int success_counter_s = 0;
+
+    while (loop_counter_k < stepper_max_itr_m_ && !st.stop_requested()) //**Alg1:L6
+    {
+        loop_counter_k = loop_counter_k + 1; //**Alg1:L7:
+
+        //**Alg1:L8: Update aff step goal:
+        // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
+        // theta_sd
+        theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a;
+
+        //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
+        std::optional<Eigen::VectorXd> ik_result = this->call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd, st);
+
+        if (ik_result.has_value()) //**Alg1:L14
+        {
+            //**Alg1:L15: Record solution, theta_p, theta_sg
+            const Eigen::VectorXd &traj_point = ik_result.value();
+            plannerResult.joint_trajectory.push_back(traj_point); // recorded as a point in the trajectory solution
+
+            //**Alg1:L16 Update guesses, theta_pg, theta_sg
+            theta_sg = traj_point.tail(nof_sjoints_);
+            theta_pg = traj_point.head(nof_pjoints_);
+
+            success_counter_s = success_counter_s + 1; //**Alg1:L17
+        }                                              //**Alg1:L18
+
+    } //**Alg1:L19
+
+    // Capture the planning time
+    auto end_time = std::chrono::high_resolution_clock::now();
+    plannerResult.planning_time = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+
+    // Set planning result
+    if (!plannerResult.joint_trajectory.empty())
+    {
+        plannerResult.success = true;
+
+        if (loop_counter_k == success_counter_s)
+        {
+            plannerResult.trajectory_description = TrajectoryDescription::FULL;
+        }
+        else
+        {
+            plannerResult.trajectory_description = TrajectoryDescription::PARTIAL;
+        }
+    }
+    else
+    {
+        plannerResult.success = false;
+        plannerResult.trajectory_description = TrajectoryDescription::UNSET;
+    }
+
+    // Indicate if DLS was used
+    plannerResult.update_trail = dls_flag_ ? "dls and " : plannerResult.update_trail;
+
+    return plannerResult;
+}
+
+PlannerResult CcAffordancePlanner::generate_affordance_motion_joint_trajectory(const Eigen::MatrixXd &slist,
+                                                                               const Eigen::VectorXd &theta_sdf,
+                                                                               const size_t &task_offset_tau)
+{
+
+    auto start_time = std::chrono::high_resolution_clock::now(); // Monitor clock to track planning time
+
+    const double theta_adf = theta_sdf.tail(1)(0);
+    PlannerResult plannerResult; // Result of the planner
+
+    //**Alg1:L1: Define affordance step, deltatheta_a
+    const double deltatheta_a = theta_adf / stepper_max_itr_m_;
+
+    //** Alg1:L2: Determine relevant matrix and vector sizes based on task_offset_tau
+    nof_pjoints_ = slist.cols() - task_offset_tau;
+    nof_sjoints_ = task_offset_tau;
+
+    //**Alg1:L3 and Alg1:L2: Set start guesses and step goal
+    Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
+    Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
+    Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
+    theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
+
+    //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m_ to final goal: Passed in as planner config
+
+    //**Alg1:L5: Initialize loop counter, loop_counter_k; success counter, success_counter_s
+    int loop_counter_k = 0;
+    int success_counter_s = 0;
+
+    while (loop_counter_k < stepper_max_itr_m_) //**Alg1:L6
     {
 
         loop_counter_k = loop_counter_k + 1; //**Alg1:L7:
 
         //**Alg1:L8: Update aff step goal:
-        // If last iteration, adjust affordance step accordingly
-        if (loop_counter_k == (stepper_max_itr_m)) //**Alg1:L9
-        {
-            deltatheta_a_ = theta_adf - deltatheta_a_ * (stepper_max_itr_m - 1); //**Alg1:L10
-            afff_step = theta_sdf.tail(1)(0) - afff_step * (stepper_max_itr_m - 1);
-        } //**Alg1:L11
-
         // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
         // theta_sd
-        /* theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a_; */
-        theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - afff_step;
-        theta_sd(0) = theta_sd(0) - deltatheta_a_; // Alg1:L12
-        /* theta_sd(0) = theta_sd(0) + deltatheta_a_; // Alg1:L12 */
-        /* std::cout<<"Here is theta_sd: \n"<<theta_sd<<std::endl; */
+        theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a;
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
         std::optional<Eigen::VectorXd> ik_result = this->call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd);
@@ -408,7 +698,7 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
     Eigen::Matrix<double, twist_length_, 1> rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
 
     // Compute error
-    bool err = (((theta_sd - theta_s).norm() > abs(accuracy_ * deltatheta_a_)) ||
+    bool err = (((theta_sd - theta_s).norm() > abs(accuracy_ * theta_sd.norm())) ||
                 rho.norm() > eps_r_); // Need to think about this more in terms of gripper or goals
 
     while (err && loop_counter_i < max_itr_l_ && !st.stop_requested()) //**Alg2:L6
@@ -442,7 +732,7 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
                                        theta_s); // theta_s and theta_p returned by reference
 
         // Check error
-        err = (((theta_sd - theta_s).norm() > abs(accuracy_ * deltatheta_a_)) || rho.norm() > eps_r_);
+        err = (((theta_sd - theta_s).norm() > abs(accuracy_ * theta_sd.norm())) || rho.norm() > eps_r_);
 
     } //**Alg2:L13
 
@@ -487,7 +777,7 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
     Eigen::Matrix<double, twist_length_, 1> rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
 
     // Compute error
-    bool err = (((theta_sd - theta_s).norm() > abs(accuracy_ * deltatheta_a_)) ||
+    bool err = (((theta_sd - theta_s).norm() > abs(accuracy_ * theta_sd.norm())) ||
                 rho.norm() > eps_r_); // Need to think about this more in terms of gripper or goals
 
     while (err && loop_counter_i < max_itr_l_) //**Alg2:L6
@@ -521,7 +811,7 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
                                        theta_s); // theta_s and theta_p returned by reference
 
         // Check error
-        err = (((theta_sd - theta_s).norm() > abs(accuracy_ * deltatheta_a_)) || rho.norm() > eps_r_);
+        err = (((theta_sd - theta_s).norm() > abs(accuracy_ * theta_sd.norm())) || rho.norm() > eps_r_);
 
     } //**Alg2:L13
 
