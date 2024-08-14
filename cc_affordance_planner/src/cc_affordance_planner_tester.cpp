@@ -79,11 +79,13 @@ int main()
 
     // Configure the planner
     cc_affordance_planner::PlannerConfig plannerConfig;
-    plannerConfig.aff_step = 0.1;
+    plannerConfig.trajectory_density = 4;
+    /* plannerConfig.aff_step = 0.1; */
     plannerConfig.accuracy = 0.01;
-    /* plannerConfig.update_method = cc_affordance_planner::UpdateMethod::INVERSE; */
+    plannerConfig.update_method = cc_affordance_planner::UpdateMethod::INVERSE;
+    /* plannerConfig.motion_type = cc_affordance_planner::MotionType::AFFORDANCE; */
     /* plannerConfig.closure_err_threshold = 1e-6; */
-    /* plannerConfig.max_itr = 200; */
+    /* plannerConfig.ik_max_itr = 200; */
 
     // Set algorithm parameters
     const int task_offset = 1;
