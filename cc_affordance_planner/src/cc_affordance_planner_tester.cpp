@@ -84,7 +84,8 @@ int main()
     plannerConfig.accuracy = 0.01;
     plannerConfig.update_method = cc_affordance_planner::UpdateMethod::INVERSE;
     /* plannerConfig.motion_type = cc_affordance_planner::MotionType::AFFORDANCE; */
-    /* plannerConfig.closure_err_threshold = 1e-6; */
+    /* plannerConfig.closure_err_threshold_ang = 1e-5; */
+    /* plannerConfig.closure_err_threshold_lin = 1e-6; */
     /* plannerConfig.ik_max_itr = 200; */
 
     // Set algorithm parameters
