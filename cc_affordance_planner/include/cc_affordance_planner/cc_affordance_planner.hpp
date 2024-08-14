@@ -105,7 +105,8 @@ struct PlannerConfig
     MotionType motion_type = MotionType::AFFORDANCE;
     int trajectory_density = 10;
     double accuracy = 10.0 / 100.0;
-    double closure_err_threshold = 1e-6;
+    double closure_err_threshold_ang = 1e-4;
+    double closure_err_threshold_lin = 1e-5;
     int ik_max_itr = 200;
     UpdateMethod update_method = UpdateMethod::BEST;
 };
@@ -387,7 +388,8 @@ class CcAffordancePlanner
     //--Planner config parameters
     int stepper_max_itr_m_; // trajectory density as no. of points in the trajectory
     double accuracy_;       // accuracy of the affordance goal
-    double eps_r_;          // closure error threshold
+    double eps_rw_;         // closure error threshold for angular part
+    double eps_rv_;         // closure error threshold for linear part
     int max_itr_l_;         // max interations for IK solver
     //--EOF Planner config parameters
     constexpr static size_t twist_length_ = 6; // length of a twist vector

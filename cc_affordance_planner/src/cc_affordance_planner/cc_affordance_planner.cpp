@@ -306,7 +306,8 @@ void CcAffordancePlannerInverse::update_theta_p(Eigen::VectorXd &theta_p, const 
 CcAffordancePlanner::CcAffordancePlanner(const PlannerConfig &plannerConfig)
     : stepper_max_itr_m_(plannerConfig.trajectory_density),
       accuracy_(plannerConfig.accuracy),
-      eps_r_(plannerConfig.closure_err_threshold),
+      eps_rw_(plannerConfig.closure_err_threshold_ang),
+      eps_rv_(plannerConfig.closure_err_threshold_lin),
       max_itr_l_(plannerConfig.ik_max_itr)
 {
 }
@@ -698,8 +699,12 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
     Eigen::Matrix<double, twist_length_, 1> rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
 
     // Compute error
-    bool err = (((theta_sd - theta_s).norm() > abs(accuracy_ * theta_sd.norm())) ||
-                rho.norm() > eps_r_); // Need to think about this more in terms of gripper or goals
+    const Eigen::VectorXd theta_s_tol =
+        accuracy_ * theta_sd.cwiseAbs();                           // elementwise tolerance for secondary joint goal
+    Eigen::VectorXd theta_s_err = (theta_sd - theta_s).cwiseAbs(); // secondary joint goal error
+
+    bool err = ((theta_s_err.array() > theta_s_tol.array()).any() || rho.head(3).norm() > eps_rw_ ||
+                rho.tail(3).norm() > eps_rv_);
 
     while (err && loop_counter_i < max_itr_l_ && !st.stop_requested()) //**Alg2:L6
     {
@@ -732,7 +737,9 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
                                        theta_s); // theta_s and theta_p returned by reference
 
         // Check error
-        err = (((theta_sd - theta_s).norm() > abs(accuracy_ * theta_sd.norm())) || rho.norm() > eps_r_);
+        theta_s_err = (theta_sd - theta_s).cwiseAbs(); // secondary joint goal error
+        err = ((theta_s_err.array() > theta_s_tol.array()).any() || rho.head(3).norm() > eps_rw_ ||
+               rho.tail(3).norm() > eps_rv_);
 
     } //**Alg2:L13
 
@@ -777,8 +784,12 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
     Eigen::Matrix<double, twist_length_, 1> rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
 
     // Compute error
-    bool err = (((theta_sd - theta_s).norm() > abs(accuracy_ * theta_sd.norm())) ||
-                rho.norm() > eps_r_); // Need to think about this more in terms of gripper or goals
+    const Eigen::VectorXd theta_s_tol =
+        accuracy_ * theta_sd.cwiseAbs();                           // elementwise tolerance for secondary joint goal
+    Eigen::VectorXd theta_s_err = (theta_sd - theta_s).cwiseAbs(); // secondary joint goal error
+
+    bool err = ((theta_s_err.array() > theta_s_tol.array()).any() || rho.head(3).norm() > eps_rw_ ||
+                rho.tail(3).norm() > eps_rv_);
 
     while (err && loop_counter_i < max_itr_l_) //**Alg2:L6
     {
@@ -811,7 +822,9 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
                                        theta_s); // theta_s and theta_p returned by reference
 
         // Check error
-        err = (((theta_sd - theta_s).norm() > abs(accuracy_ * theta_sd.norm())) || rho.norm() > eps_r_);
+        theta_s_err = (theta_sd - theta_s).cwiseAbs(); // secondary joint goal error
+        err = ((theta_s_err.array() > theta_s_tol.array()).any() || rho.head(3).norm() > eps_rw_ ||
+               rho.tail(3).norm() > eps_rv_);
 
     } //**Alg2:L13
 
