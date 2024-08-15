@@ -77,17 +77,6 @@ enum UpdateMethod
 };
 
 /**
- * @brief Designed to contain the description of a robot in terms of its screw list, end-effector homogenous
- * transformation matrix, and current joint states
- */
-struct RobotDescription
-{
-    Eigen::MatrixXd slist;
-    Eigen::Matrix4d M;
-    Eigen::VectorXd joint_states;
-};
-
-/**
  * @brief Designed to contain the result of the Closed-chain Affordance planner with fields:
  * success indicating success; traj_full_or_partial indicating full or partial trajectory with values, "Full",
  * "Partial", or "Unset"; joint_trajectory representing the joint trajectory; planning_time representing time taken for
