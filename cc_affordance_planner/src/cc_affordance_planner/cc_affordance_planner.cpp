@@ -39,11 +39,25 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig,
         // Set the secondary joint goals
         Eigen::VectorXd approach_theta_sdf = theta_sdf;
         approach_theta_sdf.tail(2)(0) = cc_model.approach_limit; // approach screw is second to the last
+
+        std::cout << std::fixed << std::setprecision(4); // Display up to 4 decimal places
+        std::cout << "Here is the task description" << std::endl;
+        std::cout << "Grasp pose: \n" << grasp_pose << std::endl;
+        std::cout << "Approach theta sdf: \n" << approach_theta_sdf << std::endl;
+        std::cout << "cc_model.slist: \n" << cc_model.slist << std::endl;
+        std::cout << "cc_model.slist: \n" << cc_model.slist.block(0, 0, 6, 10) << std::endl;
+        std::cout << "affordace: \n" << cc_model.slist.col(10) << std::endl;
+        std::cout << "task offset tau: \n" << task_offset_tau << std::endl;
+
         PlannerResult plannerResult = generate_approach_motion_joint_trajectory(plannerConfig, cc_model.slist,
                                                                                 approach_theta_sdf, task_offset_tau);
 
+        std::cout << "Past planner" << task_offset_tau << std::endl;
+        std::cout << "Here is robot joint states: " << robot_description.joint_states << std::endl;
+        std::cout << "Here is the planner success: " << plannerResult.success << std::endl;
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
         CcTrajToRobotTraj(plannerResult.joint_trajectory, robot_description.joint_states);
+        std::cout << "Past lambda" << task_offset_tau << std::endl;
 
         return plannerResult;
     }
@@ -411,7 +425,9 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
 
     PlannerResult plannerResult;                   // Result of the planner
     const double theta_adf = theta_sdf.tail(1)(0); // affordance screw goal
-    const double theta_pdf = theta_sdf.head(1)(0); // approach screw goal
+    const double theta_pdf = theta_sdf.tail(2)(0); // approach screw goal
+    std::cout << "Here is theta_adf: " << theta_adf << std::endl;
+    std::cout << "Here is theta_pdf: " << theta_pdf << std::endl;
 
     //**Alg1:L1: Define affordance step, deltatheta_a
     const double deltatheta_a = theta_adf / stepper_max_itr_m_;
@@ -425,8 +441,8 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
     Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
-    theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
-    theta_sd.head(1).setConstant(0.0);    // start approach at 0 but gripper orientation as specified
+    theta_sd.tail(2).setConstant(0.0); // start approach and affordance goals at 0 but gripper orientation as specified
+    std::cout << "Here is theta_sd: " << theta_sd << std::endl;
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m_ to final goal: Passed in as planner config
 
@@ -442,7 +458,7 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
         // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
         // theta_sd
         theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a;
-        theta_sd(0) = theta_sd(0) - deltatheta_p;
+        theta_sd(nof_sjoints_ - 2) = theta_sd(nof_sjoints_ - 2) - deltatheta_p;
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
         std::optional<Eigen::VectorXd> ik_result = this->call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd, st);
@@ -501,7 +517,9 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
 
     PlannerResult plannerResult;                   // Result of the planner
     const double theta_adf = theta_sdf.tail(1)(0); // affordance screw goal
-    const double theta_pdf = theta_sdf.head(1)(0); // approach screw goal
+    const double theta_pdf = theta_sdf.tail(2)(0); // approach screw goal
+    std::cout << "Here is theta_adf: " << theta_adf << std::endl;
+    std::cout << "Here is theta_pdf: " << theta_pdf << std::endl;
 
     //**Alg1:L1: Define affordance step, deltatheta_a
     const double deltatheta_a = theta_adf / stepper_max_itr_m_;
@@ -515,8 +533,8 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
     Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
-    theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
-    theta_sd.head(1).setConstant(0.0);    // start approach at 0 but gripper orientation as specified
+    theta_sd.tail(2).setConstant(0.0); // start approach and affordance goals at 0 but gripper orientation as specified
+    std::cout << "Here is theta_sd: " << theta_sd << std::endl;
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m_ to final goal: Passed in as planner config
 
@@ -533,7 +551,7 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
         // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
         // theta_sd
         theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a;
-        theta_sd(0) = theta_sd(0) - deltatheta_p;
+        theta_sd(nof_sjoints_ - 2) = theta_sd(nof_sjoints_ - 2) - deltatheta_p;
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
         std::optional<Eigen::VectorXd> ik_result = this->call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd);

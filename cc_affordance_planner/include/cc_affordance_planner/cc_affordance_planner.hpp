@@ -39,6 +39,7 @@
 #include <affordance_util/affordance_util.hpp>
 #include <chrono>
 #include <condition_variable>
+#include <iomanip>
 #include <mutex>
 #include <optional>
 #include <vector>
