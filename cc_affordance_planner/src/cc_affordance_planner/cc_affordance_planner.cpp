@@ -57,10 +57,7 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig,
             generate_affordance_motion_joint_trajectory(plannerConfig, cc_slist, theta_sdf, task_offset_tau);
 
         CcTrajToRobotTraj(plannerResult.joint_trajectory, robot_description.joint_states);
-        std::cout << "DEBUG FLAGGGGGGGGGGG" << std::endl;
-        /* std::cout << "Here is the cc slist: \n" << cc_slist << std::endl; */
-        /* std::cout << "Here is the cc theta_sdf: " << theta_sdf << std::endl; */
-        /* std::cout << "Here is task offset tau: " << theta_sdf << std::endl; */
+
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
         return plannerResult;
     }

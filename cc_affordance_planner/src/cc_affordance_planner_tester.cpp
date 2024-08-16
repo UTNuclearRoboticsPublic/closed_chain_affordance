@@ -73,14 +73,13 @@ int main()
 
     // Configure the planner
     cc_affordance_planner::PlannerConfig plannerConfig;
-    plannerConfig.trajectory_density = 4;
-    /* plannerConfig.aff_step = 0.1; */
+    plannerConfig.trajectory_density = 4; // with 0.4 aff_goal, we get 0.1 aff step as MATLAB
     plannerConfig.accuracy = 0.01;
     plannerConfig.update_method = cc_affordance_planner::UpdateMethod::INVERSE;
-    /* plannerConfig.motion_type = cc_affordance_planner::MotionType::AFFORDANCE; */
-    /* plannerConfig.closure_err_threshold_ang = 1e-5; */
-    /* plannerConfig.closure_err_threshold_lin = 1e-6; */
-    /* plannerConfig.ik_max_itr = 200; */
+    /* plannerConfig.motion_type = cc_affordance_planner::MotionType::AFFORDANCE; // Default */
+    plannerConfig.closure_err_threshold_ang = 1e-4;
+    plannerConfig.closure_err_threshold_lin = 1e-5;
+    /* plannerConfig.ik_max_itr = 200; // Default */
 
     // Robot description
     affordance_util::RobotDescription robot_description;
@@ -89,15 +88,10 @@ int main()
     robot_description.joint_states = thetalist;
 
     // Task description
-    /* const double aff_goal = 0.35; */
-    /* Eigen::VectorXd sec_goal(1); */
-    /* sec_goal.tail(1).setConstant(aff_goal); */
-    Eigen::VectorXd aff_goal = (Eigen::VectorXd(1) << 1.0).finished();
-
-    // Start angles
     cc_affordance_planner::TaskDescription task_description;
     task_description.affordance_info = aff;
     task_description.nof_secondary_joints = 1; // affordance only
+    Eigen::VectorXd aff_goal = (Eigen::VectorXd(1) << 0.4).finished();
     task_description.secondary_joint_goals = aff_goal;
 
     // Run the planner
@@ -113,10 +107,9 @@ int main()
                   << solution.at(1) << std::endl; // Look at the second point since the first one is 0 in this case cuz
                                                   // we started at home position
         std::cout << "The entire planning took " << plannerResult.planning_time.count() << " microseconds\n";
-        Eigen::VectorXd matlab_solution(9); // Excluding affordance
-        /* matlab_solution << -0.0006, 0.0118, 0.0008, -0.0093, 0.0031, -0.0017, -0.0994, -0.0019, 0.0036, */
-        /*     0.0994; // including affordance */
-        matlab_solution << -0.0006, 0.0118, 0.0008, -0.0093, 0.0031, -0.0017, -0.0994, -0.0019, 0.0036;
+        Eigen::VectorXd matlab_solution(10); // Including affordance
+        matlab_solution << -0.0006, 0.0118, 0.0008, -0.0093, 0.0031, -0.0017, -0.0994, -0.0019, 0.0036,
+            -0.0994; // including affordance
         std::cout << "The first point of the solution from Matlab for the same setup, i.e. UR5 pure rotation with "
                      "affordance step 0.1, "
                      "and accuracy 1% (or "
@@ -124,8 +117,7 @@ int main()
                   << matlab_solution << std::endl;
 
         // Check if the planner and matlab solution are equal upto 3 decimal places
-        bool are_equal =
-            solution.at(1).head(9).isApprox(matlab_solution, 1e-3); // Just compare solution, excluding affordance
+        bool are_equal = solution.at(1).isApprox(matlab_solution, 1e-3); // Just compare solution, excluding affordance
         if (are_equal)
         {
             std::cout << "The planner solution first point matches the one from Matlab." << std::endl;
@@ -133,12 +125,12 @@ int main()
         else
         {
 
-            std::cout << "The planner solution does not match Matlab solution." << std::endl;
+            std::cerr << "The planner solution does not match Matlab solution." << std::endl;
         }
     }
     else
     {
-        std::cout << "Planner did not find a solution." << std::endl;
+        std::cerr << "Planner did not find a solution." << std::endl;
     }
     return 0;
 }
