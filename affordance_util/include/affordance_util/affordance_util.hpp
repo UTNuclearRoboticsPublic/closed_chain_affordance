@@ -161,10 +161,9 @@ struct RobotConfig
  * @param vir_screw_order affordance_util::VirtualScrewOrder indicating the order for the virtual EE screws. Possible
  * values are "xyz", "yzx" "zxy", and "none". Default is "xyz"
  *
- * @return affordance_util::CcModel containing the closed-chain affordance screws and approach limit. Also
- * fills out screw axis in aff and returns it by reference if screw vector is specified in aff but axis is not.
+ * @return affordance_util::CcModel containing the closed-chain affordance screws and approach limit.
  */
-CcModel compose_cc_model_slist(const RobotDescription &robot_description, ScrewInfo &aff,
+CcModel compose_cc_model_slist(const RobotDescription &robot_description, const ScrewInfo &aff_info,
                                const Eigen::MatrixXd &approach_end_pose,
                                const VirtualScrewOrder &vir_screw_order = VirtualScrewOrder::XYZ);
 /**
@@ -177,10 +176,9 @@ CcModel compose_cc_model_slist(const RobotDescription &robot_description, ScrewI
  * @param vir_screw_order affordance_util::VirtualScrewOrder indicating the order for the virtual EE screws. Possible
  * values are "xyz", "yzx" "zxy", and "none". Default is "xyz"
  *
- * @return Eigen::MatrixXd containing as columns all 6x1 screws encompassing the closed-chain affordance model. Also
- * fills out screw axis in aff and returns it by reference if screw vector is specified in aff but axis is not.
+ * @return Eigen::MatrixXd containing as columns all 6x1 screws encompassing the closed-chain affordance model.
  */
-Eigen::MatrixXd compose_cc_model_slist(const RobotDescription &robot_description, ScrewInfo &aff,
+Eigen::MatrixXd compose_cc_model_slist(const RobotDescription &robot_description, const ScrewInfo &aff_info,
                                        const VirtualScrewOrder &vir_screw_order = VirtualScrewOrder::XYZ);
 
 /**
@@ -360,6 +358,15 @@ Eigen::Matrix3d MatrixLog3(const Eigen::Matrix3d &R);
 Eigen::Matrix4d MatrixLog6(const Eigen::Matrix4d &T);
 
 /**
+ * @brief Given affordance information as a 6x1 screw vector and its type, returns its 3-vector screw axis
+ *
+ * @param si affordance_util::ScrewInfo with the screw vector and type portion filled out
+ *
+ * @return 3-vector screw axis representing given affordance information
+ */
+Eigen::Vector3d get_axis_from_screw(const ScrewInfo &si);
+
+/**
  * @brief Given a screw axis and its location, returns the 6x1 screw vector
  *
  * @param si affordance_util::ScrewInfo containing information about the screw. For translation, two fields are
@@ -368,7 +375,7 @@ Eigen::Matrix4d MatrixLog6(const Eigen::Matrix4d &T);
  * @return Eigen::Matrix<double, 6, 1> containing the 6x1 screw vector. Also fills out screw axis and returns the
  * ScrewInfo by reference if screw vector is specified but axis is not.
  */
-Eigen::Matrix<double, 6, 1> get_screw(affordance_util::ScrewInfo &si);
+Eigen::Matrix<double, 6, 1> get_screw(const ScrewInfo &si);
 
 /**
  * @brief For revolute screws. given a screw axis and location, returns the 6x1 screw vector

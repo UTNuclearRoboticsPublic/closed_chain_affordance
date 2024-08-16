@@ -38,7 +38,7 @@ template <int N> Node convert<Eigen::Matrix<double, N, 1>>::encode(const Eigen::
 namespace affordance_util
 {
 
-CcModel compose_cc_model_slist(const RobotDescription &robot_description, ScrewInfo &aff,
+CcModel compose_cc_model_slist(const RobotDescription &robot_description, const ScrewInfo &aff_info,
                                const Eigen::MatrixXd &approach_end_pose, const VirtualScrewOrder &vir_screw_order)
 {
     CcModel cc_model; // Output of the function
@@ -58,7 +58,8 @@ CcModel compose_cc_model_slist(const RobotDescription &robot_description, ScrewI
     // Fill out the approach limit
     cc_model.approach_limit = approach_twist.norm();
 
-    // If aff screw is not set, compute it
+    // In case aff screw is not set, compute it
+    ScrewInfo aff = aff_info;
     if (aff.screw.isZero())
     {
         aff.screw = affordance_util::get_screw(aff);
@@ -140,14 +141,15 @@ CcModel compose_cc_model_slist(const RobotDescription &robot_description, ScrewI
 
     return cc_model;
 }
-Eigen::MatrixXd compose_cc_model_slist(const RobotDescription &robot_description, ScrewInfo &aff,
+Eigen::MatrixXd compose_cc_model_slist(const RobotDescription &robot_description, const ScrewInfo &aff_info,
                                        const VirtualScrewOrder &vir_screw_order)
 {
     // Compute robot Jacobian
     Eigen::MatrixXd robot_jacobian = JacobianSpace(robot_description.slist, robot_description.joint_states);
     Eigen::MatrixXd slist;
 
-    // If aff screw is not set, compute it
+    // In case aff screw is not set, compute it
+    ScrewInfo aff = aff_info;
     if (aff.screw.isZero())
     {
         aff.screw = affordance_util::get_screw(aff);
@@ -532,39 +534,45 @@ Eigen::Matrix4d MatrixLog6(const Eigen::Matrix4d &T)
     return expmat;
 }
 
-Eigen::Matrix<double, 6, 1> get_screw(affordance_util::ScrewInfo &si)
+Eigen::Vector3d get_axis_from_screw(const ScrewInfo &si)
+{
+
+    Eigen::Vector3d axis;
+
+    if (si.type == ScrewType::TRANSLATION)
+    {
+        axis = si.screw.tail(3);
+    }
+    else // (si.type == ScrewType::ROTATION) || (si.type == ScrewType::SCREW)
+    {
+        axis = si.screw.head(3);
+    }
+    return axis;
+}
+
+Eigen::Matrix<double, 6, 1> get_screw(const ScrewInfo &si)
 {
 
     Eigen::VectorXd screw(6); // Output of the function
 
-    // If Screw is specified and axis is not, compute and fill out axis from Screw
-    if (si.axis.isZero() && !si.screw.isZero())
+    if (si.type == ScrewType::TRANSLATION)
     {
-
-        si.axis = si.screw.head(3);
+        screw << Eigen::Vector3d::Zero(), si.axis;
+    }
+    else if (si.type == ScrewType::ROTATION)
+    {
+        screw.head(3) = si.axis;
+        screw.tail(3) = si.location.cross(si.axis);
+    }
+    else // si.type == ScrewType::SCREW
+    {
+        screw.head(3) = si.axis;
+        screw.tail(3) = si.location.cross(si.axis) + si.pitch * si.axis;
     }
 
-    // If Screw is not specified, compute it
-    if (si.screw.isZero())
-    {
-        if (si.type == ScrewType::TRANSLATION)
-        {
-            si.screw << Eigen::Vector3d::Zero(), si.axis;
-        }
-        else if (si.type == ScrewType::ROTATION)
-        {
-            si.screw.head(3) = si.axis;
-            si.screw.tail(3) = si.location.cross(si.axis);
-        }
-        else // si.type == ScrewType::SCREW
-        {
-            si.screw.head(3) = si.axis;
-            si.screw.tail(3) = si.location.cross(si.axis) + si.pitch * si.axis;
-        }
-    }
-
-    return si.screw;
+    return screw;
 }
+
 Eigen::Matrix<double, 6, 1> get_screw(const Eigen::Vector3d &w, const Eigen::Vector3d &q)
 {
 
