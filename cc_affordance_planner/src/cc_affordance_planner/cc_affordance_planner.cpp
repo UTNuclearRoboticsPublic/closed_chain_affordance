@@ -4,31 +4,43 @@ namespace cc_affordance_planner
 {
 
 PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig,
-                                        const affordance_util::RobotDescription &robot_description, ScrewInfo &aff,
-                                        Eigen::VectorXd &theta_sdf, const size_t &task_offset_tau,
-                                        const affordance_util::VirtualScrewOrder &vir_screw_order,
-                                        const Eigen::Matrix4d &grasp_pose, const double aff_goal)
+                                        const affordance_util::RobotDescription &robot_description,
+                                        const TaskDescription &task_description)
 {
+    // Extract task description
+    const affordance_util::ScrewInfo aff = task_description.affordance_info;
+    const Eigen::VectorXd theta_sdf = task_description.secondary_joint_goals;
+    const size_t task_offset_tau = task_description.nof_secondary_joints;
+    const affordance_util::VirtualScrewOrder vir_screw_order = task_description.vir_screw_order;
 
     // Lambda expression to convert a differential closed-chain joint trajectory to robot joint trajectory
     auto CcTrajToRobotTraj = [](std::vector<Eigen::VectorXd> &cc_trajectory,
                                 const Eigen::VectorXd &start_joint_states) {
+        // Compute the closed-chain trajectory absolute start state
+        Eigen::VectorXd cc_start_joint_states = Eigen::VectorXd::Zero(cc_trajectory[0].size());
+        cc_start_joint_states.head(start_joint_states.size()) = start_joint_states;
         for (Eigen::VectorXd &point : cc_trajectory)
         {
-            point += start_joint_states;
+            point += cc_start_joint_states;
         }
 
-        cc_trajectory.insert(cc_trajectory.begin(), start_joint_states);
+        cc_trajectory.insert(cc_trajectory.begin(), cc_start_joint_states);
     };
 
     if (plannerConfig.motion_type == MotionType::APPROACH)
     {
+        // Extract additional task description
+        const Eigen::Matrix4d grasp_pose = task_description.grasp_pose;
+
         // Compose the closed-chain model screws and determine the limit for the approach screw
         const affordance_util::CcModel cc_model =
             affordance_util::compose_cc_model_slist(robot_description, aff, grasp_pose, vir_screw_order);
-        theta_sdf.tail(2)(0) = cc_model.approach_limit; // approach screw is second to the last
-        PlannerResult plannerResult =
-            generate_approach_motion_joint_trajectory(plannerConfig, cc_model.slist, theta_sdf, task_offset_tau);
+
+        // Set the secondary joint goals
+        Eigen::VectorXd approach_theta_sdf = theta_sdf;
+        approach_theta_sdf.tail(2)(0) = cc_model.approach_limit; // approach screw is second to the last
+        PlannerResult plannerResult = generate_approach_motion_joint_trajectory(plannerConfig, cc_model.slist,
+                                                                                approach_theta_sdf, task_offset_tau);
 
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
         CcTrajToRobotTraj(plannerResult.joint_trajectory, robot_description.joint_states);
@@ -44,45 +56,56 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig,
         PlannerResult plannerResult =
             generate_affordance_motion_joint_trajectory(plannerConfig, cc_slist, theta_sdf, task_offset_tau);
 
-        // Convert the differential closed-chain joint trajectory to robot joint trajectory
         CcTrajToRobotTraj(plannerResult.joint_trajectory, robot_description.joint_states);
+        std::cout << "DEBUG FLAGGGGGGGGGGG" << std::endl;
+        /* std::cout << "Here is the cc slist: \n" << cc_slist << std::endl; */
+        /* std::cout << "Here is the cc theta_sdf: " << theta_sdf << std::endl; */
+        /* std::cout << "Here is task offset tau: " << theta_sdf << std::endl; */
+        // Convert the differential closed-chain joint trajectory to robot joint trajectory
         return plannerResult;
     }
     else // plannerConfig.motion_type == MotionType::APPROACH_AND_AFFORDANCE
     {
+        // Extract additional task description
+        const Eigen::Matrix4d grasp_pose = task_description.grasp_pose;
+        const double post_grasp_aff_goal = task_description.post_grasp_affordance_goal;
+
         // Compose the closed-chain model screws and determine the limit for the approach screw
         const affordance_util::CcModel cc_model =
             affordance_util::compose_cc_model_slist(robot_description, aff, grasp_pose, vir_screw_order);
-        theta_sdf.tail(2)(0) = cc_model.approach_limit; // approach screw is second to the last
-        PlannerResult approachPlannerResult =
-            generate_approach_motion_joint_trajectory(plannerConfig, cc_model.slist, theta_sdf, task_offset_tau);
+
+        // Set the secondary joint goals
+        Eigen::VectorXd approach_theta_sdf = theta_sdf;
+        approach_theta_sdf.tail(2)(0) = cc_model.approach_limit; // approach screw is second to the last
+        PlannerResult approachPlannerResult = generate_approach_motion_joint_trajectory(
+            plannerConfig, cc_model.slist, approach_theta_sdf, task_offset_tau);
 
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
         CcTrajToRobotTraj(approachPlannerResult.joint_trajectory, robot_description.joint_states);
 
         // Adjust starting joint states for affordance motion
-        affordance_util::RobotDescription new_robot_description = robot_description;
-        new_robot_description.joint_states = approachPlannerResult.joint_trajectory.back();
+        affordance_util::RobotDescription affordance_robot_description = robot_description;
+        affordance_robot_description.joint_states = approachPlannerResult.joint_trajectory.back();
 
         // Set goals for affordance motion
-        Eigen::VectorXd new_theta_sdf = theta_sdf;
-        new_theta_sdf.tail(1)(0) = aff_goal;
+        Eigen::VectorXd affordance_theta_sdf = theta_sdf;
+        affordance_theta_sdf.tail(1)(0) = post_grasp_aff_goal;
 
         // Compose the closed-chain model screws
         const Eigen::MatrixXd cc_slist =
-            affordance_util::compose_cc_model_slist(new_robot_description, aff, vir_screw_order);
+            affordance_util::compose_cc_model_slist(affordance_robot_description, aff, vir_screw_order);
         PlannerResult affordancePlannerResult =
-            generate_affordance_motion_joint_trajectory(plannerConfig, cc_slist, new_theta_sdf, task_offset_tau);
+            generate_affordance_motion_joint_trajectory(plannerConfig, cc_slist, affordance_theta_sdf, task_offset_tau);
 
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
-        CcTrajToRobotTraj(affordancePlannerResult.joint_trajectory, new_robot_description.joint_states);
+        CcTrajToRobotTraj(affordancePlannerResult.joint_trajectory, affordance_robot_description.joint_states);
 
         PlannerResult plannerResult = affordancePlannerResult;
         plannerResult.joint_trajectory.insert(plannerResult.joint_trajectory.end(),
                                               affordancePlannerResult.joint_trajectory.begin(),
                                               affordancePlannerResult.joint_trajectory.end());
-        plannerResult.update_trail plannerResult.update_trail + " --> motion transition --> " +
-            affordancePlannerResult.update_trail;
+        plannerResult.update_trail =
+            plannerResult.update_trail + " --> motion transition --> " + affordancePlannerResult.update_trail;
 
         return plannerResult;
     }
