@@ -56,7 +56,10 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig,
         std::cout << "Here is robot joint states: " << robot_description.joint_states << std::endl;
         std::cout << "Here is the planner success: " << plannerResult.success << std::endl;
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
-        CcTrajToRobotTraj(plannerResult.joint_trajectory, robot_description.joint_states);
+        if (plannerResult.success)
+        {
+            CcTrajToRobotTraj(plannerResult.joint_trajectory, robot_description.joint_states);
+        }
         std::cout << "Past lambda" << task_offset_tau << std::endl;
 
         return plannerResult;
@@ -70,9 +73,12 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig,
         PlannerResult plannerResult =
             generate_affordance_motion_joint_trajectory(plannerConfig, cc_slist, theta_sdf, task_offset_tau);
 
-        CcTrajToRobotTraj(plannerResult.joint_trajectory, robot_description.joint_states);
-
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
+        if (plannerResult.success)
+        {
+            CcTrajToRobotTraj(plannerResult.joint_trajectory, robot_description.joint_states);
+        }
+
         return plannerResult;
     }
     else // plannerConfig.motion_type == MotionType::APPROACH_AND_AFFORDANCE
@@ -92,7 +98,14 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig,
             plannerConfig, cc_model.slist, approach_theta_sdf, task_offset_tau);
 
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
-        CcTrajToRobotTraj(approachPlannerResult.joint_trajectory, robot_description.joint_states);
+        if (approachPlannerResult.success)
+        {
+            CcTrajToRobotTraj(approachPlannerResult.joint_trajectory, robot_description.joint_states);
+        }
+        else
+        {
+            return approachPlannerResult;
+        }
 
         // Adjust starting joint states for affordance motion
         affordance_util::RobotDescription affordance_robot_description = robot_description;
@@ -109,7 +122,23 @@ PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig,
             generate_affordance_motion_joint_trajectory(plannerConfig, cc_slist, affordance_theta_sdf, task_offset_tau);
 
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
-        CcTrajToRobotTraj(affordancePlannerResult.joint_trajectory, affordance_robot_description.joint_states);
+        if (affordancePlannerResult.success)
+        {
+            CcTrajToRobotTraj(affordancePlannerResult.joint_trajectory, affordance_robot_description.joint_states);
+        }
+        else
+        {
+            // If affordance motion failed but approach succeeded, return approach result
+            if (approachPlannerResult.success)
+            {
+                return approachPlannerResult;
+            }
+            else
+            {
+
+                return affordancePlannerResult;
+            }
+        }
 
         PlannerResult plannerResult = affordancePlannerResult;
         plannerResult.joint_trajectory.insert(plannerResult.joint_trajectory.end(),
