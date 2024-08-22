@@ -60,7 +60,7 @@ CcModel compose_cc_model_slist(const RobotDescription &robot_description, const 
 
     // In case aff screw is not set, compute it
     ScrewInfo aff = aff_info;
-    if (aff.screw.isZero())
+    if (aff.screw.hasNaN())
     {
         aff.screw = affordance_util::get_screw(aff);
     }
@@ -150,7 +150,7 @@ Eigen::MatrixXd compose_cc_model_slist(const RobotDescription &robot_description
 
     // In case aff screw is not set, compute it
     ScrewInfo aff = aff_info;
-    if (aff.screw.isZero())
+    if (aff.screw.hasNaN())
     {
         aff.screw = affordance_util::get_screw(aff);
     }
