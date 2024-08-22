@@ -10,8 +10,12 @@ CcAffordancePlannerInterface::CcAffordancePlannerInterface(const PlannerConfig &
 PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
     const affordance_util::RobotDescription &robot_description, const TaskDescription &task_description)
 {
+
     // Check the input for any potential errors
     this->validate_input_(robot_description, task_description);
+
+    // Output of the function
+    PlannerResult plannerResult;
 
     // Extract task description
     const affordance_util::ScrewInfo aff = task_description.affordance_info;
@@ -33,110 +37,30 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
         approach_secondary_joint_goals.tail(2)(0) = cc_model.approach_limit; // approach screw is second to the last
 
         // Solve the joint trajectory for the given task. This function calls the Cc Affordance Planner inside.
-        PlannerResult plannerResult = this->generate_specified_motion_joint_trajectory_(
+        plannerResult = this->generate_specified_motion_joint_trajectory_(
             &CcAffordancePlanner::generate_approach_motion_joint_trajectory,
             &CcAffordancePlanner::generate_approach_motion_joint_trajectory, cc_model.slist,
             approach_secondary_joint_goals, nof_secondary_joints);
-
-        // Convert the differential closed-chain joint trajectory to robot joint trajectory
-        this->convert_cc_traj_to_robot_traj_(plannerResult.joint_trajectory, robot_description.joint_states);
-
-        return plannerResult;
     }
 
-    else if (task_description.motion_type == MotionType::AFFORDANCE)
+    else // task_description.motion_type == MotionType::AFFORDANCE
     {
         // Compose the closed-chain model screws
         const Eigen::MatrixXd cc_slist =
             affordance_util::compose_cc_model_slist(robot_description, aff, vir_screw_order);
 
         // Solve the joint trajectory for the given task. This function calls the Cc Affordance Planner inside.
-        PlannerResult plannerResult = this->generate_specified_motion_joint_trajectory_(
+        plannerResult = this->generate_specified_motion_joint_trajectory_(
             &CcAffordancePlanner::generate_affordance_motion_joint_trajectory,
             &CcAffordancePlanner::generate_affordance_motion_joint_trajectory, cc_slist, secondary_joint_goals,
             nof_secondary_joints);
-
-        // Convert the differential closed-chain joint trajectory to robot joint trajectory
-        this->convert_cc_traj_to_robot_traj_(plannerResult.joint_trajectory, robot_description.joint_states);
-
-        return plannerResult;
     }
-    else // task_description.motion_type == MotionType::APPROACH_AND_AFFORDANCE
-    {
-        // Extract additional task description
-        const Eigen::Matrix4d grasp_pose = task_description.grasp_pose;
-        const double post_grasp_aff_goal = task_description.post_grasp_affordance_goal;
 
-        // Compose the closed-chain model screws and determine the limit for the approach screw
-        const affordance_util::CcModel cc_model =
-            affordance_util::compose_cc_model_slist(robot_description, aff, grasp_pose, vir_screw_order);
+    // Convert the differential closed-chain joint trajectory to robot joint trajectory
+    this->convert_cc_traj_to_robot_traj_(plannerResult.joint_trajectory, robot_description.joint_states);
 
-        // Set the secondary joint goals
-        Eigen::VectorXd approach_secondary_joint_goals = secondary_joint_goals;
-        approach_secondary_joint_goals.tail(2)(0) = cc_model.approach_limit; // approach screw is second to the last
-
-        // Solve the joint trajectory for the given task. This function calls the Cc Affordance Planner inside.
-        PlannerResult approachPlannerResult = this->generate_specified_motion_joint_trajectory_(
-            &CcAffordancePlanner::generate_approach_motion_joint_trajectory,
-            &CcAffordancePlanner::generate_approach_motion_joint_trajectory, cc_model.slist,
-            approach_secondary_joint_goals, nof_secondary_joints);
-
-        // Convert the differential closed-chain joint trajectory to robot joint trajectory
-        if (!approachPlannerResult.success)
-        {
-
-            return approachPlannerResult;
-        }
-
-        this->convert_cc_traj_to_robot_traj_(approachPlannerResult.joint_trajectory, robot_description.joint_states);
-
-        // Adjust starting joint states for affordance motion
-        affordance_util::RobotDescription affordance_robot_description = robot_description;
-        affordance_robot_description.joint_states = approachPlannerResult.joint_trajectory.back();
-
-        // Set goals for affordance motion
-        Eigen::VectorXd affordance_secondary_joint_goals = secondary_joint_goals;
-        affordance_secondary_joint_goals.tail(1)(0) = post_grasp_aff_goal;
-
-        // Compose the closed-chain model screws
-        const Eigen::MatrixXd cc_slist =
-            affordance_util::compose_cc_model_slist(affordance_robot_description, aff, vir_screw_order);
-
-        // Solve the joint trajectory for the given task. This function calls the Cc Affordance Planner inside.
-        PlannerResult affordancePlannerResult = this->generate_specified_motion_joint_trajectory_(
-            &CcAffordancePlanner::generate_affordance_motion_joint_trajectory,
-            &CcAffordancePlanner::generate_affordance_motion_joint_trajectory, cc_slist,
-            affordance_secondary_joint_goals, nof_secondary_joints);
-
-        // If affordance motion failed, return approach motion result, which must have succeeded at this point in code
-        if (!affordancePlannerResult.success)
-        {
-            return approachPlannerResult;
-        }
-
-        // Convert the differential closed-chain joint trajectory to robot joint trajectory
-        this->convert_cc_traj_to_robot_traj_(affordancePlannerResult.joint_trajectory,
-                                             affordance_robot_description.joint_states);
-
-        // Create a combined result
-        PlannerResult plannerResult = approachPlannerResult;
-        plannerResult.joint_trajectory.insert(plannerResult.joint_trajectory.end(),
-                                              affordancePlannerResult.joint_trajectory.begin(),
-                                              affordancePlannerResult.joint_trajectory.end());
-        plannerResult.planning_time += affordancePlannerResult.planning_time;
-        plannerResult.update_trail =
-            plannerResult.update_trail + " --> motion transition --> " + affordancePlannerResult.update_trail;
-
-        // If either motion returned a partial trajectory then, the combined result will also say partial
-        if (approachPlannerResult.trajectory_description != cc_affordance_planner::TrajectoryDescription::FULL &&
-            affordancePlannerResult.trajectory_description != cc_affordance_planner::TrajectoryDescription::FULL)
-        {
-            plannerResult.trajectory_description = cc_affordance_planner::TrajectoryDescription::PARTIAL;
-        }
-
-        return plannerResult;
-    }
-} // namespace cc_affordance_planner
+    return plannerResult;
+}
 
 PlannerResult CcAffordancePlannerInterface::generate_specified_motion_joint_trajectory_(
     const Gsmt &generate_specified_motion_joint_trajectory,
@@ -358,8 +282,7 @@ void CcAffordancePlannerInterface::validate_input_(const affordance_util::RobotD
             "Task description: 'nof_secondary_joints' must match the size of 'secondary_joint_goals'.");
     }
 
-    if (((task_description.motion_type == MotionType::APPROACH) ||
-         (task_description.motion_type == MotionType::APPROACH_AND_AFFORDANCE)) &&
+    if ((task_description.motion_type == MotionType::APPROACH) &&
         ((!task_description.grasp_pose.block<3, 3>(0, 0).isUnitary(tolerance)) ||
          (std::abs(task_description.grasp_pose(3, 3) - 1.0) > tolerance) ||
          (!task_description.grasp_pose.row(3).head(3).isZero(tolerance))))
@@ -367,10 +290,11 @@ void CcAffordancePlannerInterface::validate_input_(const affordance_util::RobotD
         throw std::invalid_argument("Task description: 'grasp_pose' is not a valid transformation matrix.");
     }
 
-    if (task_description.motion_type == MotionType::APPROACH_AND_AFFORDANCE &&
-        task_description.post_grasp_affordance_goal < 0.0)
+    if ((task_description.motion_type == MotionType::APPROACH) &&
+        ((task_description.nof_secondary_joints < 2) || (task_description.nof_secondary_joints > 5)))
     {
-        throw std::invalid_argument("Task description: 'post_grasp_affordance_goal' must be non-negative.");
+        throw std::invalid_argument(
+            "Task description: 'nof_secondary_joints' must be in the range (2,5) for approach motion.");
     }
 }
 
