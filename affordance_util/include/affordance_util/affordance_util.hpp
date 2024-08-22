@@ -102,7 +102,7 @@ enum VirtualScrewOrder
 struct RobotDescription
 {
     Eigen::MatrixXd slist;
-    Eigen::Matrix4d M = Eigen::Matrix4d::Zero();
+    Eigen::Matrix4d M = Eigen::Matrix4d::Constant(std::numeric_limits<double>::quiet_NaN());
     Eigen::VectorXd joint_states;
 };
 
@@ -120,12 +120,14 @@ struct CcModel
  */
 struct ScrewInfo
 {
-    ScrewType type = ScrewType::UNSET;                           // Screw type
-    Eigen::Vector3d axis = Eigen::VectorXd::Zero(3);             // Screw axis
-    Eigen::Vector3d location = Eigen::VectorXd::Zero(3);         // Screw location from a frame of interest
-    Eigen::VectorXd screw = Eigen::Matrix<double, 6, 1>::Zero(); // Screw vector
+    ScrewType type = ScrewType::UNSET;                                                          // Screw type
+    Eigen::Vector3d axis = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN()); // Screw axis
+    Eigen::Vector3d location =
+        Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN()); // Screw location from a frame of interest
+    Eigen::VectorXd screw =
+        Eigen::Matrix<double, 6, 1>::Constant(std::numeric_limits<double>::quiet_NaN()); // Screw vector
     std::string location_frame; // Name of the screw frame, useful when looking up with apriltag
-    double pitch = 0;           // Pitch of the screw. Default is rotation, i.e. 0
+    double pitch = std::numeric_limits<double>::quiet_NaN(); // Pitch of the screw. Default is rotation, i.e. 0
 };
 
 /**
