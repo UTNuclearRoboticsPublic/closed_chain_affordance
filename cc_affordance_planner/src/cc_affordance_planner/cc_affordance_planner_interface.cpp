@@ -33,25 +33,14 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
         approach_theta_sdf.tail(2)(0) = cc_model.approach_limit; // approach screw is second to the last
 
         std::cout << std::fixed << std::setprecision(4); // Display up to 4 decimal places
-        std::cout << "Here is the task description" << std::endl;
-        std::cout << "Grasp pose: \n" << grasp_pose << std::endl;
-        std::cout << "Approach theta sdf: \n" << approach_theta_sdf << std::endl;
-        std::cout << "cc_model.slist: \n" << cc_model.slist << std::endl;
-        std::cout << "cc_model.slist: \n" << cc_model.slist.block(0, 0, 6, 10) << std::endl;
-        std::cout << "affordace: \n" << cc_model.slist.col(10) << std::endl;
-        std::cout << "task offset tau: \n" << task_offset_tau << std::endl;
 
         PlannerResult plannerResult = this->generate_specified_motion_joint_trajectory_(
             &CcAffordancePlanner::generate_approach_motion_joint_trajectory,
             &CcAffordancePlanner::generate_approach_motion_joint_trajectory, cc_model.slist, approach_theta_sdf,
             task_offset_tau);
 
-        std::cout << "Past planner" << task_offset_tau << std::endl;
-        std::cout << "Here is robot joint states: " << robot_description.joint_states << std::endl;
-        std::cout << "Here is the planner success: " << plannerResult.success << std::endl;
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
         convert_cc_traj_to_robot_traj_(plannerResult.joint_trajectory, robot_description.joint_states);
-        std::cout << "Past lambda" << task_offset_tau << std::endl;
 
         return plannerResult;
     }
@@ -62,20 +51,12 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
         const Eigen::MatrixXd cc_slist =
             affordance_util::compose_cc_model_slist(robot_description, aff, vir_screw_order);
         std::cout << std::fixed << std::setprecision(4); // Display up to 4 decimal places
-        std::cout << "Here is the task description" << std::endl;
-        std::cout << "cc_model.slist: \n" << cc_slist.block(0, 0, 6, 10) << std::endl;
-        std::cout << "affordace: \n" << cc_slist.col(10) << std::endl;
-        std::cout << "task offset tau: \n" << task_offset_tau << std::endl;
         PlannerResult plannerResult = this->generate_specified_motion_joint_trajectory_(
             &CcAffordancePlanner::generate_affordance_motion_joint_trajectory,
             &CcAffordancePlanner::generate_affordance_motion_joint_trajectory, cc_slist, theta_sdf, task_offset_tau);
 
-        std::cout << "Past planner" << task_offset_tau << std::endl;
-        std::cout << "Here is robot joint states: " << robot_description.joint_states << std::endl;
-        std::cout << "Here is the planner success: " << plannerResult.success << std::endl;
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
         convert_cc_traj_to_robot_traj_(plannerResult.joint_trajectory, robot_description.joint_states);
-        std::cout << "Past lambda" << task_offset_tau << std::endl;
 
         return plannerResult;
     }
@@ -279,8 +260,8 @@ PlannerResult CcAffordancePlannerInterface::generate_specified_motion_joint_traj
 void CcAffordancePlannerInterface::convert_cc_traj_to_robot_traj_(std::vector<Eigen::VectorXd> &cc_trajectory,
                                                                   const Eigen::VectorXd &start_joint_states)
 {
-    // Return if the trajectory is empty or start joint states are empty or 0
-    if (cc_trajectory.empty() || start_joint_states.squaredNorm() == 0)
+    // Return if the trajectory, no need to attempt conversion
+    if (cc_trajectory.empty())
     {
         return;
     }
@@ -296,8 +277,9 @@ void CcAffordancePlannerInterface::convert_cc_traj_to_robot_traj_(std::vector<Ei
 
     cc_trajectory.insert(cc_trajectory.begin(), cc_start_joint_states);
 }
-void CcAffordancePlannerInterface::validate_input(const affordance_util::RobotDescription &robot_description,
-                                                  const TaskDescription &task_description)
+
+void CcAffordancePlannerInterface::validate_input_(const affordance_util::RobotDescription &robot_description,
+                                                   const TaskDescription &task_description)
 {
     /* Validate robot description */
     if (robot_description.slist.size() == 0)
