@@ -2,8 +2,8 @@
 
 namespace cc_affordance_planner
 {
-CcAffordancePlannerInterface::CcAffordancePlannerInterface(const PlannerConfig &plannerConfig)
-    : plannerConfig_(plannerConfig)
+CcAffordancePlannerInterface::CcAffordancePlannerInterface(const PlannerConfig &planner_config)
+    : planner_config_(planner_config)
 {
 }
 
@@ -11,12 +11,12 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
     const affordance_util::RobotDescription &robot_description, const TaskDescription &task_description)
 {
     // Check the input for any potential errors
-    validate_input(robot_description, task_description);
+    this->validate_input_(robot_description, task_description);
 
     // Extract task description
     const affordance_util::ScrewInfo aff = task_description.affordance_info;
-    const Eigen::VectorXd theta_sdf = task_description.secondary_joint_goals;
-    const size_t task_offset_tau = task_description.nof_secondary_joints;
+    const Eigen::VectorXd secondary_joint_goals = task_description.secondary_joint_goals;
+    const size_t nof_secondary_joints = task_description.nof_secondary_joints;
     const affordance_util::VirtualScrewOrder vir_screw_order = task_description.vir_screw_order;
 
     if (task_description.motion_type == MotionType::APPROACH)
@@ -29,18 +29,17 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
             affordance_util::compose_cc_model_slist(robot_description, aff, grasp_pose, vir_screw_order);
 
         // Set the secondary joint goals
-        Eigen::VectorXd approach_theta_sdf = theta_sdf;
-        approach_theta_sdf.tail(2)(0) = cc_model.approach_limit; // approach screw is second to the last
+        Eigen::VectorXd approach_secondary_joint_goals = secondary_joint_goals;
+        approach_secondary_joint_goals.tail(2)(0) = cc_model.approach_limit; // approach screw is second to the last
 
-        std::cout << std::fixed << std::setprecision(4); // Display up to 4 decimal places
-
+        // Solve the joint trajectory for the given task. This function calls the Cc Affordance Planner inside.
         PlannerResult plannerResult = this->generate_specified_motion_joint_trajectory_(
             &CcAffordancePlanner::generate_approach_motion_joint_trajectory,
-            &CcAffordancePlanner::generate_approach_motion_joint_trajectory, cc_model.slist, approach_theta_sdf,
-            task_offset_tau);
+            &CcAffordancePlanner::generate_approach_motion_joint_trajectory, cc_model.slist,
+            approach_secondary_joint_goals, nof_secondary_joints);
 
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
-        convert_cc_traj_to_robot_traj_(plannerResult.joint_trajectory, robot_description.joint_states);
+        this->convert_cc_traj_to_robot_traj_(plannerResult.joint_trajectory, robot_description.joint_states);
 
         return plannerResult;
     }
@@ -50,13 +49,15 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
         // Compose the closed-chain model screws
         const Eigen::MatrixXd cc_slist =
             affordance_util::compose_cc_model_slist(robot_description, aff, vir_screw_order);
-        std::cout << std::fixed << std::setprecision(4); // Display up to 4 decimal places
+
+        // Solve the joint trajectory for the given task. This function calls the Cc Affordance Planner inside.
         PlannerResult plannerResult = this->generate_specified_motion_joint_trajectory_(
             &CcAffordancePlanner::generate_affordance_motion_joint_trajectory,
-            &CcAffordancePlanner::generate_affordance_motion_joint_trajectory, cc_slist, theta_sdf, task_offset_tau);
+            &CcAffordancePlanner::generate_affordance_motion_joint_trajectory, cc_slist, secondary_joint_goals,
+            nof_secondary_joints);
 
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
-        convert_cc_traj_to_robot_traj_(plannerResult.joint_trajectory, robot_description.joint_states);
+        this->convert_cc_traj_to_robot_traj_(plannerResult.joint_trajectory, robot_description.joint_states);
 
         return plannerResult;
     }
@@ -71,12 +72,14 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
             affordance_util::compose_cc_model_slist(robot_description, aff, grasp_pose, vir_screw_order);
 
         // Set the secondary joint goals
-        Eigen::VectorXd approach_theta_sdf = theta_sdf;
-        approach_theta_sdf.tail(2)(0) = cc_model.approach_limit; // approach screw is second to the last
+        Eigen::VectorXd approach_secondary_joint_goals = secondary_joint_goals;
+        approach_secondary_joint_goals.tail(2)(0) = cc_model.approach_limit; // approach screw is second to the last
+
+        // Solve the joint trajectory for the given task. This function calls the Cc Affordance Planner inside.
         PlannerResult approachPlannerResult = this->generate_specified_motion_joint_trajectory_(
             &CcAffordancePlanner::generate_approach_motion_joint_trajectory,
-            &CcAffordancePlanner::generate_approach_motion_joint_trajectory, cc_model.slist, approach_theta_sdf,
-            task_offset_tau);
+            &CcAffordancePlanner::generate_approach_motion_joint_trajectory, cc_model.slist,
+            approach_secondary_joint_goals, nof_secondary_joints);
 
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
         if (!approachPlannerResult.success)
@@ -85,23 +88,25 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
             return approachPlannerResult;
         }
 
-        convert_cc_traj_to_robot_traj_(approachPlannerResult.joint_trajectory, robot_description.joint_states);
+        this->convert_cc_traj_to_robot_traj_(approachPlannerResult.joint_trajectory, robot_description.joint_states);
 
         // Adjust starting joint states for affordance motion
         affordance_util::RobotDescription affordance_robot_description = robot_description;
         affordance_robot_description.joint_states = approachPlannerResult.joint_trajectory.back();
 
         // Set goals for affordance motion
-        Eigen::VectorXd affordance_theta_sdf = theta_sdf;
-        affordance_theta_sdf.tail(1)(0) = post_grasp_aff_goal;
+        Eigen::VectorXd affordance_secondary_joint_goals = secondary_joint_goals;
+        affordance_secondary_joint_goals.tail(1)(0) = post_grasp_aff_goal;
 
         // Compose the closed-chain model screws
         const Eigen::MatrixXd cc_slist =
             affordance_util::compose_cc_model_slist(affordance_robot_description, aff, vir_screw_order);
+
+        // Solve the joint trajectory for the given task. This function calls the Cc Affordance Planner inside.
         PlannerResult affordancePlannerResult = this->generate_specified_motion_joint_trajectory_(
             &CcAffordancePlanner::generate_affordance_motion_joint_trajectory,
-            &CcAffordancePlanner::generate_affordance_motion_joint_trajectory, cc_slist, affordance_theta_sdf,
-            task_offset_tau);
+            &CcAffordancePlanner::generate_affordance_motion_joint_trajectory, cc_slist,
+            affordance_secondary_joint_goals, nof_secondary_joints);
 
         // If affordance motion failed, return approach motion result, which must have succeeded at this point in code
         if (!affordancePlannerResult.success)
@@ -110,8 +115,8 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
         }
 
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
-        convert_cc_traj_to_robot_traj_(affordancePlannerResult.joint_trajectory,
-                                       affordance_robot_description.joint_states);
+        this->convert_cc_traj_to_robot_traj_(affordancePlannerResult.joint_trajectory,
+                                             affordance_robot_description.joint_states);
 
         // Create a combined result
         PlannerResult plannerResult = approachPlannerResult;
@@ -136,7 +141,7 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
 PlannerResult CcAffordancePlannerInterface::generate_specified_motion_joint_trajectory_(
     const Gsmt &generate_specified_motion_joint_trajectory,
     const Gsmt_st &generate_specified_motion_joint_trajectory_st, const Eigen::MatrixXd &slist,
-    const Eigen::VectorXd &theta_sdf, const size_t &task_offset_tau)
+    const Eigen::VectorXd &secondary_joint_goals, const size_t &nof_secondary_joints)
 
 {
     PlannerResult transposeResult; // Result from the transpose planner
@@ -147,25 +152,25 @@ PlannerResult CcAffordancePlannerInterface::generate_specified_motion_joint_traj
     std::atomic<bool> inverse_result_obtained{false};
 
     // Construct inverse and transpose planner objects
-    CcAffordancePlannerInverse ccAffordancePlannerInverse(plannerConfig_);
-    CcAffordancePlannerTranspose ccAffordancePlannerTranspose(plannerConfig_);
+    CcAffordancePlannerInverse ccAffordancePlannerInverse(planner_config_);
+    CcAffordancePlannerTranspose ccAffordancePlannerTranspose(planner_config_);
     CcAffordancePlanner *ccAffordancePlannerInversePtr(&ccAffordancePlannerInverse);
     CcAffordancePlanner *ccAffordancePlannerTransposePtr(&ccAffordancePlannerTranspose);
 
     // If a specific update method is requested, run the planner using that
-    if (plannerConfig_.update_method == UpdateMethod::INVERSE)
+    if (planner_config_.update_method == UpdateMethod::INVERSE)
     {
-        inverseResult = (ccAffordancePlannerInversePtr->*generate_specified_motion_joint_trajectory)(slist, theta_sdf,
-                                                                                                     task_offset_tau);
+        inverseResult = (ccAffordancePlannerInversePtr->*generate_specified_motion_joint_trajectory)(
+            slist, secondary_joint_goals, nof_secondary_joints);
         inverseResult.update_method = UpdateMethod::INVERSE;
         inverseResult.update_trail += "inverse";
         return inverseResult;
     }
 
-    if (plannerConfig_.update_method == UpdateMethod::TRANSPOSE)
+    if (planner_config_.update_method == UpdateMethod::TRANSPOSE)
     {
         transposeResult = (ccAffordancePlannerTransposePtr->*generate_specified_motion_joint_trajectory)(
-            slist, theta_sdf, task_offset_tau);
+            slist, secondary_joint_goals, nof_secondary_joints);
         transposeResult.update_method = UpdateMethod::TRANSPOSE;
         transposeResult.update_trail += "transpose";
         return transposeResult;
@@ -175,7 +180,7 @@ PlannerResult CcAffordancePlannerInterface::generate_specified_motion_joint_traj
     // threads
     std::jthread inverse_thread([&](std::stop_token st) {
         inverseResult = (ccAffordancePlannerInversePtr->*generate_specified_motion_joint_trajectory_st)(
-            slist, theta_sdf, task_offset_tau, st);
+            slist, secondary_joint_goals, nof_secondary_joints, st);
         {
             std::unique_lock<std::mutex> lock(mtx);
             inverseResult.update_method = UpdateMethod::INVERSE;
@@ -187,7 +192,7 @@ PlannerResult CcAffordancePlannerInterface::generate_specified_motion_joint_traj
 
     std::jthread transpose_thread([&](std::stop_token st) {
         transposeResult = (ccAffordancePlannerTransposePtr->*generate_specified_motion_joint_trajectory_st)(
-            slist, theta_sdf, task_offset_tau, st);
+            slist, secondary_joint_goals, nof_secondary_joints, st);
         {
             std::unique_lock<std::mutex> lock(mtx);
             inverseResult.update_method = UpdateMethod::TRANSPOSE;

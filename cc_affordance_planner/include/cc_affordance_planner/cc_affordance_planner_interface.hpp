@@ -48,17 +48,17 @@ class CcAffordancePlannerInterface
 {
 
   public:
-    using Gsmt = PlannerResult (CcAffordancePlanner::*)(
-        const Eigen::MatrixXd &, const Eigen::VectorXd &,
-        const size_t &); // function pointer to CcAffordancePlanner::generate_approach_motion_joint_trajectory or
-                         // CcAffordancePlanner::generate_affordance_motion_joint_trajectory
+    // Function pointers to CcAffordancePlanner::generate_approach_motion_joint_trajectory or
+    // CcAffordancePlanner::generate_affordance_motion_joint_trajectory
+    using Gsmt = PlannerResult (CcAffordancePlanner::*)(const Eigen::MatrixXd &, const Eigen::VectorXd &,
+                                                        const size_t &);
     using Gsmt_st = PlannerResult (CcAffordancePlanner::*)(const Eigen::MatrixXd &, const Eigen::VectorXd &,
                                                            const size_t &,
                                                            std::stop_token); // Gsmt with st
     /**
      * @brief Given cc affordance planner configuration information constructs the CcAffordancePlannerInterface object
      *
-     * @param plannerConfig Struct containing planner settings:
+     * @param planner_config Struct containing planner settings:
      *        - Use the parameter trajectory_density to specify the trajectory density as number of points in the
      *trajectory. For example, an affordance goal of 0.5 rad could have an affordance step of 0.1 rad, resulting in a
      *trajectory with 5 points, where from start to end, the intermediate affordance goals are 0.1, 0.2, 0.3, 0.4, and
@@ -73,7 +73,7 @@ class CcAffordancePlannerInterface
      *	      cc_affordance_planner::TRANSPOSE, and cc_affordance_planner::BEST. The default value is
      *	      cc_affordance_planner::BEST.
      */
-    explicit CcAffordancePlannerInterface(const PlannerConfig &plannerConfig);
+    explicit CcAffordancePlannerInterface(const PlannerConfig &planner_config);
     /**
      * @brief Given robot and task description generates a closed-chain joint trajectory to
      * perform desired tasks. For each point in the closed-chain joint trajectory, the first n joint positions are
@@ -93,7 +93,7 @@ class CcAffordancePlannerInterface
                                             const TaskDescription &task_description);
 
   private:
-    PlannerConfig plannerConfig_;
+    PlannerConfig planner_config_;
 
     /**
      * @brief Given a function pointer to approach or affordance type joint trajectory generator in CcAffordancePlanner,
@@ -112,15 +112,25 @@ class CcAffordancePlannerInterface
      CcAffordancePlanner::generate_affordance_motion_joint_trajectory
      * @param slist Eigen::MatrixXd containing as columns 6x1 Screws representing all joints of the closed-chain model,
      * i.e., robot joints, virtual ee joint, affordance joint.
-     * @param theta_sdf Eigen::VectorXd containing secondary joint angle goals including EE orientation and affordance
+     * @param secondary_joint_goals Eigen::VectorXd containing secondary joint angle goals including EE orientation and
+     affordance
      * such that the affordance goal is the end element.
-     * @param task_offset_tau A numeric parameter indicating the length of the secondary joint vector:
+     * @param nof_secondary_joints A numeric parameter indicating the length of the secondary joint vector:
+     * For affordance motion:
      *        - A value of 1 implies only affordance control.
      *        - A value of 2 represents affordance control along with controlling the gripper orientation about the next
      *	    adjacent virtual gripper axis (x, y, or z).
      *        - A value of 3 involves controlling affordance along with the EE orientation about the next two virtual
      *          gripper axes.
      *        - A value of 4 refers to affordance control along with all aspects of EE orientation.
+     * For approach motion:
+     *        - Minimum value is 2 and implies controlling approach motion in the context of the affordance. We call
+     *          this approach control.
+     *        - A value of 3 adds to approach control the gripper orientation about the next
+     *	        adjacent virtual gripper axis (x, y, or z).
+     *        - A value of 4 adds to approach control the EE orientation about the next two adjacent virtual
+     *          gripper axes.
+     *        - A value of 5 adds all aspects of EE orientation.
      *
      * @return cc_affordance_planner::PlannerResult containing the solved differential closed-chain joint trajectory
      along with additional *planning process information
@@ -128,7 +138,7 @@ class CcAffordancePlannerInterface
     PlannerResult generate_specified_motion_joint_trajectory_(
         const Gsmt &generate_specified_motion_joint_trajectory,
         const Gsmt_st &generate_specified_motion_joint_trajectory_st, const Eigen::MatrixXd &slist,
-        const Eigen::VectorXd &theta_sdf, const size_t &task_offset_tau);
+        const Eigen::VectorXd &secondary_joint_goals, const size_t &nof_secondary_joints);
 
     /**
      * @brief Given a differential joint trajectory and a reference joint state, returns by reference the absolute joint
