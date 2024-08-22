@@ -98,7 +98,7 @@ struct TaskDescription
  */
 struct PlannerResult
 {
-    bool success;
+    bool success = false;
     TrajectoryDescription trajectory_description;
     std::vector<Eigen::VectorXd> joint_trajectory;
     std::chrono::microseconds planning_time;
