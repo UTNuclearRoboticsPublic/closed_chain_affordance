@@ -2,6 +2,7 @@
 #include <Eigen/Geometry>
 #include <affordance_util/affordance_util.hpp>
 #include <cc_affordance_planner/cc_affordance_planner.hpp>
+#include <cc_affordance_planner/cc_affordance_planner_interface.hpp>
 #include <iomanip>
 
 // This tester includes hardcoded UR5 robot info to test the CC Affordance
@@ -95,8 +96,18 @@ int main()
     task_description.secondary_joint_goals = aff_goal;
 
     // Run the planner
-    cc_affordance_planner::PlannerResult plannerResult =
-        cc_affordance_planner::generate_joint_trajectory(plannerConfig, robot_description, task_description);
+    // Construct the planner interface object
+    cc_affordance_planner::CcAffordancePlannerInterface ccAffordancePlannerInterface(plannerConfig);
+    cc_affordance_planner::PlannerResult plannerResult;
+
+    try
+    {
+        plannerResult = ccAffordancePlannerInterface.generate_joint_trajectory(robot_description, task_description);
+    }
+    catch (const std::invalid_argument &e)
+    {
+        std::cerr << "Planner returned exception: " << e.what() << std::endl;
+    }
 
     // Print the first point in the trajectory if planner succeeds and display the Matlab solution as well
     if (plannerResult.success)
