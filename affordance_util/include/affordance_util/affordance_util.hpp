@@ -80,7 +80,8 @@ enum ScrewType
 {
     ROTATION,
     TRANSLATION,
-    SCREW
+    SCREW,
+    UNSET
 };
 
 /**
@@ -101,7 +102,7 @@ enum VirtualScrewOrder
 struct RobotDescription
 {
     Eigen::MatrixXd slist;
-    Eigen::Matrix4d M;
+    Eigen::Matrix4d M = Eigen::Matrix4d::Zero();
     Eigen::VectorXd joint_states;
 };
 
@@ -119,12 +120,12 @@ struct CcModel
  */
 struct ScrewInfo
 {
-    ScrewType type; // Screw type. Possible fields are "translation", "rotation", "screw"
+    ScrewType type = ScrewType::UNSET;                           // Screw type
     Eigen::Vector3d axis = Eigen::VectorXd::Zero(3);             // Screw axis
     Eigen::Vector3d location = Eigen::VectorXd::Zero(3);         // Screw location from a frame of interest
     Eigen::VectorXd screw = Eigen::Matrix<double, 6, 1>::Zero(); // Screw vector
     std::string location_frame; // Name of the screw frame, useful when looking up with apriltag
-    double pitch;               // Pitch of the screw. Default is rotation
+    double pitch = 0;           // Pitch of the screw. Default is rotation, i.e. 0
 };
 
 /**
