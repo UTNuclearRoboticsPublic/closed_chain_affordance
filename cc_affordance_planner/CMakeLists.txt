@@ -23,6 +23,7 @@ find_package(yaml-cpp REQUIRED )
 # Create the library with source files
 add_library(${PROJECT_NAME} STATIC
     src/${PROJECT_NAME}/${PROJECT_NAME}.cpp
+    src/${PROJECT_NAME}/${PROJECT_NAME}_interface.cpp
 )
 
 # Link this package's library against affordance_util
