@@ -39,7 +39,6 @@
 #include <affordance_util/affordance_util.hpp>
 #include <cc_affordance_planner/cc_affordance_planner.hpp>
 #include <condition_variable>
-#include <iomanip>
 #include <mutex>
 
 namespace cc_affordance_planner
@@ -144,14 +143,15 @@ class CcAffordancePlannerInterface
                                         const Eigen::VectorXd &start_joint_states);
 
     /**
-     * @brief Given a robot and task description for the CC Affordance Planner, validates the given descriptions
+     * @brief Given a robot and task description for the CC Affordance Planner, checks the descriptions for potential
+     * errors
      *
      * @param robot_description affordance_uti::RobotDescription containing description of the robot
      * @param task_description cc_affordance_planner::TaskDescription containing the description of the task for CC
      * Affordance planning
      */
-    void validate_input(const affordance_util::RobotDescription &robot_description,
-                        const TaskDescription &task_description);
+    void validate_input_(const affordance_util::RobotDescription &robot_description,
+                         const TaskDescription &task_description);
 };
 
 } // namespace cc_affordance_planner
