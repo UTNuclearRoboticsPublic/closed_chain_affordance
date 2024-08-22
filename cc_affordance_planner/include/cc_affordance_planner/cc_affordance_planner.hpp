@@ -50,8 +50,7 @@ namespace cc_affordance_planner
 enum MotionType
 {
     APPROACH,
-    AFFORDANCE,
-    APPROACH_AND_AFFORDANCE
+    AFFORDANCE
 };
 
 /**
@@ -86,7 +85,6 @@ struct TaskDescription
     Eigen::VectorXd secondary_joint_goals;
     affordance_util::VirtualScrewOrder vir_screw_order = affordance_util::VirtualScrewOrder::XYZ;
     Eigen::Matrix4d grasp_pose;
-    double post_grasp_affordance_goal;
 };
 
 /**
