@@ -38,28 +38,12 @@
 #include <Eigen/Geometry>
 #include <affordance_util/affordance_util.hpp>
 #include <chrono>
-#include <condition_variable>
-#include <iomanip>
-#include <mutex>
 #include <optional>
 #include <vector>
 
 namespace cc_affordance_planner
 {
 
-/**
- * @brief Struct describing a task for the Closed-Chain Affordance planner in terms of affordance info, number of
- * secondary joints, secondary goal, virtual screw order, grasp pose, and post-grasp affordance goal.
- */
-struct TaskDescription
-{
-    affordance_util::ScrewInfo affordance_info;
-    size_t nof_secondary_joints;
-    Eigen::VectorXd secondary_joint_goals;
-    affordance_util::VirtualScrewOrder vir_screw_order = affordance_util::VirtualScrewOrder::XYZ;
-    Eigen::Matrix4d grasp_pose;
-    double post_grasp_affordance_goal;
-};
 /**
  * @brief Enum describing the closed-chain affordance motion type
  */
@@ -91,6 +75,21 @@ enum UpdateMethod
 };
 
 /**
+ * @brief Struct describing a task for the Closed-Chain Affordance planner in terms of affordance info, number of
+ * secondary joints, secondary goal, virtual screw order, grasp pose, and post-grasp affordance goal.
+ */
+struct TaskDescription
+{
+    MotionType motion_type = MotionType::AFFORDANCE;
+    affordance_util::ScrewInfo affordance_info;
+    size_t nof_secondary_joints = 0;
+    Eigen::VectorXd secondary_joint_goals;
+    affordance_util::VirtualScrewOrder vir_screw_order = affordance_util::VirtualScrewOrder::XYZ;
+    Eigen::Matrix4d grasp_pose;
+    double post_grasp_affordance_goal;
+};
+
+/**
  * @brief Designed to contain the result of the Closed-chain Affordance planner with fields:
  * success indicating success; traj_full_or_partial indicating full or partial trajectory with values, "Full",
  * "Partial", or "Unset"; joint_trajectory representing the joint trajectory; planning_time representing time taken for
@@ -116,7 +115,6 @@ struct PlannerResult
 struct PlannerConfig
 {
 
-    MotionType motion_type = MotionType::AFFORDANCE;
     int trajectory_density = 10;
     double accuracy = 10.0 / 100.0;
     double closure_err_threshold_ang = 1e-4;
@@ -124,127 +122,6 @@ struct PlannerConfig
     int ik_max_itr = 200;
     UpdateMethod update_method = UpdateMethod::BEST;
 };
-
-/**
- * @brief Given planner configuration, robot description, and task description generates a robot joint trajectory to
- * perform desired tasks.
- *
- * @param plannerConfig Struct containing planner settings:
- *        - Use the parameter trajectory_density to specify the trajectory density as number of points in the
- *trajectory. For example, an affordance goal of 0.5 rad could have an affordance step of 0.1 rad, resulting in a
- *trajectory with 5 points, where from start to end, the intermediate affordance goals are 0.1, 0.2, 0.3, 0.4, and 0.5
- *rad.
- *        - Another important parameter is accuracy, which represents the threshold for the affordance goal (and
- *          step). For instance, if 10% accuracy is desired for 1 rad goal, set accuracy to 0.1. This will produce joint
- *          solutions that result in an affordance goal of 1 +- 0.1.
- *        - Advanced users can utilize three additional parameters:
- *          - closure_error_threshold: Specify the error threshold for the closed-chain closure error.
- *          - ik_max_itr: Specify the maximum iterations for the closed-chain inverse kinematics solver.
- *          - update_method: Specify which update method to use. Possible values are cc_affordance_planner::INVERSE,
- *	      cc_affordance_planner::TRANSPOSE, and cc_affordance_planner::BEST. The default value is
- *	      cc_affordance_planner::BEST.
- * @param robot_description affordance_util::RobotDescription containing the description of a robot in terms of its
- *screw list, end-effector homogeneous transformation matrix, and the current joint states
- * @param task_description cc_affordance_planner::TaskDescription describing a task in terms of affordance info, number
- *of secondary joints, secondary goal, virtual screw order, grasp pose, and post-grasp affordance goal.
- *
- * @return cc_affordance_planner::PlannerResult containing the solved robot joint trajectory along with additional
- *planning process information
- */
-PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig,
-                                        const affordance_util::RobotDescription &robot_description,
-                                        const TaskDescription &task_description);
-
-/**
- * @brief Given planner configuration, closed-chain
- * screws, secondary joint (approach, affordance and/or gripper orientation) goals, and gripper orientation control
- *parameter, generates a differential joint trajectory to reach desired goals.
- *
- * @param plannerConfig Struct containing planner settings:
- *        - Use the parameter trajectory_density to specify the trajectory density as number of points in the
- *trajectory. For example, an affordance goal of 0.5 rad could have an affordance step of 0.1 rad, resulting in a
- *trajectory with 5 points, where from start to end, the intermediate affordance goals are 0.1, 0.2, 0.3, 0.4, and 0.5
- *rad.
- *        - Another important parameter is accuracy, which represents the threshold for the affordance goal (and
- *          step). For instance, if 10% accuracy is desired for 1 rad goal, set accuracy to 0.1. This will produce joint
- *          solutions that result in an affordance goal of 1 +- 0.1.
- *        - Advanced users can utilize three additional parameters:
- *          - closure_error_threshold: Specify the error threshold for the closed-chain closure error.
- *          - ik_max_itr: Specify the maximum iterations for the closed-chain inverse kinematics solver.
- *          - update_method: Specify which update method to use. Possible values are cc_affordance_planner::INVERSE,
- *	      cc_affordance_planner::TRANSPOSE, and cc_affordance_planner::BEST. The default value is
- *	      cc_affordance_planner::BEST.
- * @param slist Eigen::MatrixXd containing as columns 6x1 Screws representing all joints of the closed-chain model,
- * i.e., robot joints, virtual ee joint, affordance joint.
- * @param theta_sdf Eigen::VectorXd containing secondary joint angle goals including EE orientation and affordance
- * such that the affordance goal is the end element.
- * @param task_offset_tau A numeric parameter indicating the length of the secondary joint vector:
- *        - A value of 1 implies only affordance control.
- *        - A value of 2 represents affordance control along with controlling the gripper orientation about the next
- *	    adjacent virtual gripper axis (x, y, or z).
- *        - A value of 3 involves controlling affordance along with the EE orientation about the next two virtual
- *          gripper axes.
- *        - A value of 4 refers to affordance control along with all aspects of EE orientation.
- *
- * @param slist Eigen::MatrixXd containing as columns 6x1 Screws of the closed-chain mechanism.
- *
- * @return Struct containing the result of the planning with fields:
- * success indicating success;
- * traj_full_or_partial indicating full or partial trajectory with values, "Full", "Partial", or "Unset";
- * joint_trajectory representing the joint trajectory;
- * planning_time representing time taken for planning in microseconds; and
- * update_method indicating whether transpose or inverse method was used.
- */
-
-PlannerResult generate_approach_motion_joint_trajectory(const PlannerConfig &plannerConfig,
-                                                        const Eigen::MatrixXd &slist, const Eigen::VectorXd &theta_sdf,
-                                                        const size_t &task_offset_tau);
-
-/**
- * @brief Given planner configuration, closed-chain
- * screws, secondary joint (affordance and/or gripper orientation) goals, and gripper orientation control parameter,
- * generates a differential joint trajectory to reach desired goals.
- *
- * @param plannerConfig Struct containing planner settings:
- *        - Use the parameter trajectory_density to specify the trajectory density as number of points in the
- *trajectory. For example, an affordance goal of 0.5 rad could have an affordance step of 0.1 rad, resulting in a
- *trajectory with 5 points, where from start to end, the intermediate affordance goals are 0.1, 0.2, 0.3, 0.4, and 0.5
- *rad.
- *        - Another important parameter is accuracy, which represents the threshold for the affordance goal (and
- *          step). For instance, if 10% accuracy is desired for 1 rad goal, set accuracy to 0.1. This will produce joint
- *          solutions that result in an affordance goal of 1 +- 0.1.
- *        - Advanced users can utilize three additional parameters:
- *          - closure_error_threshold: Specify the error threshold for the closed-chain closure error.
- *          - ik_max_itr: Specify the maximum iterations for the closed-chain inverse kinematics solver.
- *          - update_method: Specify which update method to use. Possible values are cc_affordance_planner::INVERSE,
- *	      cc_affordance_planner::TRANSPOSE, and cc_affordance_planner::BEST. The default value is
- *	      cc_affordance_planner::BEST.
- * @param slist Eigen::MatrixXd containing as columns 6x1 Screws representing all joints of the closed-chain model,
- * i.e., robot joints, virtual ee joint, affordance joint.
- * @param theta_sdf Eigen::VectorXd containing secondary joint angle goals including EE orientation and affordance
- * such that the affordance goal is the end element.
- * @param task_offset_tau A numeric parameter indicating the length of the secondary joint vector:
- *        - A value of 1 implies only affordance control.
- *        - A value of 2 represents affordance control along with controlling the gripper orientation about the next
- *	    adjacent virtual gripper axis (x, y, or z).
- *        - A value of 3 involves controlling affordance along with the EE orientation about the next two virtual
- *          gripper axes.
- *        - A value of 4 refers to affordance control along with all aspects of EE orientation.
- *
- * @param slist Eigen::MatrixXd containing as columns 6x1 Screws of the closed-chain mechanism.
- *
- * @return Struct containing the result of the planning with fields:
- * success indicating success;
- * traj_full_or_partial indicating full or partial trajectory with values, "Full", "Partial", or "Unset";
- * joint_trajectory representing the joint trajectory;
- * planning_time representing time taken for planning in microseconds; and
- * update_method indicating whether transpose or inverse method was used.
- */
-
-PlannerResult generate_affordance_motion_joint_trajectory(const PlannerConfig &plannerConfig,
-                                                          const Eigen::MatrixXd &slist,
-                                                          const Eigen::VectorXd &theta_sdf,
-                                                          const size_t &task_offset_tau);
 
 /**
  * @brief Base Class for the Closed-Chain Affordance Planner

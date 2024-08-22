@@ -2,29 +2,24 @@
 
 namespace cc_affordance_planner
 {
-explicit CcAffordancePlannerInterface(const PlannerConfig &plannerConfig)
-    : plannerConfig_(plannerConfig),
-      ccAffordancePlannerInverse_(plannerConfig),
-      ccAffordancePlannerTranspose_(plannerConfig),
-      ccAffordancePlannerInversePtr_(&ccAffordancePlannerInverse_),
-      ccAffordancePlannerTransposePtr_(&ccAffordancePlannerTranspose_)
+CcAffordancePlannerInterface::CcAffordancePlannerInterface(const PlannerConfig &plannerConfig)
+    : plannerConfig_(plannerConfig)
 {
 }
-// Pass approach or affordance args as task description? They are tasks anyways. Also decide whether to pass robot
-// starta state as a task description or have it still with robot description? Maybe robot description is better since
-// that way you can run the planner with specified settings for any robot. An example is you might wanna run it for the
-// arm one time then, in another instant run it for the whole body
 
 PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
     const affordance_util::RobotDescription &robot_description, const TaskDescription &task_description)
 {
+    // Check the input for any potential errors
+    validate_input(robot_description, task_description);
+
     // Extract task description
     const affordance_util::ScrewInfo aff = task_description.affordance_info;
     const Eigen::VectorXd theta_sdf = task_description.secondary_joint_goals;
     const size_t task_offset_tau = task_description.nof_secondary_joints;
     const affordance_util::VirtualScrewOrder vir_screw_order = task_description.vir_screw_order;
 
-    if (plannerConfig_.motion_type == MotionType::APPROACH)
+    if (task_description.motion_type == MotionType::APPROACH)
     {
         // Extract additional task description
         const Eigen::Matrix4d grasp_pose = task_description.grasp_pose;
@@ -46,40 +41,45 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
         std::cout << "affordace: \n" << cc_model.slist.col(10) << std::endl;
         std::cout << "task offset tau: \n" << task_offset_tau << std::endl;
 
-        PlannerResult plannerResult =
-            this->generate_xx_motion_joint_trajectory_(&CcAffordancePlanner::generate_approach_motion_joint_trajectory,
-                                                       cc_model.slist, approach_theta_sdf, task_offset_tau);
+        PlannerResult plannerResult = this->generate_specified_motion_joint_trajectory_(
+            &CcAffordancePlanner::generate_approach_motion_joint_trajectory,
+            &CcAffordancePlanner::generate_approach_motion_joint_trajectory, cc_model.slist, approach_theta_sdf,
+            task_offset_tau);
 
         std::cout << "Past planner" << task_offset_tau << std::endl;
         std::cout << "Here is robot joint states: " << robot_description.joint_states << std::endl;
         std::cout << "Here is the planner success: " << plannerResult.success << std::endl;
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
-        if (plannerResult.success)
-        {
-            convert_cc_traj_to_robot_traj_(plannerResult.joint_trajectory, robot_description.joint_states);
-        }
+        convert_cc_traj_to_robot_traj_(plannerResult.joint_trajectory, robot_description.joint_states);
         std::cout << "Past lambda" << task_offset_tau << std::endl;
 
         return plannerResult;
     }
 
-    else if (plannerConfig_.motion_type == MotionType::AFFORDANCE)
+    else if (task_description.motion_type == MotionType::AFFORDANCE)
     {
         // Compose the closed-chain model screws
         const Eigen::MatrixXd cc_slist =
             affordance_util::compose_cc_model_slist(robot_description, aff, vir_screw_order);
-        PlannerResult plannerResult = this->generate_xx_motion_joint_trajectory_(
+        std::cout << std::fixed << std::setprecision(4); // Display up to 4 decimal places
+        std::cout << "Here is the task description" << std::endl;
+        std::cout << "cc_model.slist: \n" << cc_slist.block(0, 0, 6, 10) << std::endl;
+        std::cout << "affordace: \n" << cc_slist.col(10) << std::endl;
+        std::cout << "task offset tau: \n" << task_offset_tau << std::endl;
+        PlannerResult plannerResult = this->generate_specified_motion_joint_trajectory_(
+            &CcAffordancePlanner::generate_affordance_motion_joint_trajectory,
             &CcAffordancePlanner::generate_affordance_motion_joint_trajectory, cc_slist, theta_sdf, task_offset_tau);
 
+        std::cout << "Past planner" << task_offset_tau << std::endl;
+        std::cout << "Here is robot joint states: " << robot_description.joint_states << std::endl;
+        std::cout << "Here is the planner success: " << plannerResult.success << std::endl;
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
-        if (plannerResult.success)
-        {
-            convert_cc_traj_to_robot_traj_(plannerResult.joint_trajectory, robot_description.joint_states);
-        }
+        convert_cc_traj_to_robot_traj_(plannerResult.joint_trajectory, robot_description.joint_states);
+        std::cout << "Past lambda" << task_offset_tau << std::endl;
 
         return plannerResult;
     }
-    else // plannerConfig_.motion_type == MotionType::APPROACH_AND_AFFORDANCE
+    else // task_description.motion_type == MotionType::APPROACH_AND_AFFORDANCE
     {
         // Extract additional task description
         const Eigen::Matrix4d grasp_pose = task_description.grasp_pose;
@@ -92,19 +92,19 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
         // Set the secondary joint goals
         Eigen::VectorXd approach_theta_sdf = theta_sdf;
         approach_theta_sdf.tail(2)(0) = cc_model.approach_limit; // approach screw is second to the last
-        PlannerResult approachPlannerResult =
-            this->generate_xx_motion_joint_trajectory_(&CcAffordancePlanner::generate_approach_motion_joint_trajectory,
-                                                       cc_model.slist, approach_theta_sdf, task_offset_tau);
+        PlannerResult approachPlannerResult = this->generate_specified_motion_joint_trajectory_(
+            &CcAffordancePlanner::generate_approach_motion_joint_trajectory,
+            &CcAffordancePlanner::generate_approach_motion_joint_trajectory, cc_model.slist, approach_theta_sdf,
+            task_offset_tau);
 
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
-        if (approachPlannerResult.success)
+        if (!approachPlannerResult.success)
         {
-            convert_cc_traj_to_robot_traj_(approachPlannerResult.joint_trajectory, robot_description.joint_states);
-        }
-        else
-        {
+
             return approachPlannerResult;
         }
+
+        convert_cc_traj_to_robot_traj_(approachPlannerResult.joint_trajectory, robot_description.joint_states);
 
         // Adjust starting joint states for affordance motion
         affordance_util::RobotDescription affordance_robot_description = robot_description;
@@ -117,43 +117,44 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
         // Compose the closed-chain model screws
         const Eigen::MatrixXd cc_slist =
             affordance_util::compose_cc_model_slist(affordance_robot_description, aff, vir_screw_order);
-        PlannerResult affordancePlannerResult = this->generate_xx_motion_joint_trajectory_(
+        PlannerResult affordancePlannerResult = this->generate_specified_motion_joint_trajectory_(
+            &CcAffordancePlanner::generate_affordance_motion_joint_trajectory,
             &CcAffordancePlanner::generate_affordance_motion_joint_trajectory, cc_slist, affordance_theta_sdf,
             task_offset_tau);
 
+        // If affordance motion failed, return approach motion result, which must have succeeded at this point in code
+        if (!affordancePlannerResult.success)
+        {
+            return approachPlannerResult;
+        }
+
         // Convert the differential closed-chain joint trajectory to robot joint trajectory
-        if (affordancePlannerResult.success)
-        {
-            convert_cc_traj_to_robot_traj_(affordancePlannerResult.joint_trajectory,
-                                           affordance_robot_description.joint_states);
-        }
-        else
-        {
-            // If affordance motion failed but approach succeeded, return approach result
-            if (approachPlannerResult.success)
-            {
-                return approachPlannerResult;
-            }
-            else
-            {
+        convert_cc_traj_to_robot_traj_(affordancePlannerResult.joint_trajectory,
+                                       affordance_robot_description.joint_states);
 
-                return affordancePlannerResult;
-            }
-        }
-
-        PlannerResult plannerResult = affordancePlannerResult;
+        // Create a combined result
+        PlannerResult plannerResult = approachPlannerResult;
         plannerResult.joint_trajectory.insert(plannerResult.joint_trajectory.end(),
                                               affordancePlannerResult.joint_trajectory.begin(),
                                               affordancePlannerResult.joint_trajectory.end());
+        plannerResult.planning_time += affordancePlannerResult.planning_time;
         plannerResult.update_trail =
             plannerResult.update_trail + " --> motion transition --> " + affordancePlannerResult.update_trail;
 
+        // If either motion returned a partial trajectory then, the combined result will also say partial
+        if (approachPlannerResult.trajectory_description != cc_affordance_planner::TrajectoryDescription::FULL &&
+            affordancePlannerResult.trajectory_description != cc_affordance_planner::TrajectoryDescription::FULL)
+        {
+            plannerResult.trajectory_description = cc_affordance_planner::TrajectoryDescription::PARTIAL;
+        }
+
         return plannerResult;
     }
-}
+} // namespace cc_affordance_planner
 
-PlannerResult CcAffordancePlannerInterface::generate_xx_motion_joint_trajectory_(
-    const GenerateXxMotionTrajectory &generate_xx_motion_joint_trajectory, const Eigen::MatrixXd &slist,
+PlannerResult CcAffordancePlannerInterface::generate_specified_motion_joint_trajectory_(
+    const Gsmt &generate_specified_motion_joint_trajectory,
+    const Gsmt_st &generate_specified_motion_joint_trajectory_st, const Eigen::MatrixXd &slist,
     const Eigen::VectorXd &theta_sdf, const size_t &task_offset_tau)
 
 {
@@ -164,11 +165,17 @@ PlannerResult CcAffordancePlannerInterface::generate_xx_motion_joint_trajectory_
     std::atomic<bool> transpose_result_obtained{false};
     std::atomic<bool> inverse_result_obtained{false};
 
+    // Construct inverse and transpose planner objects
+    CcAffordancePlannerInverse ccAffordancePlannerInverse(plannerConfig_);
+    CcAffordancePlannerTranspose ccAffordancePlannerTranspose(plannerConfig_);
+    CcAffordancePlanner *ccAffordancePlannerInversePtr(&ccAffordancePlannerInverse);
+    CcAffordancePlanner *ccAffordancePlannerTransposePtr(&ccAffordancePlannerTranspose);
+
     // If a specific update method is requested, run the planner using that
     if (plannerConfig_.update_method == UpdateMethod::INVERSE)
     {
-        inverseResult =
-            ccAffordancePlannerInversePtr->generate_xx_motion_joint_trajectory(slist, theta_sdf, task_offset_tau);
+        inverseResult = (ccAffordancePlannerInversePtr->*generate_specified_motion_joint_trajectory)(slist, theta_sdf,
+                                                                                                     task_offset_tau);
         inverseResult.update_method = UpdateMethod::INVERSE;
         inverseResult.update_trail += "inverse";
         return inverseResult;
@@ -176,8 +183,8 @@ PlannerResult CcAffordancePlannerInterface::generate_xx_motion_joint_trajectory_
 
     if (plannerConfig_.update_method == UpdateMethod::TRANSPOSE)
     {
-        transposeResult =
-            ccAffordancePlannerTransposePtr->generate_xx_motion_joint_trajectory(slist, theta_sdf, task_offset_tau);
+        transposeResult = (ccAffordancePlannerTransposePtr->*generate_specified_motion_joint_trajectory)(
+            slist, theta_sdf, task_offset_tau);
         transposeResult.update_method = UpdateMethod::TRANSPOSE;
         transposeResult.update_trail += "transpose";
         return transposeResult;
@@ -186,8 +193,8 @@ PlannerResult CcAffordancePlannerInterface::generate_xx_motion_joint_trajectory_
     // If a specific update method is not requested, run the inverse and transpose planners concurrently in separate
     // threads
     std::jthread inverse_thread([&](std::stop_token st) {
-        inverseResult =
-            ccAffordancePlannerInversePtr->generate_xx_motion_joint_trajectory(slist, theta_sdf, task_offset_tau, st);
+        inverseResult = (ccAffordancePlannerInversePtr->*generate_specified_motion_joint_trajectory_st)(
+            slist, theta_sdf, task_offset_tau, st);
         {
             std::unique_lock<std::mutex> lock(mtx);
             inverseResult.update_method = UpdateMethod::INVERSE;
@@ -198,8 +205,8 @@ PlannerResult CcAffordancePlannerInterface::generate_xx_motion_joint_trajectory_
     });
 
     std::jthread transpose_thread([&](std::stop_token st) {
-        transposeResult =
-            ccAffordancePlannerTransposePtr->generate_xx_motion_joint_trajectory(slist, theta_sdf, task_offset_tau, st);
+        transposeResult = (ccAffordancePlannerTransposePtr->*generate_specified_motion_joint_trajectory_st)(
+            slist, theta_sdf, task_offset_tau, st);
         {
             std::unique_lock<std::mutex> lock(mtx);
             inverseResult.update_method = UpdateMethod::TRANSPOSE;
@@ -269,9 +276,14 @@ PlannerResult CcAffordancePlannerInterface::generate_xx_motion_joint_trajectory_
     }
 }
 
-void convert_cc_traj_to_robot_traj_(const std::vector<Eigen::VectorXd> &cc_trajectory,
-                                    const Eigen::VectorXd &start_joint_states)
+void CcAffordancePlannerInterface::convert_cc_traj_to_robot_traj_(std::vector<Eigen::VectorXd> &cc_trajectory,
+                                                                  const Eigen::VectorXd &start_joint_states)
 {
+    // Return if the trajectory is empty or start joint states are empty or 0
+    if (cc_trajectory.empty() || start_joint_states.squaredNorm() == 0)
+    {
+        return;
+    }
     // Compute the closed-chain trajectory absolute start state
     Eigen::VectorXd cc_start_joint_states = Eigen::VectorXd::Zero(cc_trajectory[0].size());
     cc_start_joint_states.head(start_joint_states.size()) = start_joint_states;
@@ -283,6 +295,96 @@ void convert_cc_traj_to_robot_traj_(const std::vector<Eigen::VectorXd> &cc_traje
     }
 
     cc_trajectory.insert(cc_trajectory.begin(), cc_start_joint_states);
-};
+}
+void CcAffordancePlannerInterface::validate_input(const affordance_util::RobotDescription &robot_description,
+                                                  const TaskDescription &task_description)
+{
+    /* Validate robot description */
+    if (robot_description.slist.size() == 0)
+    {
+        throw std::invalid_argument("Robot description: 'slist' cannot be empty.");
+    }
+
+    if (robot_description.M.hasNaN())
+    {
+        throw std::invalid_argument("Robot description: 'M' (palm HTM) must be specified.");
+    }
+
+    double tolerance = 1e-4;
+    if (((!robot_description.M.block<3, 3>(0, 0).isUnitary(tolerance)) ||
+         (std::abs(robot_description.M(3, 3) - 1.0) > tolerance) ||
+         (!robot_description.M.row(3).head(3).isZero(tolerance))))
+    {
+        throw std::invalid_argument("Robot description: 'M' is not a valid transformation matrix.");
+    }
+
+    if (robot_description.joint_states.size() == 0)
+    {
+        throw std::invalid_argument("Robot description: 'joint_states' cannot be empty.");
+    }
+
+    if (robot_description.slist.cols() != robot_description.joint_states.size())
+    {
+        throw std::invalid_argument(
+            "Robot description: 'joint_states' size must match the number of columns in 'slist'.");
+    }
+
+    /* Validate task description */
+    if (task_description.affordance_info.type == affordance_util::ScrewType::UNSET)
+    {
+        throw std::invalid_argument("Task description: 'affordance_info.type' must be specified.");
+    }
+
+    if (task_description.affordance_info.axis.hasNaN() ||
+        task_description.affordance_info.location.hasNaN() && task_description.affordance_info.screw.hasNaN())
+    {
+        throw std::invalid_argument("Task description: Either 'affordance_info.axis' and 'affordance_info.location', "
+                                    "or 'affordance_info.screw' must be specified.");
+    }
+
+    if (task_description.affordance_info.type == affordance_util::ScrewType::SCREW &&
+        task_description.affordance_info.screw.hasNaN() && std::isnan(task_description.affordance_info.pitch))
+    {
+        throw std::invalid_argument("Task description: For 'SCREW' type affordance_info, if screw is not filled out, "
+                                    "'pitch' must be specified.");
+    }
+
+    if (!task_description.affordance_info.axis.hasNaN() &&
+        std::abs(task_description.affordance_info.axis.norm() - 1) > tolerance)
+    {
+        throw std::invalid_argument("Task description: 'affordance_info.axis' must be a unit vector");
+    }
+
+    if (task_description.nof_secondary_joints < 1)
+    {
+        throw std::invalid_argument("Task description: 'nof_secondary_joints' cannot be less than 1.");
+    }
+
+    if (task_description.secondary_joint_goals.size() == 0)
+    {
+        throw std::invalid_argument("Task description: 'secondary_joint_goals' cannot be empty.");
+    }
+
+    if (task_description.nof_secondary_joints != task_description.secondary_joint_goals.size())
+    {
+        throw std::invalid_argument(
+            "Task description: 'nof_secondary_joints' must match the size of 'secondary_joint_goals'.");
+    }
+
+    if (((task_description.motion_type == MotionType::APPROACH) ||
+         (task_description.motion_type == MotionType::APPROACH_AND_AFFORDANCE)) &&
+        ((!task_description.grasp_pose.block<3, 3>(0, 0).isUnitary(tolerance)) ||
+         (std::abs(task_description.grasp_pose(3, 3) - 1.0) > tolerance) ||
+         (!task_description.grasp_pose.row(3).head(3).isZero(tolerance))))
+    {
+        throw std::invalid_argument("Task description: 'grasp_pose' is not a valid transformation matrix.");
+    }
+
+    if (task_description.motion_type == MotionType::APPROACH_AND_AFFORDANCE &&
+        task_description.post_grasp_affordance_goal < 0.0)
+    {
+        throw std::invalid_argument("Task description: 'post_grasp_affordance_goal' must be non-negative.");
+    }
+}
 
 } // namespace cc_affordance_planner

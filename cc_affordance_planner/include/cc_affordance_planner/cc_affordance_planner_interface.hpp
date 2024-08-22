@@ -39,6 +39,7 @@
 #include <affordance_util/affordance_util.hpp>
 #include <cc_affordance_planner/cc_affordance_planner.hpp>
 #include <condition_variable>
+#include <iomanip>
 #include <mutex>
 
 namespace cc_affordance_planner
@@ -48,10 +49,13 @@ class CcAffordancePlannerInterface
 {
 
   public:
-    using GenerateXxMotionTrajectory = PlannerResult (CcAffordancePlanner::*)(const Eigen::MatrixXd &,
-                                                                              const Eigen::VectorXd &,
-                                                                              const size_t &) const;
-
+    using Gsmt = PlannerResult (CcAffordancePlanner::*)(
+        const Eigen::MatrixXd &, const Eigen::VectorXd &,
+        const size_t &); // function pointer to CcAffordancePlanner::generate_approach_motion_joint_trajectory or
+                         // CcAffordancePlanner::generate_affordance_motion_joint_trajectory
+    using Gsmt_st = PlannerResult (CcAffordancePlanner::*)(const Eigen::MatrixXd &, const Eigen::VectorXd &,
+                                                           const size_t &,
+                                                           std::stop_token); // Gsmt with st
     /**
      * @brief Given cc affordance planner configuration information constructs the CcAffordancePlannerInterface object
      *
@@ -86,16 +90,11 @@ class CcAffordancePlannerInterface
      *n joint positions are simply the robot joint states, and the rest the corresponding secondary joint states in the
      *closed-chain model.
      */
-    PlannerResult generate_joint_trajectory(const PlannerConfig &plannerConfig,
-                                            const affordance_util::RobotDescription &robot_description,
+    PlannerResult generate_joint_trajectory(const affordance_util::RobotDescription &robot_description,
                                             const TaskDescription &task_description);
 
   private:
     PlannerConfig plannerConfig_;
-    CcAffordancePlannerInverse ccAffordancePlannerInverse_;
-    CcAffordancePlannerTranspose ccAffordancePlannerTranspose_;
-    CcAffordancePlanner *ccAffordancePlannerInversePtr_;
-    CcAffordancePlanner *ccAffordancePlannerTransposePtr_;
 
     /**
      * @brief Given a function pointer to approach or affordance type joint trajectory generator in CcAffordancePlanner,
@@ -104,8 +103,12 @@ class CcAffordancePlannerInterface
      control parameter,
      * generates a differential joint trajectory to reach desired goals.
      *
-     * @param generate_xx_motion_joint_trajectory (CcAffordancePlanner::*)(const Eigen::MatrixXd &, const
+     * @param generate_specified_motion_joint_trajectory (CcAffordancePlanner::*)(const Eigen::MatrixXd &, const
      Eigen::VectorXd &, const size_t &) const function pointer to
+     CcAffordancePlanner::generate_approach_motion_joint_trajectory or
+     CcAffordancePlanner::generate_affordance_motion_joint_trajectory
+     * @param generate_specified_motion_joint_trajectory_st (CcAffordancePlanner::*)(const Eigen::MatrixXd &, const
+     Eigen::VectorXd &, const size_t &, std::stop_token) const function pointer to
      CcAffordancePlanner::generate_approach_motion_joint_trajectory or
      CcAffordancePlanner::generate_affordance_motion_joint_trajectory
      * @param slist Eigen::MatrixXd containing as columns 6x1 Screws representing all joints of the closed-chain model,
@@ -123,8 +126,9 @@ class CcAffordancePlannerInterface
      * @return cc_affordance_planner::PlannerResult containing the solved differential closed-chain joint trajectory
      along with additional *planning process information
      */
-    PlannerResult generate_xx_motion_joint_trajectory_(
-        const GenerateXxMotionTrajectory &generate_xx_motion_joint_trajectory, const Eigen::MatrixXd &slist,
+    PlannerResult generate_specified_motion_joint_trajectory_(
+        const Gsmt &generate_specified_motion_joint_trajectory,
+        const Gsmt_st &generate_specified_motion_joint_trajectory_st, const Eigen::MatrixXd &slist,
         const Eigen::VectorXd &theta_sdf, const size_t &task_offset_tau);
 
     /**
@@ -136,8 +140,18 @@ class CcAffordancePlannerInterface
      * returned by reference as the absolute trajectory
      * @param start_joint_states Eigen::VectorXd containing the reference start joint states
      */
-    void convert_cc_traj_to_robot_traj_(const std::vector<Eigen::VectorXd> &cc_trajectory,
+    void convert_cc_traj_to_robot_traj_(std::vector<Eigen::VectorXd> &cc_trajectory,
                                         const Eigen::VectorXd &start_joint_states);
+
+    /**
+     * @brief Given a robot and task description for the CC Affordance Planner, validates the given descriptions
+     *
+     * @param robot_description affordance_uti::RobotDescription containing description of the robot
+     * @param task_description cc_affordance_planner::TaskDescription containing the description of the task for CC
+     * Affordance planning
+     */
+    void validate_input(const affordance_util::RobotDescription &robot_description,
+                        const TaskDescription &task_description);
 };
 
 } // namespace cc_affordance_planner
