@@ -38,9 +38,9 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-#include <iostream> // to print errors
+#include <limits>
 #include <vector>
-#include <yaml-cpp/yaml.h> // to read yaml files
+#include <yaml-cpp/yaml.h>
 
 namespace YAML
 {
