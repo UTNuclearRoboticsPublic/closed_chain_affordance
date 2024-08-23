@@ -39,8 +39,9 @@ install(TARGETS ${PROJECT_NAME}
     ARCHIVE DESTINATION lib
 )
 
-# Install the header file
+# Install the header files
 install(FILES include/${PROJECT_NAME}/${PROJECT_NAME}.hpp
+	      include/${PROJECT_NAME}/${PROJECT_NAME}_interface.hpp
         DESTINATION include/${PROJECT_NAME}
 )
 
