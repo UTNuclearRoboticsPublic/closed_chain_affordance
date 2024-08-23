@@ -63,8 +63,6 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
     PlannerResult plannerResult;                   // Result of the planner
     const double theta_adf = theta_sdf.tail(1)(0); // affordance screw goal
     const double theta_pdf = theta_sdf.tail(2)(0); // approach screw goal
-    std::cout << "Here is theta_adf: " << theta_adf << std::endl;
-    std::cout << "Here is theta_pdf: " << theta_pdf << std::endl;
 
     //**Alg1:L1: Define affordance step, deltatheta_a
     const double deltatheta_a = theta_adf / stepper_max_itr_m_;
@@ -78,8 +76,8 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
     Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
-    theta_sd.tail(2).setConstant(0.0); // start approach and affordance goals at 0 but gripper orientation as specified
-    std::cout << "Here is theta_sd: " << theta_sd << std::endl;
+    theta_sd.tail(2).setConstant(
+        start_guess_); // start approach and affordance goals at 0 but gripper orientation as specified
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m_ to final goal: Passed in as planner config
 
@@ -155,8 +153,6 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
     PlannerResult plannerResult;                   // Result of the planner
     const double theta_adf = theta_sdf.tail(1)(0); // affordance screw goal
     const double theta_pdf = theta_sdf.tail(2)(0); // approach screw goal
-    std::cout << "Here is theta_adf: " << theta_adf << std::endl;
-    std::cout << "Here is theta_pdf: " << theta_pdf << std::endl;
 
     //**Alg1:L1: Define affordance step, deltatheta_a
     const double deltatheta_a = theta_adf / stepper_max_itr_m_;
@@ -170,8 +166,8 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
     Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
-    theta_sd.tail(2).setConstant(0.0); // start approach and affordance goals at 0 but gripper orientation as specified
-    std::cout << "Here is theta_sd: " << theta_sd << std::endl;
+    theta_sd.tail(2).setConstant(
+        start_guess_); // start approach and affordance goals at 0 but gripper orientation as specified
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m_ to final goal: Passed in as planner config
 
@@ -260,7 +256,7 @@ PlannerResult CcAffordancePlanner::generate_affordance_motion_joint_trajectory(c
     Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
-    theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
+    theta_sd.tail(1).setConstant(start_guess_); // start affordance at 0 but gripper orientation as specified
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m_ to final goal: Passed in as planner config
 
@@ -346,7 +342,7 @@ PlannerResult CcAffordancePlanner::generate_affordance_motion_joint_trajectory(c
     Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
-    theta_sd.tail(1).setConstant(0.0);    // start affordance at 0 but gripper orientation as specified
+    theta_sd.tail(1).setConstant(start_guess_); // start affordance at 0 but gripper orientation as specified
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m_ to final goal: Passed in as planner config
 
