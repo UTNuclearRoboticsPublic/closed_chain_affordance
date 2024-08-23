@@ -267,7 +267,8 @@ class CcAffordancePlanner
     double eps_rv_;         // closure error threshold for linear part
     int max_itr_l_;         // max interations for IK solver
     //--EOF Planner config parameters
-    constexpr static size_t twist_length_ = 6; // length of a twist vector
+    constexpr static size_t twist_length_ = 6;   // length of a twist vector
+    constexpr static double start_guess_ = 1e-7; // trajectory start guess for all motions
 
     /**
      * @brief Given a list of closed-chain screw axes, primary and secondary network matrices, and primary and secondary
