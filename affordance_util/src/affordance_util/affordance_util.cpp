@@ -38,141 +38,265 @@ template <int N> Node convert<Eigen::Matrix<double, N, 1>>::encode(const Eigen::
 namespace affordance_util
 {
 
-Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::VectorXd &thetalist,
-                                       const Eigen::Matrix4d &M, const Eigen::Matrix<double, 6, 1> &aff_screw,
-                                       const std::string &vir_screw_order)
+CcModel compose_cc_model_slist(const RobotDescription &robot_description, const ScrewInfo &aff_info,
+                               const Eigen::MatrixXd &approach_end_pose, const VirtualScrewOrder &vir_screw_order)
 {
-
-    const size_t screw_length = 6;                    // Length of the screw vector
-    const size_t screw_axis_length = 3;               // Length of the screw axis
-    const size_t nof_vir_ee_joints = 3;               // Number of virtual ee joints
-    const size_t nof_sjoints = nof_vir_ee_joints + 1; // Number of joints to be appended, + 1 for one affordance
+    CcModel cc_model; // Output of the function
 
     // Compute robot Jacobian
-    Eigen::MatrixXd robot_jacobian = JacobianSpace(robot_slist, thetalist);
+    Eigen::MatrixXd robot_jacobian = JacobianSpace(robot_description.slist, robot_description.joint_states);
 
-    // Append virtual EE screw axes as well as the affordance screw.
-    // Note: In the future it might be desired to append the virtual EE screws as Jacobians as well. This would allow
-    // one to track the orientation of the gripper as the magnitudes (joint angles) of these screws. Currently, we model
-    // the Virtual EE screws as aligned with the space frame at the start pose of the affordance. An advantage of this
-    // is physical intuition in controlling the gripper.
-    Eigen::MatrixXd app_slist(screw_length, nof_sjoints);
+    // Compute approach screw
+    const Eigen::Matrix4d approach_start_pose =
+        FKinSpace(robot_description.M, robot_description.slist, robot_description.joint_states);
+    const Eigen::Matrix<double, 6, 1> approach_twist =
+        affordance_util::Adjoint(approach_start_pose) *
+        affordance_util::se3ToVec(
+            affordance_util::MatrixLog6(affordance_util::TransInv(approach_start_pose) * approach_end_pose));
+    const Eigen::Matrix<double, 6, 1> approach_screw = approach_twist / approach_twist.norm();
 
-    // Extract robot palm location
-    const Eigen::Matrix4d ee_htm = FKinSpace(M, robot_slist, thetalist);
-    const Eigen::Vector3d q_vir = ee_htm.block<3, 1>(0, 3); // Translation part of the HTM
+    // Fill out the approach limit
+    cc_model.approach_limit = approach_twist.norm();
 
-    // Virtual EE screw axes
-    Eigen::Matrix<double, screw_axis_length, nof_vir_ee_joints> w_vir; // Virtual EE screw axes
-
-    // Assign virtual EE screw axes in requested order
-    if (vir_screw_order == "yzx")
+    // In case aff screw is not set, compute it
+    ScrewInfo aff = aff_info;
+    if (aff.screw.hasNaN())
     {
-        w_vir.col(0) << 0, 1, 0; // y
-        w_vir.col(1) << 0, 0, 1; // z
-        w_vir.col(2) << 1, 0, 0; // x
+        aff.screw = affordance_util::get_screw(aff);
     }
-    else if (vir_screw_order == "zxy")
+
+    // If pure rotation, the motion of the last closed-chain joint is in the opposite direction of the affordance
+    // since the ground link is fixed and it is the affordance link that moves instead
+    Eigen::VectorXd aff_screw(6);
+
+    if (aff.type == ScrewType::ROTATION)
     {
-        w_vir.col(0) << 0, 0, 1; // z
-        w_vir.col(1) << 1, 0, 0; // x
-        w_vir.col(2) << 0, 1, 0; // y
+        aff_screw = -aff.screw;
     }
     else
     {
-        w_vir.col(0) << 1, 0, 0; // x
-        w_vir.col(1) << 0, 1, 0; // y
-        w_vir.col(2) << 0, 0, 1; // z
+
+        aff_screw = aff.screw;
     }
 
-    // Compute virtual EE screws
-    for (size_t i = 0; i < nof_vir_ee_joints; ++i)
+    if (vir_screw_order == VirtualScrewOrder::NONE)
     {
-        app_slist.col(i) = get_screw(w_vir.col(i), q_vir);
+        const size_t nof_sjoints = 2; // approach screw and affordance
+        cc_model.slist.conservativeResize(robot_description.slist.rows(),
+                                          (robot_description.slist.cols() + nof_sjoints));
+        cc_model.slist << robot_jacobian, approach_screw, aff_screw;
+    }
+    else
+    {
+        const size_t screw_length = 6;      // Length of the screw vector
+        const size_t screw_axis_length = 3; // Length of the screw axis
+        const size_t nof_vir_ee_joints = 3; // Number of virtual ee joints
+        const size_t nof_sjoints =
+            nof_vir_ee_joints + 2; // Number of joints to be appended, + 2 for approach and affordance screw
+
+        // Append virtual EE screw axes as well as the affordance screw.
+        // Note: In the future it might be desired to append the virtual EE screws as Jacobians as well. This would
+        // allow one to track the orientation of the gripper as the magnitudes (joint angles) of these screws.
+        // Currently, we model the Virtual EE screws as aligned with the space frame at the start pose of the
+        // affordance. An advantage of this is physical intuition in controlling the gripper.
+        Eigen::MatrixXd vir_slist(screw_length, nof_vir_ee_joints);
+
+        // Extract robot palm location
+        const Eigen::Vector3d q_vir = approach_start_pose.block<3, 1>(0, 3); // Translation part of the HTM
+
+        // Virtual EE screw axes
+        Eigen::Matrix<double, screw_axis_length, nof_vir_ee_joints> w_vir; // Virtual EE screw axes
+
+        // Assign virtual EE screw axes in requested order
+        if (vir_screw_order == VirtualScrewOrder::YZX)
+        {
+            w_vir.col(0) << 0, 1, 0; // y
+            w_vir.col(1) << 0, 0, 1; // z
+            w_vir.col(2) << 1, 0, 0; // x
+        }
+        else if (vir_screw_order == VirtualScrewOrder::ZXY)
+        {
+            w_vir.col(0) << 0, 0, 1; // z
+            w_vir.col(1) << 1, 0, 0; // x
+            w_vir.col(2) << 0, 1, 0; // y
+        }
+        else // vir_screw_order == VirtualScrewOrder::XYZ
+        {
+            w_vir.col(0) << 1, 0, 0; // x
+            w_vir.col(1) << 0, 1, 0; // y
+            w_vir.col(2) << 0, 0, 1; // z
+        }
+
+        // Compute virtual EE screws
+        for (size_t i = 0; i < nof_vir_ee_joints; ++i)
+        {
+            vir_slist.col(i) = get_screw(w_vir.col(i), q_vir);
+        }
+
+        // Altogether
+        cc_model.slist.conservativeResize(robot_description.slist.rows(),
+                                          (robot_description.slist.cols() + nof_sjoints));
+        cc_model.slist << robot_jacobian, vir_slist, approach_screw, aff_screw;
     }
 
-    // Affordance screw
-    app_slist.col(3) =
-        -aff_screw; // The motion of the last closed-chain joint is in the opposite direction of the affordance since
-                    // the ground link is fixed and it is the affordance link that moves instead
+    return cc_model;
+}
+Eigen::MatrixXd compose_cc_model_slist(const RobotDescription &robot_description, const ScrewInfo &aff_info,
+                                       const VirtualScrewOrder &vir_screw_order)
+{
+    // Compute robot Jacobian
+    Eigen::MatrixXd robot_jacobian = JacobianSpace(robot_description.slist, robot_description.joint_states);
+    Eigen::MatrixXd slist;
 
-    // Altogether
-    Eigen::MatrixXd slist(robot_slist.rows(), (robot_slist.cols() + app_slist.cols()));
-    slist << robot_jacobian, app_slist;
+    // In case aff screw is not set, compute it
+    ScrewInfo aff = aff_info;
+    if (aff.screw.hasNaN())
+    {
+        aff.screw = affordance_util::get_screw(aff);
+    }
+
+    // If pure rotation, the motion of the last closed-chain joint is in the opposite direction of the affordance
+    // since the ground link is fixed and it is the affordance link that moves instead
+    Eigen::VectorXd aff_screw(6);
+
+    if (aff.type == ScrewType::ROTATION)
+    {
+        aff_screw = -aff.screw;
+    }
+    else
+    {
+
+        aff_screw = aff.screw;
+    }
+
+    if (vir_screw_order == VirtualScrewOrder::NONE)
+    {
+        const size_t nof_sjoints = 1; // 1 for one affordance
+        slist.conservativeResize(robot_description.slist.rows(), (robot_description.slist.cols() + nof_sjoints));
+        slist << robot_jacobian, aff_screw;
+    }
+    else
+    {
+        const size_t screw_length = 6;                    // Length of the screw vector
+        const size_t screw_axis_length = 3;               // Length of the screw axis
+        const size_t nof_vir_ee_joints = 3;               // Number of virtual ee joints
+        const size_t nof_sjoints = nof_vir_ee_joints + 1; // Number of joints to be appended, + 1 for one affordance
+
+        // Append virtual EE screw axes as well as the affordance screw.
+        // Note: In the future it might be desired to append the virtual EE screws as Jacobians as well. This would
+        // allow one to track the orientation of the gripper as the magnitudes (joint angles) of these screws.
+        // Currently, we model the Virtual EE screws as aligned with the space frame at the start pose of the
+        // affordance. An advantage of this is physical intuition in controlling the gripper.
+        Eigen::MatrixXd vir_slist(screw_length, nof_vir_ee_joints);
+
+        // Extract robot palm location
+        const Eigen::Matrix4d ee_htm =
+            FKinSpace(robot_description.M, robot_description.slist, robot_description.joint_states);
+        const Eigen::Vector3d q_vir = ee_htm.block<3, 1>(0, 3); // Translation part of the HTM
+
+        // Virtual EE screw axes
+        Eigen::Matrix<double, screw_axis_length, nof_vir_ee_joints> w_vir; // Virtual EE screw axes
+
+        // Assign virtual EE screw axes in requested order
+        if (vir_screw_order == VirtualScrewOrder::YZX)
+        {
+            w_vir.col(0) << 0, 1, 0; // y
+            w_vir.col(1) << 0, 0, 1; // z
+            w_vir.col(2) << 1, 0, 0; // x
+        }
+        else if (vir_screw_order == VirtualScrewOrder::ZXY)
+        {
+            w_vir.col(0) << 0, 0, 1; // z
+            w_vir.col(1) << 1, 0, 0; // x
+            w_vir.col(2) << 0, 1, 0; // y
+        }
+        else // vir_screw_order == VirtualScrewOrder::XYZ
+        {
+            w_vir.col(0) << 1, 0, 0; // x
+            w_vir.col(1) << 0, 1, 0; // y
+            w_vir.col(2) << 0, 0, 1; // z
+        }
+
+        // Compute virtual EE screws
+        for (size_t i = 0; i < nof_vir_ee_joints; ++i)
+        {
+            vir_slist.col(i) = get_screw(w_vir.col(i), q_vir);
+        }
+
+        // Altogether
+        slist.conservativeResize(robot_description.slist.rows(), (robot_description.slist.cols() + nof_sjoints));
+        slist << robot_jacobian, vir_slist, aff_screw;
+    }
 
     return slist;
 }
 
 RobotConfig robot_builder(const std::string &config_file_path)
 {
-    try
+
+    RobotConfig robotConfig; // Output of the function
+
+    // Load the YAML file
+    const YAML::Node config = YAML::LoadFile(config_file_path);
+    if (!config)
     {
-
-        RobotConfig robotConfig; // Output of the function
-
-        // Load the YAML file
-        const YAML::Node config = YAML::LoadFile(config_file_path);
-
-        // Access the reference frame info
-        const YAML::Node &refFrameNode = config["ref_frame"];
-        const std::string &ref_frame_name = refFrameNode[0]["name"].as<std::string>(); // access with [0] since only
-                                                                                       // one reference frame
-
-        // Access the 'joints' array
-        const YAML::Node &jointsNode = config["joints"];
-
-        // Parse each joint
-        std::vector<JointData> jointsData;
-        for (const YAML::Node &jointNode : jointsNode)
-        {
-            JointData joint;
-            joint.name = jointNode["name"].as<std::string>();
-            joint.w = jointNode["w"].as<Eigen::Vector3d>();
-            joint.q = jointNode["q"].as<Eigen::Vector3d>();
-            jointsData.push_back(joint);
-        }
-
-        // Access the tool info
-        const YAML::Node &toolNode = config["tool"];
-        const std::string &tool_name = toolNode[0]["name"].as<std::string>(); // access with [0] since only one tool
-
-        // Compute screw axes
-        const size_t screwSize = 6;
-        const size_t &totalNofJoints = jointsData.size();
-        Eigen::MatrixXd Slist(screwSize, totalNofJoints);
-
-        for (size_t i = 0; i < totalNofJoints; i++)
-        {
-            const JointData &joint = jointsData[i];
-            Slist.col(i) << joint.w, -joint.w.cross(joint.q);
-            /* Start setting the output of the function */
-            // Joint names
-            robotConfig.joint_names.push_back(joint.name);
-        }
-
-        /* Fill out the remaining members of the output and return it*/
-        // Screw list
-        robotConfig.Slist = Slist;
-
-        // EE homogenous transformation matrix
-        const Eigen::Vector3d toolLocation = toolNode[0]["q"].as<Eigen::Vector3d>();
-        Eigen::Matrix4d M = Eigen::Matrix4d::Identity();
-        M.block<3, 1>(0, 3) = toolLocation;
-        robotConfig.M = M;
-
-        // Reference frame name
-        robotConfig.ref_frame_name = ref_frame_name;
-
-        // Tool name
-        robotConfig.tool_name = tool_name;
-
-        return robotConfig;
-    }
-    catch (const YAML::Exception &e)
-    {
-        std::cerr << "Error reading YAML file: " << e.what() << std::endl;
         throw std::runtime_error("Robot screw list cannot be built without a valid robot config yaml file");
     }
+
+    // Access the reference frame info
+    const YAML::Node &refFrameNode = config["ref_frame"];
+    const std::string &ref_frame_name = refFrameNode[0]["name"].as<std::string>(); // access with [0] since only
+                                                                                   // one reference frame
+
+    // Access the 'joints' array
+    const YAML::Node &jointsNode = config["joints"];
+
+    // Parse each joint
+    std::vector<JointData> jointsData;
+    for (const YAML::Node &jointNode : jointsNode)
+    {
+        JointData joint;
+        joint.name = jointNode["name"].as<std::string>();
+        joint.w = jointNode["w"].as<Eigen::Vector3d>();
+        joint.q = jointNode["q"].as<Eigen::Vector3d>();
+        jointsData.push_back(joint);
+    }
+
+    // Access the tool info
+    const YAML::Node &toolNode = config["tool"];
+    const std::string &tool_name = toolNode[0]["name"].as<std::string>(); // access with [0] since only one tool
+
+    // Compute screw axes
+    const size_t screwSize = 6;
+    const size_t &totalNofJoints = jointsData.size();
+    Eigen::MatrixXd Slist(screwSize, totalNofJoints);
+
+    for (size_t i = 0; i < totalNofJoints; i++)
+    {
+        const JointData &joint = jointsData[i];
+        Slist.col(i) << joint.w, -joint.w.cross(joint.q);
+        /* Start setting the output of the function */
+        // Joint names
+        robotConfig.joint_names.push_back(joint.name);
+    }
+
+    /* Fill out the remaining members of the output and return it*/
+    // Screw list
+    robotConfig.Slist = Slist;
+
+    // EE homogenous transformation matrix
+    const Eigen::Vector3d toolLocation = toolNode[0]["q"].as<Eigen::Vector3d>();
+    Eigen::Matrix4d M = Eigen::Matrix4d::Identity();
+    M.block<3, 1>(0, 3) = toolLocation;
+    robotConfig.M = M;
+
+    // Reference frame name
+    robotConfig.ref_frame_name = ref_frame_name;
+
+    // Tool name
+    robotConfig.tool_name = tool_name;
+
+    return robotConfig;
 }
 Eigen::MatrixXd Adjoint(const Eigen::Matrix4d &htm)
 {
@@ -399,32 +523,45 @@ Eigen::Matrix4d MatrixLog6(const Eigen::Matrix4d &T)
     return expmat;
 }
 
-Eigen::Matrix<double, 6, 1> get_screw(const affordance_util::ScrewInfo &si)
+Eigen::Vector3d get_axis_from_screw(const ScrewInfo &si)
+{
+
+    Eigen::Vector3d axis;
+
+    if (si.type == ScrewType::TRANSLATION)
+    {
+        axis = si.screw.tail(3);
+    }
+    else // (si.type == ScrewType::ROTATION) || (si.type == ScrewType::SCREW)
+    {
+        axis = si.screw.head(3);
+    }
+    return axis;
+}
+
+Eigen::Matrix<double, 6, 1> get_screw(const ScrewInfo &si)
 {
 
     Eigen::VectorXd screw(6); // Output of the function
 
-    if (si.type == "translation")
+    if (si.type == ScrewType::TRANSLATION)
     {
         screw << Eigen::Vector3d::Zero(), si.axis;
     }
-    else if (si.type == "rotation")
+    else if (si.type == ScrewType::ROTATION)
     {
         screw.head(3) = si.axis;
         screw.tail(3) = si.location.cross(si.axis);
     }
-    else if (si.type == "screw")
+    else // si.type == ScrewType::SCREW
     {
         screw.head(3) = si.axis;
         screw.tail(3) = si.location.cross(si.axis) + si.pitch * si.axis;
     }
-    else
-    {
-        screw = Eigen::VectorXd::Zero(6);
-    }
 
     return screw;
 }
+
 Eigen::Matrix<double, 6, 1> get_screw(const Eigen::Vector3d &w, const Eigen::Vector3d &q)
 {
 

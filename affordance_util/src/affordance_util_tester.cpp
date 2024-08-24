@@ -95,41 +95,54 @@ int main()
     std::cout << "Input T: \n" << T << std::endl;
     std::cout << "Output: \n" << MatrixLog6(T) << std::endl;
 
-    const std::string filepath = "/home/crasun/spot_ws/src/cc_affordance_planner/config/robot_setup.yaml";
-    const RobotConfig robot_config = robot_builder(filepath);
-    std::cout << "\n Testing robot_builder" << std::endl;
-    std::cout << "Input filepath: \n" << filepath << std::endl;
-    std::cout << "Output Slist: \n" << robot_config.Slist << std::endl;
-    std::cout << "Output M: \n" << robot_config.M << std::endl;
-    std::cout << "Output ref_frame_name: \n" << robot_config.ref_frame_name << std::endl;
-    std::cout << "Output tool_name: \n" << robot_config.tool_name << std::endl;
-    std::cout << "Output joint_names: ";
-    for (const std::string &joint_name : robot_config.joint_names)
-    {
-        std::cout << joint_name << ",";
-    }
-    std::cout << std::endl;
+    /* const std::string filepath = "/home/crasun/spot_ws/src/cc_affordance_planner/config/robot_setup.yaml"; */
+    /* const RobotConfig robot_config = robot_builder(filepath); */
+    /* std::cout << "\n Testing robot_builder" << std::endl; */
+    /* std::cout << "Input filepath: \n" << filepath << std::endl; */
+    /* std::cout << "Output Slist: \n" << robot_config.Slist << std::endl; */
+    /* std::cout << "Output M: \n" << robot_config.M << std::endl; */
+    /* std::cout << "Output ref_frame_name: \n" << robot_config.ref_frame_name << std::endl; */
+    /* std::cout << "Output tool_name: \n" << robot_config.tool_name << std::endl; */
+    /* std::cout << "Output joint_names: "; */
+    /* for (const std::string &joint_name : robot_config.joint_names) */
+    /* { */
+    /*     std::cout << joint_name << ","; */
+    /* } */
+    /* std::cout << std::endl; */
 
     ScrewInfo si;
-    si.type = "translation";
+    si.type = affordance_util::ScrewType::TRANSLATION;
     si.axis << 1.0, 0.0, 0.0;
     std::cout << "\n Testing get_screw" << std::endl;
     std::cout << "\n Translation input axis: " << si.axis.transpose() << std::endl;
     std::cout << "\n Translation output: " << get_screw(si).transpose() << std::endl;
-    si.type = "screw";
-    si.axis << 1.0, 0.0, 0.0;
+    si.screw = get_screw(si);
+    std::cout << "\n Testing get_axis_from_screw" << std::endl;
+    std::cout << "\n Axis output for above screw: " << get_axis_from_screw(si).transpose() << std::endl;
+    si = ScrewInfo();
+    si.type = affordance_util::ScrewType::SCREW;
+    si.axis << 0.0, 1.0, 0.0;
     si.location << 1.0, 2.0, 3.0;
     si.pitch = 0.2;
+    std::cout << "\n Testing get_screw" << std::endl;
     std::cout << "\n Screw motion input axis: " << si.axis.transpose() << std::endl;
     std::cout << "\n Screw motion axis location: " << si.location.transpose() << std::endl;
     std::cout << "\n Screw motion pitch: " << si.pitch << std::endl;
     std::cout << "\n Screw motion output: " << get_screw(si).transpose() << std::endl;
-    si.type = "rotation";
-    si.axis << 1.0, 0.0, 0.0;
+    si.screw = get_screw(si);
+    std::cout << "\n Testing get_axis_from_screw" << std::endl;
+    std::cout << "\n Axis output for above screw: " << get_axis_from_screw(si).transpose() << std::endl;
+    si = ScrewInfo();
+    si.type = affordance_util::ScrewType::ROTATION;
+    si.axis << 0.0, 0.0, 1.0;
     si.location << 1.0, 2.0, 3.0;
+    std::cout << "\n Testing get_screw" << std::endl;
     std::cout << "\n Rotation input axis: " << si.axis.transpose() << std::endl;
     std::cout << "\n Rotation axis location: " << si.location.transpose() << std::endl;
     std::cout << "\n Rotation output: " << get_screw(si).transpose() << std::endl;
+    si.screw = get_screw(si);
+    std::cout << "\n Testing get_axis_from_screw" << std::endl;
+    std::cout << "\n Axis output for above screw: " << get_axis_from_screw(si).transpose() << std::endl;
 
     Eigen::Vector3d screw_axis(1.0, 0.0, 0.0);
     Eigen::Vector3d screw_location(1.0, 2.0, 3.0);

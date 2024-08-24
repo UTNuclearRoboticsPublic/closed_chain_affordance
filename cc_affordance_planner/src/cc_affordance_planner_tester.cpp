@@ -2,6 +2,7 @@
 #include <Eigen/Geometry>
 #include <affordance_util/affordance_util.hpp>
 #include <cc_affordance_planner/cc_affordance_planner.hpp>
+#include <cc_affordance_planner/cc_affordance_planner_interface.hpp>
 #include <iomanip>
 
 // This tester includes hardcoded UR5 robot info to test the CC Affordance
@@ -18,8 +19,8 @@ int main()
     const double mconv = 1000.0; // conversion factor from mm to m
     const double W1 = 109.0 / mconv, W2 = 82.0 / mconv, L1 = 425.0 / mconv, L2 = 392.0 / mconv, H1 = 89.0 / mconv,
                  H2 = 95.0 / mconv, W3 = 135.85 / mconv, W4 = 119.7 / mconv,
-                 W6 = 93.0 / mconv;    // Link lengths
-    const double aff = -100.0 / mconv; // affordance location from the last joint
+                 W6 = 93.0 / mconv;           // Link lengths
+    const double aff_offset = -100.0 / mconv; // affordance location from the last joint
 
     const size_t nof_joints = 6, nof_virtual_joints = 3,
                  nof_affordance = 1; // number of joints
@@ -58,53 +59,68 @@ int main()
     Eigen::Matrix4d M = Eigen::Matrix4d::Identity();
     M.block<3, 1>(0, 3) << L1 + L2, W3 - W4 + W6 + W2, H1 - H2;
 
-    // Affordance screw
-    Eigen::Vector3d w_aff(1, 0, 0);
-    Eigen::Vector3d q_aff(L1 + L2, W3 - W4 + W6 + W2 + aff, H1 - H2);
-    Eigen::VectorXd aff_screw = affordance_util::get_screw(w_aff, q_aff);
+    // Affordance
+    affordance_util::ScrewInfo aff;
+    aff.type = affordance_util::ScrewType::ROTATION;
+    aff.axis = Eigen::Vector3d(1, 0, 0);
+    aff.location = Eigen::Vector3d(L1 + L2, W3 - W4 + W6 + W2 + aff_offset, H1 - H2);
 
     // Robot start configuration, home position in this case
     Eigen::VectorXd thetalist(6);
     thetalist = Eigen::VectorXd::Zero(6);
 
-    // Closed-chain screws
-    Eigen::MatrixXd cc_slist = affordance_util::compose_cc_model_slist(robot_slist, thetalist, M, aff_screw);
-
-    // Output screw axes for debugging purposes
-    /* std::cout << "Here is the list of screws: \n" << cc_slist << std::endl; */
-
-    // Start angles
-    const double aff_goal = 0.35;
+    // Output robot screws for debugging purposes
+    /* std::cout << "Here is the list of screws: \n" << robot_slist << std::endl; */
 
     // Configure the planner
     cc_affordance_planner::PlannerConfig plannerConfig;
-    plannerConfig.aff_step = 0.1;
+    plannerConfig.trajectory_density = 4; // with 0.4 aff_goal, we get 0.1 aff step as MATLAB
     plannerConfig.accuracy = 0.01;
-    /* plannerConfig.closure_err_threshold = 1e-6; */
-    /* plannerConfig.max_itr = 200; */
+    plannerConfig.update_method = cc_affordance_planner::UpdateMethod::INVERSE;
+    /* plannerConfig.motion_type = cc_affordance_planner::MotionType::AFFORDANCE; // Default */
+    plannerConfig.closure_err_threshold_ang = 1e-4;
+    plannerConfig.closure_err_threshold_lin = 1e-5;
+    /* plannerConfig.ik_max_itr = 200; // Default */
 
-    // Set algorithm parameters
-    const int task_offset = 1;
-    Eigen::VectorXd sec_goal(1);
-    sec_goal.tail(1).setConstant(aff_goal);
+    // Robot description
+    affordance_util::RobotDescription robot_description;
+    robot_description.slist = robot_slist;
+    robot_description.M = M;
+    robot_description.joint_states = thetalist;
+
+    // Task description
+    cc_affordance_planner::TaskDescription task_description;
+    task_description.affordance_info = aff;
+    task_description.nof_secondary_joints = 1; // affordance only
+    Eigen::VectorXd aff_goal = (Eigen::VectorXd(1) << 0.4).finished();
+    task_description.secondary_joint_goals = aff_goal;
 
     // Run the planner
-    cc_affordance_planner::PlannerResult plannerResult =
-        cc_affordance_planner::generate_joint_trajectory(plannerConfig, cc_slist, sec_goal, task_offset);
+    // Construct the planner interface object
+    cc_affordance_planner::CcAffordancePlannerInterface ccAffordancePlannerInterface(plannerConfig);
+    cc_affordance_planner::PlannerResult plannerResult;
+
+    try
+    {
+        plannerResult = ccAffordancePlannerInterface.generate_joint_trajectory(robot_description, task_description);
+    }
+    catch (const std::invalid_argument &e)
+    {
+        std::cerr << "Planner returned exception: " << e.what() << std::endl;
+    }
 
     // Print the first point in the trajectory if planner succeeds and display the Matlab solution as well
     if (plannerResult.success)
     {
-        std::vector<Eigen::VectorXd> solution = plannerResult.joint_traj;
-        std::cout << "Planner succeeded with " << plannerResult.traj_full_or_partial
-                  << " solution, and here is the first point in the trajectory: \n"
-                  << solution.at(0) << std::endl;
-        std::cout << "The entire planning took " << plannerResult.planning_time.count() << " microseconds and "
-                  << plannerResult.update_method << " method was used" << std::endl;
-        Eigen::VectorXd matlab_solution(9); // Excluding affordance
-        /* matlab_solution << -0.0006, 0.0118, 0.0008, -0.0093, 0.0031, -0.0017, -0.0994, -0.0019, 0.0036, */
-        /*     0.0994; // including affordance */
-        matlab_solution << -0.0006, 0.0118, 0.0008, -0.0093, 0.0031, -0.0017, -0.0994, -0.0019, 0.0036;
+        std::vector<Eigen::VectorXd> solution = plannerResult.joint_trajectory;
+        std::cout << "Planner succeeded with update trail '" << plannerResult.update_trail
+                  << "', and here is the first point in the trajectory: \n"
+                  << solution.at(1) << std::endl; // Look at the second point since the first one is 0 in this case cuz
+                                                  // we started at home position
+        std::cout << "The entire planning took " << plannerResult.planning_time.count() << " microseconds\n";
+        Eigen::VectorXd matlab_solution(10); // Including affordance
+        matlab_solution << -0.0006, 0.0118, 0.0008, -0.0093, 0.0031, -0.0017, -0.0994, -0.0019, 0.0036,
+            -0.0994; // including affordance
         std::cout << "The first point of the solution from Matlab for the same setup, i.e. UR5 pure rotation with "
                      "affordance step 0.1, "
                      "and accuracy 1% (or "
@@ -112,8 +128,7 @@ int main()
                   << matlab_solution << std::endl;
 
         // Check if the planner and matlab solution are equal upto 3 decimal places
-        bool are_equal =
-            solution.at(0).head(9).isApprox(matlab_solution, 1e-3); // Just compare solution, excluding affordance
+        bool are_equal = solution.at(1).isApprox(matlab_solution, 1e-3); // Just compare solution, excluding affordance
         if (are_equal)
         {
             std::cout << "The planner solution first point matches the one from Matlab." << std::endl;
@@ -121,12 +136,12 @@ int main()
         else
         {
 
-            std::cout << "The planner solution does not match Matlab solution." << std::endl;
+            std::cerr << "The planner solution does not match Matlab solution." << std::endl;
         }
     }
     else
     {
-        std::cout << "Planner did not find a solution." << std::endl;
+        std::cerr << "Planner did not find a solution." << std::endl;
     }
     return 0;
 }

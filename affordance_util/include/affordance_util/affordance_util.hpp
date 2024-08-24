@@ -38,9 +38,9 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-#include <iostream> // to print errors
+#include <limits>
 #include <vector>
-#include <yaml-cpp/yaml.h> // to read yaml files
+#include <yaml-cpp/yaml.h>
 
 namespace YAML
 {
@@ -72,17 +72,64 @@ template <int N> struct convert<Eigen::Matrix<double, N, 1>>
 
 namespace affordance_util
 {
+
+/**
+ * @brief Enum specifying the three screw types
+ */
+enum ScrewType
+{
+    ROTATION,
+    TRANSLATION,
+    SCREW,
+    UNSET
+};
+
+/**
+ * @brief Enum specifying the order of axes for a virtual spherical joint
+ */
+enum VirtualScrewOrder
+{
+    XYZ,
+    YZX,
+    ZXY,
+    NONE
+};
+
+/**
+ * @brief Designed to contain the description of a robot in terms of its screw list, end-effector homogenous
+ * transformation matrix, and current joint states
+ */
+struct RobotDescription
+{
+    Eigen::MatrixXd slist;
+    Eigen::Matrix4d M = Eigen::Matrix4d::Constant(std::numeric_limits<double>::quiet_NaN());
+    Eigen::VectorXd joint_states;
+};
+
+/**
+ * @brief Struct providing information about a closed-chain affordance model
+ */
+struct CcModel
+{
+    Eigen::MatrixXd slist; // List of closed-chain screws
+    double approach_limit; // Limit of the approach screw
+};
+
 /**
  * @brief Struct providing information about a screw
  */
 struct ScrewInfo
 {
-    std::string type;     // Screw type. Possible fields are "translation", "rotation", "screw"
-    Eigen::Vector3d axis; // Screw axis
-    Eigen::Vector3d location = Eigen::VectorXd::Zero(3); // Screw location from a frame of interest
+    ScrewType type = ScrewType::UNSET;                                                          // Screw type
+    Eigen::Vector3d axis = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN()); // Screw axis
+    Eigen::Vector3d location =
+        Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN()); // Screw location from a frame of interest
+    Eigen::VectorXd screw =
+        Eigen::Matrix<double, 6, 1>::Constant(std::numeric_limits<double>::quiet_NaN()); // Screw vector
     std::string location_frame; // Name of the screw frame, useful when looking up with apriltag
-    double pitch;               // Pitch of the screw. Default is rotation
+    double pitch = std::numeric_limits<double>::quiet_NaN(); // Pitch of the screw. Default is rotation, i.e. 0
 };
+
 /**
  * @brief Struct to describe a joint with its name, axis, and location
  */
@@ -107,21 +154,35 @@ struct RobotConfig
 };
 
 /**
- * @brief Given a robot screw list, robot palm HTM, robot joint states at affordance start pose, and affordance screw,
- * returns the closed-chain affordance model screw list.
+ * @brief Given a robot description, affordance information, order of virtual screws, and HTM representing end of
+ * approach motion, returns the closed-chain affordance model including approach motion.
  *
- * @param robot_slist Eigen::MatrixXd containing as columns 6x1 screws representing robot joints
- * @param thetalist Eigen::VectorXd containing robot joint states at affordance start pose
- * @param M Eigen::Matrix4d containing the HTM for the robot palm in home position
- * @param aff_screw Eigen::VectorXd containing 6x1 affordance screw
- * @param vir_screw_order std::string indicating the order for the virtual EE screws. Possible values are "xyz", "yzx"
- * and "zxy". Default is "xyz"
+ * @param robot_description affordance_util::RobotDescription containing the description of the robot as robot screws,
+ * robot palm homogeneous transformation matrix, and current joint states
+ * @param aff ScrewInfo containing information about affordance
+ * @param approach_end_pose Eigen::MatrixXd representing the approach motion end pose HTM
+ * @param vir_screw_order affordance_util::VirtualScrewOrder indicating the order for the virtual EE screws. Possible
+ * values are "xyz", "yzx" "zxy", and "none". Default is "xyz"
  *
- * @return Eigen::MatrixXd containing as columns all 6x1 screws encompassing the closed-chain affordance model
+ * @return affordance_util::CcModel containing the closed-chain affordance screws and approach limit.
  */
-Eigen::MatrixXd compose_cc_model_slist(const Eigen::MatrixXd &robot_slist, const Eigen::VectorXd &thetalist,
-                                       const Eigen::Matrix4d &M, const Eigen::Matrix<double, 6, 1> &aff_screw,
-                                       const std::string &vir_screw_order = "xyz");
+CcModel compose_cc_model_slist(const RobotDescription &robot_description, const ScrewInfo &aff_info,
+                               const Eigen::MatrixXd &approach_end_pose,
+                               const VirtualScrewOrder &vir_screw_order = VirtualScrewOrder::XYZ);
+/**
+ * @brief Given a robot description, affordance information, and order of virtual screws, returns the closed-chain
+ * affordance model screw list.
+ *
+ * @param robot_description affordance_util::RobotDescription containing the description of the robot as robot screws,
+ * robot palm homogeneous transformation matrix, and current joint states
+ * @param aff ScrewInfo containing information about affordance
+ * @param vir_screw_order affordance_util::VirtualScrewOrder indicating the order for the virtual EE screws. Possible
+ * values are "xyz", "yzx" "zxy", and "none". Default is "xyz"
+ *
+ * @return Eigen::MatrixXd containing as columns all 6x1 screws encompassing the closed-chain affordance model.
+ */
+Eigen::MatrixXd compose_cc_model_slist(const RobotDescription &robot_description, const ScrewInfo &aff_info,
+                                       const VirtualScrewOrder &vir_screw_order = VirtualScrewOrder::XYZ);
 
 /**
  * @brief Given a file path to a yaml file containing robot information,
@@ -300,14 +361,24 @@ Eigen::Matrix3d MatrixLog3(const Eigen::Matrix3d &R);
 Eigen::Matrix4d MatrixLog6(const Eigen::Matrix4d &T);
 
 /**
+ * @brief Given affordance information as a 6x1 screw vector and its type, returns its 3-vector screw axis
+ *
+ * @param si affordance_util::ScrewInfo with the screw vector and type portion filled out
+ *
+ * @return 3-vector screw axis representing given affordance information
+ */
+Eigen::Vector3d get_axis_from_screw(const ScrewInfo &si);
+
+/**
  * @brief Given a screw axis and its location, returns the 6x1 screw vector
  *
  * @param si affordance_util::ScrewInfo containing information about the screw. For translation, two fields are
  * necessary: si.type = "translation" and si.axis. For other cases, supply location and pitch as well.
  *
- * @return Eigen::Matrix<double, 6, 1> containing the 6x1 screw vector
+ * @return Eigen::Matrix<double, 6, 1> containing the 6x1 screw vector. Also fills out screw axis and returns the
+ * ScrewInfo by reference if screw vector is specified but axis is not.
  */
-Eigen::Matrix<double, 6, 1> get_screw(const affordance_util::ScrewInfo &si);
+Eigen::Matrix<double, 6, 1> get_screw(const ScrewInfo &si);
 
 /**
  * @brief For revolute screws. given a screw axis and location, returns the 6x1 screw vector

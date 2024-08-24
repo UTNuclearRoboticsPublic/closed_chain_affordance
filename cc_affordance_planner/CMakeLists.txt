@@ -23,6 +23,7 @@ find_package(yaml-cpp REQUIRED )
 # Create the library with source files
 add_library(${PROJECT_NAME} STATIC
     src/${PROJECT_NAME}/${PROJECT_NAME}.cpp
+    src/${PROJECT_NAME}/${PROJECT_NAME}_interface.cpp
 )
 
 # Link this package's library against affordance_util
@@ -38,8 +39,9 @@ install(TARGETS ${PROJECT_NAME}
     ARCHIVE DESTINATION lib
 )
 
-# Install the header file
+# Install the header files
 install(FILES include/${PROJECT_NAME}/${PROJECT_NAME}.hpp
+	      include/${PROJECT_NAME}/${PROJECT_NAME}_interface.hpp
         DESTINATION include/${PROJECT_NAME}
 )
 
