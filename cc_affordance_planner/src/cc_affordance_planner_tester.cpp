@@ -77,9 +77,8 @@ int main()
     plannerConfig.trajectory_density = 4; // with 0.4 aff_goal, we get 0.1 aff step as MATLAB
     plannerConfig.accuracy = 0.01;
     plannerConfig.update_method = cc_affordance_planner::UpdateMethod::INVERSE;
-    /* plannerConfig.motion_type = cc_affordance_planner::MotionType::AFFORDANCE; // Default */
-    plannerConfig.closure_err_threshold_ang = 1e-4;
-    plannerConfig.closure_err_threshold_lin = 1e-5;
+    /* plannerConfig.closure_err_threshold_ang = 1e-4; */
+    /* plannerConfig.closure_err_threshold_lin = 1e-5; */
     /* plannerConfig.ik_max_itr = 200; // Default */
 
     // Robot description
@@ -90,6 +89,7 @@ int main()
 
     // Task description
     cc_affordance_planner::TaskDescription task_description;
+    /* task_description.motion_type = cc_affordance_planner::MotionType::AFFORDANCE; // Default */
     task_description.affordance_info = aff;
     task_description.goal.affordance = 0.4;
 
