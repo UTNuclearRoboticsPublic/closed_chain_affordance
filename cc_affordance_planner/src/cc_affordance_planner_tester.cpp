@@ -91,9 +91,7 @@ int main()
     // Task description
     cc_affordance_planner::TaskDescription task_description;
     task_description.affordance_info = aff;
-    task_description.nof_secondary_joints = 1; // affordance only
-    Eigen::VectorXd aff_goal = (Eigen::VectorXd(1) << 0.4).finished();
-    task_description.secondary_joint_goals = aff_goal;
+    task_description.goal.affordance = 0.4;
 
     // Run the planner
     // Construct the planner interface object
