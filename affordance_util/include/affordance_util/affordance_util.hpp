@@ -74,6 +74,15 @@ namespace affordance_util
 {
 
 /**
+ * @brief Enum specifying the type of gripper goal along a joint trajectory as constant or continuous
+ */
+enum GripperGoalType
+{
+    CONSTANT,
+    CONTINUOUS
+};
+
+/**
  * @brief Enum specifying the three screw types
  */
 enum ScrewType
@@ -96,7 +105,7 @@ enum VirtualScrewOrder
 };
 
 /**
- * @brief Designed to contain the description of a robot in terms of its screw list, end-effector homogenous
+ * @brief Struct designed to contain the description of a robot in terms of its screw list, end-effector homogenous
  * transformation matrix, and current joint states
  */
 struct RobotDescription
