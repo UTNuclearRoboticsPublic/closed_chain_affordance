@@ -113,6 +113,7 @@ struct RobotDescription
     Eigen::MatrixXd slist;
     Eigen::Matrix4d M = Eigen::Matrix4d::Constant(std::numeric_limits<double>::quiet_NaN());
     Eigen::VectorXd joint_states;
+    double gripper_state = std::numeric_limits<double>::quiet_NaN();
 };
 
 /**
