@@ -74,17 +74,29 @@ enum UpdateMethod
 };
 
 /**
- * @brief Struct describing a task for the Closed-Chain Affordance planner in terms of affordance info, number of
- * secondary joints, secondary goal, virtual screw order, grasp pose, and post-grasp affordance goal.
+ * @brief Struct describing the goals for the Closed-chain affordance planner in terms of affordance state, ee
+ * orientation state, grasp_pose, and gripper state.
+ */
+struct Goal
+{
+
+    double affordance = std::numeric_limits<double>::quiet_NaN();
+    Eigen::VectorXd ee_orientation;
+    Eigen::Matrix4d grasp_pose;
+    double gripper = std::numeric_limits<double>::quiet_NaN();
+};
+
+/**
+ * @brief Struct describing a task for the Closed-Chain Affordance planner in terms of affordance info, goal state,
+ * motion type, virtual screw order, grasp pose, and gripper goal type.
  */
 struct TaskDescription
 {
-    MotionType motion_type = MotionType::AFFORDANCE;
     affordance_util::ScrewInfo affordance_info;
-    size_t nof_secondary_joints = 0;
-    Eigen::VectorXd secondary_joint_goals;
+    Goal goal;
+    MotionType motion_type = MotionType::AFFORDANCE;
     affordance_util::VirtualScrewOrder vir_screw_order = affordance_util::VirtualScrewOrder::XYZ;
-    Eigen::Matrix4d grasp_pose;
+    affordance_util::GripperGoalType gripper_goal_type = affordance_util::GripperGoalType::CONSTANT;
 };
 
 /**
