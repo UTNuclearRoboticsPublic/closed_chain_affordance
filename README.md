@@ -107,7 +107,7 @@ robot_description.M = ; // Eigen::Matrix4d representing the homogenous transform
 robot_description.joint_states = ; // Eigen::VectorXd representing the joint states of the robot in order at the start config of the affordance
 ```
 
-4. Furnish task description. Here is an example for affordance-type motion:
+4. Furnish task description. Here is an example for affordance-type motion. More examples in Task Examples section.
 ```cpp
 cc_affordance_planner::TaskDescription task_description;
 
@@ -123,8 +123,8 @@ task_description.affordance_info = aff;
 task_description.goal.affordance = 0.4; // Goal for the affordance, 0.4 for instance
 ```
 
-4. Here is a task-description example for approach-type motion:
-```
+4. Here is a task-description example for approach-type motion. More examples in Task Examples section.
+```cpp
 cc_affordance_planner::TaskDescription task_description;
 
 // Affordance
@@ -180,6 +180,16 @@ std::cerr << "Planner did not find a solution." << std::endl;
 
 #### Optional Features
 Below are optional and advanced features of this framework that one may choose to use as needed.
+
+##### Gripper Trajectory Consideration
+The framework can compute a joint trajectory that considers the gripper. To use this feature simply, provide the current state of the gripper in robot description and specify the desired goal state in task description. Optionally, provide gripper goal type.
+```cpp
+robot_description.gripper_state = 0.0; // Joint value of the gripper
+task_description.goal.gripper = 0.4;
+task_description.gripper_goal_type = affordance_util::GripperGoalType::CONSTANT; // Possible values are CONSTANT and CONTINUOUS. CONSTANT is default and means the gripper joint will have the desired value, for instance, 0.4 for all points in the trajectory. CONTINUOUS means it will take trajectory_density number of points to go from the current gripper state to the goal gripper state.
+```
+
+##### Optional and Advanced Settings
 Optional planner config parameters with default values:
 ```cpp
 plannerConfig.accuracy = 10.0/100; // accuracy of the planner, 10% for example
