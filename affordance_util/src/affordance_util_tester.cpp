@@ -151,5 +151,38 @@ int main()
     std::cout << "\n Rotation axis location: " << screw_location.transpose() << std::endl;
     std::cout << "\n Rotation output: " << get_screw(screw_axis, screw_location).transpose() << std::endl;
 
+    double gripper_start_state = 0;
+    double gripper_end_state = -0.5;
+    int trajectory_density = 5;
+    affordance_util::GripperGoalType gripper_goal_type = affordance_util::GripperGoalType::CONSTANT;
+    std::cout << "\n Testing compute_gripper_joint_trajectory " << std::endl;
+    std::cout << "\n Gripper start state: " << gripper_start_state << std::endl;
+    std::cout << "\n Gripper end state: " << gripper_end_state << std::endl;
+    std::cout << "\n Trajectory density: " << trajectory_density << std::endl;
+    std::cout << "\n Gripper goal type: CONSTANT" << std::endl;
+    std::vector<double> gripper_trajectory =
+        compute_gripper_joint_trajectory(gripper_goal_type, gripper_start_state, gripper_end_state, trajectory_density);
+    std::cout << "\nFunction output:" << std::endl;
+    for (const double &point : gripper_trajectory)
+    {
+        std::cout << point << ",";
+    }
+    std::cout << std::endl;
+
+    gripper_goal_type = affordance_util::GripperGoalType::CONTINUOUS;
+    std::cout << "\n Testing compute_gripper_joint_trajectory " << std::endl;
+    std::cout << "\n Gripper start state: " << gripper_start_state << std::endl;
+    std::cout << "\n Gripper end state: " << gripper_end_state << std::endl;
+    std::cout << "\n Trajectory density: " << trajectory_density << std::endl;
+    std::cout << "\n Gripper goal type: CONTINUOUS" << std::endl;
+    gripper_trajectory =
+        compute_gripper_joint_trajectory(gripper_goal_type, gripper_start_state, gripper_end_state, trajectory_density);
+    std::cout << "\nFunction output:" << std::endl;
+    for (const double &point : gripper_trajectory)
+    {
+        std::cout << point << ",";
+    }
+    std::cout << std::endl;
+
     return 0;
 }
