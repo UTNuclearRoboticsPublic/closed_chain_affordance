@@ -86,12 +86,15 @@ int main()
     robot_description.slist = robot_slist;
     robot_description.M = M;
     robot_description.joint_states = thetalist;
+    robot_description.gripper_state = 0;
 
     // Task description
     cc_affordance_planner::TaskDescription task_description;
     /* task_description.motion_type = cc_affordance_planner::MotionType::AFFORDANCE; // Default */
+    task_description.gripper_goal_type = affordance_util::GripperGoalType::CONTINUOUS;
     task_description.affordance_info = aff;
     task_description.goal.affordance = 0.4;
+    task_description.goal.gripper = 0.4;
 
     // Run the planner
     // Construct the planner interface object
@@ -124,9 +127,14 @@ int main()
                      "and accuracy 1% (or "
                      "0.001) is as follows: \n"
                   << matlab_solution << std::endl;
+        const Eigen::VectorXd solution_comp_point =
+            (Eigen::VectorXd(nof_joints_total) << solution.at(1).head(nof_joints),
+             solution.at(1).tail(nof_virtual_joints + nof_affordance))
+                .finished(); // remove the gripper joint for comparison
 
         // Check if the planner and matlab solution are equal upto 3 decimal places
-        bool are_equal = solution.at(1).isApprox(matlab_solution, 1e-3); // Just compare solution, excluding affordance
+        bool are_equal = solution_comp_point.isApprox(matlab_solution,
+                                                      1e-3); // Just compare solution, excluding affordance
         if (are_equal)
         {
             std::cout << "The planner solution first point matches the one from Matlab." << std::endl;
