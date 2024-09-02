@@ -172,14 +172,17 @@ class CcAffordancePlannerInterface
 
     /**
      * @brief Converts a differential joint trajectory into an absolute joint trajectory by referencing a starting joint
-     * state.
+     * state. If optionally a gripper joint trajectory is provided, inserts it between the robot and secondary joint
+     * states.
      *
      * @param cc_trajectory std::vector<Eigen::VectorXd> containing the differential joint trajectory (modified by
      * reference to absolute trajectory).
      * @param start_joint_states Eigen::VectorXd containing the reference start joint states.
+     * @param gripper_joint_trajectory std::vector<double> containing the gripper joint trajectory.
      */
     void convert_cc_traj_to_robot_traj_(std::vector<Eigen::VectorXd> &cc_trajectory,
-                                        const Eigen::VectorXd &start_joint_states);
+                                        const Eigen::VectorXd &start_joint_states,
+                                        const std::vector<double> &gripper_joint_trajectory = std::vector<double>());
 
     /**
      * @brief Validates the robot and task descriptions provided for CC Affordance planning.

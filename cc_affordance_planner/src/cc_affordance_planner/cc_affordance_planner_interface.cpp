@@ -98,8 +98,20 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
             nof_secondary_joints);
     }
 
+    std::vector<double> gripper_joint_trajectory;
+
+    // Compute gripper trajectory if gripper goal is provided
+    if (!std::isnan(task_description.goal.gripper))
+    {
+        gripper_joint_trajectory = affordance_util::compute_gripper_joint_trajectory(
+            task_description.gripper_goal_type, robot_description.gripper_state, task_description.goal.gripper,
+            planner_config_.trajectory_density);
+    }
+
     // Convert the differential closed-chain joint trajectory to robot joint trajectory
-    this->convert_cc_traj_to_robot_traj_(plannerResult.joint_trajectory, robot_description.joint_states);
+    this->convert_cc_traj_to_robot_traj_(
+        plannerResult.joint_trajectory, robot_description.joint_states,
+        gripper_joint_trajectory); // Will insert gripper_joint_trajectory is a goal was provided
 
     return plannerResult;
 }
@@ -229,24 +241,60 @@ PlannerResult CcAffordancePlannerInterface::generate_specified_motion_joint_traj
 }
 
 void CcAffordancePlannerInterface::convert_cc_traj_to_robot_traj_(std::vector<Eigen::VectorXd> &cc_trajectory,
-                                                                  const Eigen::VectorXd &start_joint_states)
+                                                                  const Eigen::VectorXd &start_joint_states,
+                                                                  const std::vector<double> &gripper_joint_trajectory)
 {
-    // Return if the trajectory, no need to attempt conversion
+    // Return if the trajectory is empty, no need to attempt conversion
     if (cc_trajectory.empty())
     {
         return;
     }
-    // Compute the closed-chain trajectory absolute start state
-    Eigen::VectorXd cc_start_joint_states = Eigen::VectorXd::Zero(cc_trajectory[0].size());
-    cc_start_joint_states.head(start_joint_states.size()) = start_joint_states;
 
-    // convert the differential joint states to absolute states
-    for (Eigen::VectorXd &point : cc_trajectory)
+    const size_t nof_robot_joints = start_joint_states.size();
+    const size_t total_joints = cc_trajectory[0].size() + (gripper_joint_trajectory.empty() ? 0 : 1);
+
+    Eigen::VectorXd cc_start_joint_states = Eigen::VectorXd::Zero(total_joints);
+    cc_start_joint_states.head(nof_robot_joints) = start_joint_states;
+
+    // Lambda expression to handle both cases of transform with or without gripper trajectory
+    auto transform_point = [&](const Eigen::VectorXd &point,
+                               std::optional<double> gripper_value = std::nullopt) -> Eigen::VectorXd {
+        if (gripper_value)
+        {
+            Eigen::VectorXd new_point(total_joints);
+            new_point.head(nof_robot_joints) = point.head(nof_robot_joints);
+            new_point[nof_robot_joints] = 0.0;
+            new_point.tail(point.size() - nof_robot_joints) = point.tail(point.size() - nof_robot_joints);
+            cc_start_joint_states[nof_robot_joints] = *gripper_value;
+            return new_point + cc_start_joint_states;
+        }
+        else
+        {
+            return point + cc_start_joint_states;
+        }
+    };
+
+    // If gripper trajectory is provided, we insert it in the final trajectory
+    if (!gripper_joint_trajectory.empty())
     {
-        point += cc_start_joint_states;
+        std::transform(cc_trajectory.begin(), cc_trajectory.end(), gripper_joint_trajectory.begin() + 1,
+                       cc_trajectory.begin(), transform_point);
+
+        // We start with the second point in the gripper trajectory for std::transform cuz we'll insert the first
+        // element below
+
+        cc_start_joint_states[nof_robot_joints] = gripper_joint_trajectory[0];
     }
 
+    // Insert the start state at the beginning of the trajectory
     cc_trajectory.insert(cc_trajectory.begin(), cc_start_joint_states);
+
+    // If gripper trajectory is not provided, we transform the trajectory without gripper consideration
+    if (gripper_joint_trajectory.empty())
+    {
+        std::transform(cc_trajectory.begin() + 1, cc_trajectory.end(), cc_trajectory.begin() + 1,
+                       [&](Eigen::VectorXd &point) { return transform_point(point); });
+    }
 }
 
 void CcAffordancePlannerInterface::validate_input_(const affordance_util::RobotDescription &robot_description,
