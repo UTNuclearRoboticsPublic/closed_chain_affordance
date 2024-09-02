@@ -5,6 +5,37 @@ namespace cc_affordance_planner
 CcAffordancePlannerInterface::CcAffordancePlannerInterface(const PlannerConfig &planner_config)
     : planner_config_(planner_config)
 {
+    // Validate planner config
+    if (planner_config.trajectory_density < 2)
+    {
+
+        throw std::invalid_argument("Planner config: 'trajectory_density' must be >= 2.");
+    }
+
+    if ((planner_config.accuracy <= 0) || (planner_config.accuracy > 1.0))
+    {
+        throw std::invalid_argument("Planner config: 'accuracy' must be in the range (0,1]");
+    }
+
+    if (planner_config.closure_err_threshold_ang < 1e-10)
+    {
+
+        throw std::invalid_argument(
+            "Planner config: 'closure_err_threshold_ang' cannot be unrealistically small, i.e. less than 1e-10.");
+    }
+
+    if (planner_config.closure_err_threshold_lin < 1e-10)
+    {
+
+        throw std::invalid_argument(
+            "Planner config: 'closure_err_threshold_lin' cannot be unrealistically small, i.e. less than 1e-10.");
+    }
+
+    if ((planner_config.ik_max_itr < 2) || (planner_config.accuracy > 10000))
+    {
+
+        throw std::invalid_argument("Planner config: 'ik_max_itr' must be in the range [2, 10000]");
+    }
 }
 
 PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
@@ -251,7 +282,12 @@ void CcAffordancePlannerInterface::validate_input_(const affordance_util::RobotD
             "Robot description: 'joint_states' size must match the number of columns in 'slist'.");
     }
 
-    /* Validate task description */
+    if ((!std::isnan(task_description.goal.gripper)) && (std::isnan(robot_description.gripper_state)))
+    {
+        throw std::invalid_argument("Robot description: 'gripper_state' must be supplied and cannot be NaN when "
+                                    "goal.gripper is specified in task description.");
+    }
+
     if (task_description.affordance_info.type == affordance_util::ScrewType::UNSET)
     {
         throw std::invalid_argument("Task description: 'affordance_info.type' must be specified.");
@@ -280,7 +316,7 @@ void CcAffordancePlannerInterface::validate_input_(const affordance_util::RobotD
     if (std::isnan(task_description.goal.affordance))
     {
 
-        throw std::invalid_argument("Task description: 'goals.affordance' must be specified and cannot be NaN.");
+        throw std::invalid_argument("Task description: 'goal.affordance' must be specified and cannot be NaN.");
     }
 
     if ((task_description.motion_type == MotionType::APPROACH) &&
