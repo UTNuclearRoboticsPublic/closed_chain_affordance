@@ -38,6 +38,30 @@ template <int N> Node convert<Eigen::Matrix<double, N, 1>>::encode(const Eigen::
 namespace affordance_util
 {
 
+std::vector<double> compute_gripper_joint_trajectory(const GripperGoalType &gripper_goal_type,
+                                                     const double &gripper_start_state, const double &gripper_end_state,
+                                                     const int &trajectory_density)
+{
+    std::vector<double> trajectory(trajectory_density); // Preallocate vector with the correct size
+
+    if (gripper_goal_type == GripperGoalType::CONSTANT)
+    {
+        // Fill the vector with the gripper_end_state
+        std::fill(trajectory.begin(), trajectory.end(), gripper_end_state);
+    }
+    else // gripper_goal_type == GripperGoalType::CONTINUOUS
+    {
+        const double step = (gripper_end_state - gripper_start_state) / (trajectory_density - 1);
+
+        for (int i = 0; i < trajectory_density; ++i)
+        {
+            trajectory[i] = gripper_start_state + i * step;
+        }
+    }
+
+    return trajectory;
+}
+
 CcModel compose_cc_model_slist(const RobotDescription &robot_description, const ScrewInfo &aff_info,
                                const Eigen::MatrixXd &approach_end_pose, const VirtualScrewOrder &vir_screw_order)
 {

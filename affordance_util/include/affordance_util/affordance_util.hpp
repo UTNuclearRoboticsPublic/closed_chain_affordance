@@ -164,6 +164,21 @@ struct RobotConfig
 };
 
 /**
+ * @brief Given gripper goal type, start and end state, and trajectory density, returns the gripper joint trajectory
+ *
+ * @param gripper_goal_type affordance_util::GripperGoalType indicating gripper goal type, i.e. constant or continuous
+ * along the trajectory
+ * @param gripper_start_state double specifying gripper joint start state
+ * @param gripper_end_state double specifying gripper joint end state
+ * @param trajectory_density int specifying the number of points for the gripper joint trajectory
+ *
+ * @return std::vector<double> containing the gripper joint trajectory
+ */
+std::vector<double> compute_gripper_joint_trajectory(const GripperGoalType &gripper_goal_type,
+                                                     const double &gripper_start_state, const double &gripper_end_state,
+                                                     const int &trajectory_density);
+
+/**
  * @brief Given a robot description, affordance information, order of virtual screws, and HTM representing end of
  * approach motion, returns the closed-chain affordance model including approach motion.
  *
