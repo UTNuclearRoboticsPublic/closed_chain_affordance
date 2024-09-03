@@ -85,19 +85,16 @@ where `${PROJECT_NAME}` is your desired target.
 ### Code
 This section describes the required and optional code setup for this planner.
 #### Required Setup
-Using the planner is straightforward and requires the following 5 steps.
+Using the planner is straightforward and requires just instantiating the planner interface object and calling a method on it by passing robot and task descriptions. Follow these 5 steps:
 1. Include these headers:
 ```cpp
 #include <affordance_util_ros/affordance_util_ros.hpp>
 #include <cc_affordance_planner/cc_affordance_planner.hpp>
 #include <cc_affordance_planner/cc_affordance_planner_interface.hpp>
 ```
-2. Instantiate the planner object with planner configuration:
+2. Instantiate the planner interface object:
 ```cpp
-cc_affordance_planner::PlannerConfig plannerConfig;
-plannerConfig.trajectory_density = 4; // desired number of points in the joint trajectory, 4 for example
-
-cc_affordance_planner::CcAffordancePlannerInterface ccAffordancePlannerInterface(plannerConfig);
+cc_affordance_planner::CcAffordancePlannerInterface ccAffordancePlannerInterface;
 ```
 3. Furnish robot description
 ```cpp
@@ -190,14 +187,17 @@ task_description.gripper_goal_type = affordance_util::GripperGoalType::CONSTANT;
 ```
 
 ##### Optional and Advanced Settings
-Optional planner config parameters with default values:
+It is possible to instantiate the planner interface object with some desired settings. Here is an example that reflects default values that can be modified.
 ```cpp
+cc_affordance_planner::PlannerConfig plannerConfig;
 plannerConfig.accuracy = 10.0/100; // accuracy of the planner, 10% for example
-plannerConfig.update_method = cc_affordance_planner::UpdateMethod::INVERSE; // method used to solve closed-chain IK. Choices are INVERSE, TRANSPOSE, and BEST. BEST runs INVERSE and TRANSPOSE in parallel and returns the best result.
-plannerConfig.motion_type = cc_affordance_planner::MotionType::AFFORDANCE; // Choices are AFFORDANCE and APPROACH.
+
+// Then instantiate the planner interface object
+cc_affordance_planner::CcAffordancePlannerInterface ccAffordancePlannerInterface(plannerConfig);
 ```
 Optional advanced planner config parameters with default values:
 ```cpp
+plannerConfig.update_method = cc_affordance_planner::UpdateMethod::INVERSE; // method used to solve closed-chain IK. Choices are INVERSE, TRANSPOSE, and BEST. BEST runs INVERSE and TRANSPOSE in parallel and returns the best result.
 plannerConfig.closure_err_threshold_ang = 1e-4; // Threshold for the closed-chain closure angular error
 plannerConfig.closure_err_threshold_lin = 1e-5; // Threshold for the closed-chain closure linear error
 plannerConfig.ik_max_itr = 200; // Limit for the number of iterations for the closed-chain IK solver
@@ -206,6 +206,7 @@ plannerConfig.ik_max_itr = 200; // Limit for the number of iterations for the cl
 Optional task description parameters:
 ```cpp
 task_description.goal.ee_orientation = Eigen::Vector3d(0.1, 0.0, 0.1); // EE orientation to maintain along the affordance path, rpy = [0.1,0.0,0.1] for instance. Can specify one or more aspections of the orientation in the order specified by VirScrewOrder below.
+task_description.trajectory_density = 10; // Number of points in the solved joint trajectory, 10 for example
 task_description.vir_screw_order = affordance_util::VirtualScrewOrder::XYZ; // Order of the axes in the closed-chain model virtual gripper joint. Possible values are XYZ, YZX, ZXY, and NONE.
 task_description.motion_type = cc_affordance_planner::MotionType::AFFORDANCE; // Possible values are AFFORDANCE and APPROACH. Default is AFFORDANCE.
 
