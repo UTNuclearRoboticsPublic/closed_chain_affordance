@@ -55,11 +55,12 @@ class CcAffordancePlannerInterface
     /// Typedefs for function pointers to to CcAffordancePlanner::generate_approach_motion_joint_trajectory or
     /// CcAffordancePlanner::generate_affordance_motion_joint_trajectory
     using Gsmt = PlannerResult (CcAffordancePlanner::*)(const Eigen::MatrixXd &, const Eigen::VectorXd &,
-                                                        const size_t &);
+                                                        const size_t &, const int &);
     using Gsmt_st = PlannerResult (CcAffordancePlanner::*)(const Eigen::MatrixXd &, const Eigen::VectorXd &,
-                                                           const size_t &,
+                                                           const size_t &, const int &,
                                                            std::stop_token); // Gsmt with additional stop_token argument
 
+    CcAffordancePlannerInterface();
     /**
      * @brief Constructs the CcAffordancePlannerInterface object with the provided configuration.
      *
@@ -161,6 +162,7 @@ class CcAffordancePlannerInterface
      *     - 3: Adds gripper orientation control about the next axis as specified in vir_screw_order.
      *     - 4: Adds gripper orientation control about the next two axes as specified in vir_screw_order.
      *     - 5: Adds full EE orientation.
+     * @param trajectory_density Specifies the density for the trajectory in terms of number of points.
      *
      * @return `cc_affordance_planner::PlannerResult` containing the solved differential closed-chain joint trajectory
      * and additional planning information.
@@ -168,7 +170,8 @@ class CcAffordancePlannerInterface
     PlannerResult generate_specified_motion_joint_trajectory_(
         const Gsmt &generate_specified_motion_joint_trajectory,
         const Gsmt_st &generate_specified_motion_joint_trajectory_st, const Eigen::MatrixXd &slist,
-        const Eigen::VectorXd &secondary_joint_goals, const size_t &nof_secondary_joints);
+        const Eigen::VectorXd &secondary_joint_goals, const size_t &nof_secondary_joints,
+        const int &trajectory_density);
 
     /**
      * @brief Converts a differential joint trajectory into an absolute joint trajectory by referencing a starting joint
