@@ -4,12 +4,15 @@ namespace cc_affordance_planner
 {
 
 CcAffordancePlannerInterface::CcAffordancePlannerInterface()
+    : ccAffordancePlannerInverse_(), ccAffordancePlannerTranspose_()
 {
-    planner_config_ = PlannerConfig(); // Use planner's default settings
 }
 
 CcAffordancePlannerInterface::CcAffordancePlannerInterface(const PlannerConfig &planner_config)
-    : planner_config_(planner_config)
+    : planner_config_(planner_config),
+      ccAffordancePlannerInverse_(planner_config),
+      ccAffordancePlannerTranspose_(planner_config)
+
 {
     // Validate planner config
 
@@ -136,10 +139,8 @@ PlannerResult CcAffordancePlannerInterface::generate_specified_motion_joint_traj
     std::atomic<bool> inverse_result_obtained{false};
 
     // Construct inverse and transpose planner objects
-    CcAffordancePlannerInverse ccAffordancePlannerInverse(planner_config_);
-    CcAffordancePlannerTranspose ccAffordancePlannerTranspose(planner_config_);
-    CcAffordancePlanner *ccAffordancePlannerInversePtr(&ccAffordancePlannerInverse);
-    CcAffordancePlanner *ccAffordancePlannerTransposePtr(&ccAffordancePlannerTranspose);
+    CcAffordancePlanner *ccAffordancePlannerInversePtr(&ccAffordancePlannerInverse_);
+    CcAffordancePlanner *ccAffordancePlannerTransposePtr(&ccAffordancePlannerTranspose_);
 
     // If a specific update method is requested, run the planner using that
     if (planner_config_.update_method == UpdateMethod::INVERSE)

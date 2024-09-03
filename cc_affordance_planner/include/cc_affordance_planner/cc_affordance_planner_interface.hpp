@@ -65,8 +65,6 @@ class CcAffordancePlannerInterface
      * @brief Constructs the CcAffordancePlannerInterface object with the provided configuration.
      *
      * @param planner_config Struct containing the settings for the Cc Affordance planner:
-     * - `trajectory_density`: Specifies the density of the trajectory as the number of points.
-     *   For example, an affordance goal of 0.5 rad could have 5 points, each with a step of 0.1 rad.
      * - `accuracy`: Defines the threshold for the affordance goal.
      *   For instance, for a 5 rad goal with 10% accuracy, set this parameter to 0.1 to achieve an affordance goal of 5
      * ± 0.5.
@@ -95,27 +93,13 @@ class CcAffordancePlannerInterface
      *   cc_affordance_planner::APPROACH or cc_affordance_planner::AFFORDANCE. AFFORDANCE is default.
      * - `affordance_info`: `affordance_util::ScrewInfo` describing the affordance with type, and
      * 	 axis/location or screw as mandatory fields.
-     * - `nof_secondary_joints`: Specifies the number of secondary joints.
-     *   - For affordance motion:
-     *     - 1: Affordance control only.
-     *     - 2: Control of affordance along with EE orientation about one axis (x, y, or z whichever is first in the
-     * 		vir_screw_order specified).
-     *     - 3: Control of affordance along with EE orientation about two axes (the first two specified in
-     * 		vir_screw_order).
-     *     - 4: Affordance and full EE orientation control.
-     *   - For approach motion:
-     *     - Minimum 2: Controls approach motion in the context of the affordance.
-     *     - 3: Adds gripper orientation control about the next axis as specified in vir_screw_order.
-     *     - 4: Adds gripper orientation control about the next two axes as specified in vir_screw_order.
-     *     - 5: Adds full EE orientation.
-     * - `secondary_joint_goals`: Eigen::VectorXd with desired goals for secondary joints. The size of
-     *   secondary_joint_goals must match `nof_secondary_joints`. The end element of secondary_joint_goals is always
-     *   affordance. For affordance motion, the EE orientation goals are inserted as needed and in the order specified
-     *   in vir_screw_order. For approach motion, with nof_secondary_joints = 2, secondary_joint_goals should contain
-     *   (approach_goal, affordance_goal). The EE orientation goals are inserted before the approach_goal as needed. Set
-     *   approach_goal=0 for all approach motion cases as it is computed by the planner.
-     * - `grasp_pose`: Eigen::MatrixXd containing the grasp pose's homogenous transformation matrix (only for APPROACH
-     *   motion).
+     * - `trajectory_density`: Specifies the density of the trajectory as the number of points.
+     *   For example, an affordance goal of 0.5 rad could have 5 points, each with a step of 0.1 rad.
+     * - `goal`: goal to achieve with planning
+     *     `affordance`: affordance goal
+     *     `ee_orientation`: EE orientation goal for 1 or more axes per vir_screw_order.
+     *     `grasp_pose`: cartesian goal for the EE to achieve during APPROACH motion
+     *     `gripper`: goal state for the gripper
      * - `vir_screw_order`: affordance_util::VirtualScrewOrder describing the order of the joints in the virtual
      *   spherical joint of the closed-chain model. This joint describes the orientation freedom of the gripper. Default
      *   value is affordance_util::VirtualScrewOrder::XYZ.
@@ -129,12 +113,15 @@ class CcAffordancePlannerInterface
      * - `planning_time`: std::chrono::microseconds indicating the planning time.
      * - `update_method`: Update method used (pseudoinverse, transpose, or best of the two in concurrent planning).
      * - `update_trail`: Trail of update methods used in concurrent planning.
+     * - `includes_gripper_trajectory`: Indication of whether the solution contains gripper trajectory.
      */
     PlannerResult generate_joint_trajectory(const affordance_util::RobotDescription &robot_description,
                                             const TaskDescription &task_description);
 
   private:
-    PlannerConfig planner_config_; ///< Configuration settings for the planner.
+    PlannerConfig planner_config_;                              ///< Configuration settings for the planner.
+    CcAffordancePlannerInverse ccAffordancePlannerInverse_;     ///< Inverse planner object
+    CcAffordancePlannerTranspose ccAffordancePlannerTranspose_; ///< Transpose planner object
 
     /**
      * @brief Generates a closed-chain differential joint trajectory to reach desired goals using specified motion
