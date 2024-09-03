@@ -74,7 +74,6 @@ int main()
 
     // Configure the planner
     cc_affordance_planner::PlannerConfig plannerConfig;
-    plannerConfig.trajectory_density = 4; // with 0.4 aff_goal, we get 0.1 aff step as MATLAB
     plannerConfig.accuracy = 0.01;
     plannerConfig.update_method = cc_affordance_planner::UpdateMethod::INVERSE;
     /* plannerConfig.closure_err_threshold_ang = 1e-4; */
@@ -90,9 +89,10 @@ int main()
 
     // Task description
     cc_affordance_planner::TaskDescription task_description;
+    task_description.affordance_info = aff;
+    task_description.trajectory_density = 4; // with 0.4 aff_goal, we get 0.1 aff step as MATLAB
     /* task_description.motion_type = cc_affordance_planner::MotionType::AFFORDANCE; // Default */
     task_description.gripper_goal_type = affordance_util::GripperGoalType::CONTINUOUS;
-    task_description.affordance_info = aff;
     task_description.goal.affordance = 0.4;
     task_description.goal.gripper = 0.4;
 
