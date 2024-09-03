@@ -140,7 +140,7 @@ class CcAffordancePlanner
 {
   public:
     // Constructor
-    explicit CcAffordancePlanner(const PlannerConfig &plannerConfig);
+    explicit CcAffordancePlanner(const PlannerConfig &plannerConfig = PlannerConfig());
 
     // Methods
     /**
@@ -320,6 +320,7 @@ class CcAffordancePlanner
 class CcAffordancePlannerTranspose : public CcAffordancePlanner
 {
   public:
+    explicit CcAffordancePlannerTranspose() : CcAffordancePlanner() {}
     explicit CcAffordancePlannerTranspose(const PlannerConfig &plannerConfig) : CcAffordancePlanner(plannerConfig) {}
 
   private:
@@ -342,6 +343,7 @@ class CcAffordancePlannerTranspose : public CcAffordancePlanner
 class CcAffordancePlannerInverse : public CcAffordancePlanner
 {
   public:
+    explicit CcAffordancePlannerInverse() : CcAffordancePlanner() {}
     explicit CcAffordancePlannerInverse(const PlannerConfig &plannerConfig) : CcAffordancePlanner(plannerConfig) {}
 
   private:
