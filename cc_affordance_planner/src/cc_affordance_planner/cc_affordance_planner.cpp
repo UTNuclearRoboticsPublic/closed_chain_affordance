@@ -65,19 +65,18 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
     const double theta_pdf = theta_sdf.tail(2)(0); // approach screw goal
 
     //**Alg1:L1: Define affordance step, deltatheta_a
-    const double deltatheta_a = theta_adf / stepper_max_itr_m;
-    const double deltatheta_p = theta_pdf / stepper_max_itr_m;
+    const double deltatheta_a = theta_adf / (stepper_max_itr_m - 1);
+    const double deltatheta_p = theta_pdf / (stepper_max_itr_m - 1);
 
     //** Alg1:L2: Determine relevant matrix and vector sizes based on task_offset_tau
     nof_pjoints_ = slist.cols() - task_offset_tau;
     nof_sjoints_ = task_offset_tau;
 
     //**Alg1:L3 and Alg1:L2: Set start guesses and step goal
-    Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
-    Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
+    Eigen::VectorXd theta_sg = Eigen::VectorXd::Constant(nof_sjoints_, start_guess_);
+    Eigen::VectorXd theta_pg = Eigen::VectorXd::Constant(nof_pjoints_, start_guess_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
-    theta_sd.tail(2).setConstant(
-        start_guess_); // start approach and affordance goals at 0 but gripper orientation as specified
+    theta_sd.tail(2).setConstant(0); // start approach and affordance goals at 0 but gripper orientation as specified
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal: Passed in as planner config
 
@@ -85,7 +84,7 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
     int loop_counter_k = 0;
     int success_counter_s = 0;
 
-    while (loop_counter_k < stepper_max_itr_m && !st.stop_requested()) //**Alg1:L6
+    while (loop_counter_k < (stepper_max_itr_m - 1) && !st.stop_requested()) //**Alg1:L6
     {
         loop_counter_k = loop_counter_k + 1; //**Alg1:L7:
 
@@ -156,19 +155,18 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
     const double theta_pdf = theta_sdf.tail(2)(0); // approach screw goal
 
     //**Alg1:L1: Define affordance step, deltatheta_a
-    const double deltatheta_a = theta_adf / stepper_max_itr_m;
-    const double deltatheta_p = theta_pdf / stepper_max_itr_m;
+    const double deltatheta_a = theta_adf / (stepper_max_itr_m - 1);
+    const double deltatheta_p = theta_pdf / (stepper_max_itr_m - 1);
 
     //** Alg1:L2: Determine relevant matrix and vector sizes based on task_offset_tau
     nof_pjoints_ = slist.cols() - task_offset_tau;
     nof_sjoints_ = task_offset_tau;
 
     //**Alg1:L3 and Alg1:L2: Set start guesses and step goal
-    Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
-    Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
+    Eigen::VectorXd theta_sg = Eigen::VectorXd::Constant(nof_sjoints_, start_guess_);
+    Eigen::VectorXd theta_pg = Eigen::VectorXd::Constant(nof_pjoints_, start_guess_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
-    theta_sd.tail(2).setConstant(
-        start_guess_); // start approach and affordance goals at 0 but gripper orientation as specified
+    theta_sd.tail(2).setConstant(0); // start approach and affordance goals at 0 but gripper orientation as specified
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal: Passed in as planner config
 
@@ -176,7 +174,7 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
     int loop_counter_k = 0;
     int success_counter_s = 0;
 
-    while (loop_counter_k < stepper_max_itr_m) //**Alg1:L6
+    while (loop_counter_k < (stepper_max_itr_m - 1)) //**Alg1:L6
     {
 
         loop_counter_k = loop_counter_k + 1; //**Alg1:L7:
@@ -248,17 +246,17 @@ PlannerResult CcAffordancePlanner::generate_affordance_motion_joint_trajectory(c
     const double theta_adf = theta_sdf.tail(1)(0);
 
     //**Alg1:L1: Define affordance step, deltatheta_a
-    const double deltatheta_a = theta_adf / stepper_max_itr_m;
+    const double deltatheta_a = theta_adf / (stepper_max_itr_m - 1);
 
     //** Alg1:L2: Determine relevant matrix and vector sizes based on task_offset_tau
     nof_pjoints_ = slist.cols() - task_offset_tau;
     nof_sjoints_ = task_offset_tau;
 
     //**Alg1:L3 and Alg1:L2: Set start guesses and step goal
-    Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
-    Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
+    Eigen::VectorXd theta_sg = Eigen::VectorXd::Constant(nof_sjoints_, start_guess_);
+    Eigen::VectorXd theta_pg = Eigen::VectorXd::Constant(nof_pjoints_, start_guess_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
-    theta_sd.tail(1).setConstant(start_guess_); // start affordance at 0 but gripper orientation as specified
+    theta_sd.tail(1).setConstant(0);      // start affordance at 0 but gripper orientation as specified
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal: Passed in as planner config
 
@@ -266,7 +264,7 @@ PlannerResult CcAffordancePlanner::generate_affordance_motion_joint_trajectory(c
     int loop_counter_k = 0;
     int success_counter_s = 0;
 
-    while (loop_counter_k < stepper_max_itr_m && !st.stop_requested()) //**Alg1:L6
+    while (loop_counter_k < (stepper_max_itr_m - 1) && !st.stop_requested()) //**Alg1:L6
     {
         loop_counter_k = loop_counter_k + 1; //**Alg1:L7:
 
@@ -335,17 +333,17 @@ PlannerResult CcAffordancePlanner::generate_affordance_motion_joint_trajectory(c
     PlannerResult plannerResult; // Result of the planner
 
     //**Alg1:L1: Define affordance step, deltatheta_a
-    const double deltatheta_a = theta_adf / stepper_max_itr_m;
+    const double deltatheta_a = theta_adf / (stepper_max_itr_m - 1);
 
     //** Alg1:L2: Determine relevant matrix and vector sizes based on task_offset_tau
     nof_pjoints_ = slist.cols() - task_offset_tau;
     nof_sjoints_ = task_offset_tau;
 
     //**Alg1:L3 and Alg1:L2: Set start guesses and step goal
-    Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
-    Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
+    Eigen::VectorXd theta_sg = Eigen::VectorXd::Constant(nof_sjoints_, start_guess_);
+    Eigen::VectorXd theta_pg = Eigen::VectorXd::Constant(nof_pjoints_, start_guess_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
-    theta_sd.tail(1).setConstant(start_guess_); // start affordance at 0 but gripper orientation as specified
+    theta_sd.tail(1).setConstant(0);      // start affordance at 0 but gripper orientation as specified
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal: Passed in as planner config
 
@@ -353,7 +351,7 @@ PlannerResult CcAffordancePlanner::generate_affordance_motion_joint_trajectory(c
     int loop_counter_k = 0;
     int success_counter_s = 0;
 
-    while (loop_counter_k < stepper_max_itr_m) //**Alg1:L6
+    while (loop_counter_k < (stepper_max_itr_m - 1)) //**Alg1:L6
     {
 
         loop_counter_k = loop_counter_k + 1; //**Alg1:L7:

@@ -109,9 +109,10 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
     // Compute gripper trajectory if gripper goal is provided
     if (!std::isnan(task_description.goal.gripper))
     {
+        const int trajectory_size = static_cast<int>(plannerResult.joint_trajectory.size()) + 1;
         gripper_joint_trajectory = affordance_util::compute_gripper_joint_trajectory(
             task_description.gripper_goal_type, robot_description.gripper_state, task_description.goal.gripper,
-            task_description.trajectory_density);
+            trajectory_size);
 
         // Indicate result includes gripper trajectory
         plannerResult.includes_gripper_trajectory = true;
@@ -120,7 +121,7 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
     // Convert the differential closed-chain joint trajectory to robot joint trajectory
     this->convert_cc_traj_to_robot_traj_(
         plannerResult.joint_trajectory, robot_description.joint_states,
-        gripper_joint_trajectory); // Will insert gripper_joint_trajectory is a goal was provided
+        gripper_joint_trajectory); // Will insert gripper_joint_trajectory if task description included a gripper goal
 
     return plannerResult;
 }
