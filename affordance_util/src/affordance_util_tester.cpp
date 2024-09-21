@@ -2,6 +2,8 @@
 #include <affordance_util/affordance_util.hpp>
 #include <iomanip> // for std::precision
 #include <iostream>
+#include "urdf_model/model.h"
+#include "urdf_parser/urdf_parser.h"
 
 int main()
 {
@@ -95,20 +97,26 @@ int main()
     std::cout << "Input T: \n" << T << std::endl;
     std::cout << "Output: \n" << MatrixLog6(T) << std::endl;
 
-    /* const std::string filepath = "/home/crasun/spot_ws/src/cc_affordance_planner/config/robot_setup.yaml"; */
-    /* const RobotConfig robot_config = robot_builder(filepath); */
-    /* std::cout << "\n Testing robot_builder" << std::endl; */
-    /* std::cout << "Input filepath: \n" << filepath << std::endl; */
-    /* std::cout << "Output Slist: \n" << robot_config.Slist << std::endl; */
-    /* std::cout << "Output M: \n" << robot_config.M << std::endl; */
-    /* std::cout << "Output ref_frame_name: \n" << robot_config.ref_frame_name << std::endl; */
-    /* std::cout << "Output tool_name: \n" << robot_config.tool_name << std::endl; */
-    /* std::cout << "Output joint_names: "; */
-    /* for (const std::string &joint_name : robot_config.joint_names) */
-    /* { */
-    /*     std::cout << joint_name << ","; */
-    /* } */
-    /* std::cout << std::endl; */
+    const std::string filepath = "/home/john/temp_cca_ws/spot.urdf";
+    const std::string ref_frame = "";
+    const std::string base_joint = "front_right_hip_x";
+    const std::string ee_frame = "front_right_knee";
+    const RobotConfig robot_config = robot_builder(filepath, ref_frame, base_joint, ee_frame);
+    std::cout << "\n Testing robot_builder" << std::endl;
+    std::cout << "Input filepath: \n" << filepath << std::endl;
+    std::cout << "Input ref_frame: \n" << ref_frame << std::endl;
+    std::cout << "Input base_joint: \n" << base_joint << std::endl;
+    std::cout << "Input ee_frame: \n" << ee_frame << std::endl;
+    std::cout << "Output Slist: \n" << robot_config.Slist << std::endl;
+    std::cout << "Output M: \n" << robot_config.M << std::endl;
+    std::cout << "Output ref_frame_name: \n" << robot_config.ref_frame_name << std::endl;
+    std::cout << "Output tool_name: \n" << robot_config.tool_name << std::endl;
+    std::cout << "Output joint_names: ";
+    for (const std::string &joint_name : robot_config.joint_names)
+    {
+        std::cout << joint_name << ",";
+    }
+    std::cout << std::endl;
 
     ScrewInfo si;
     si.type = affordance_util::ScrewType::TRANSLATION;

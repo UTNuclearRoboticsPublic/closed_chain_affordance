@@ -41,6 +41,8 @@
 #include <limits>
 #include <vector>
 #include <yaml-cpp/yaml.h>
+#include "urdf_model/model.h"
+#include "urdf_parser/urdf_parser.h"
 
 namespace YAML
 {
@@ -146,8 +148,13 @@ struct ScrewInfo
 struct JointData
 {
     std::string name;  // Joint name
+    std::string  type; // Joint type
     Eigen::Vector3d w; // Joint axis
     Eigen::Vector3d q; // Joint location
+    double lower; // Joint lower limit
+    double upper; // Joint upper limit
+    double effort; // Joint effort limit
+    double velocity; // Joint velocity limit
 };
 
 /**
@@ -252,7 +259,7 @@ Eigen::MatrixXd compose_cc_model_slist(const RobotDescription &robot_description
  * @return Struct containing the robot space-form screw list, EE htm,
  space-frame name, joint_names, and tool name
  */
-RobotConfig robot_builder(const std::string &config_file_path);
+RobotConfig robot_builder(const std::string &config_file_path, const std::string &ref_frame, const std::string &base_joint, const std::string &ee_frame);
 /**
  * @brief Given a homogenenous transformation matrix, computes its adjoint
  * representation

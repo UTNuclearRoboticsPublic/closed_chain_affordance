@@ -255,70 +255,89 @@ Eigen::MatrixXd compose_cc_model_slist(const RobotDescription &robot_description
     return slist;
 }
 
-RobotConfig robot_builder(const std::string &config_file_path)
+RobotConfig robot_builder(const std::string &config_file_path, const std::string &ref_frame, const std::string &base_joint, const std::string &ee_frame)
 {
 
     RobotConfig robotConfig; // Output of the function
 
-    // Load the YAML file
-    const YAML::Node config = YAML::LoadFile(config_file_path);
-    if (!config)
+    const urdf::ModelInterfaceSharedPtr model = urdf::parseURDFFile(config_file_path);
+    if (!model)
     {
-        throw std::runtime_error("Robot screw list cannot be built without a valid robot config yaml file");
+        throw std::runtime_error("Robot screw list cannot be built without a valid robot config URDF file");
     }
 
-    // Access the reference frame info
-    const YAML::Node &refFrameNode = config["ref_frame"];
-    const std::string &ref_frame_name = refFrameNode[0]["name"].as<std::string>(); // access with [0] since only
-                                                                                   // one reference frame
+    std::vector<urdf::JointConstSharedPtr> chainList;
+    urdf::LinkConstSharedPtr root = model->getRoot();
+    bool rootFound = false;
+    
 
-    // Access the 'joints' array
-    const YAML::Node &jointsNode = config["joints"];
+    urdf::LinkConstSharedPtr eeLink = model->getLink(ee_frame);
+    urdf::JointConstSharedPtr currentJoint = eeLink->parent_joint;
+
+    chainList.push_back(currentJoint);
+
+    while(currentJoint->name != base_joint)
+    {   
+        std::string parentName = currentJoint->parent_link_name;
+        urdf::LinkConstSharedPtr parentLink = model->getLink(parentName);
+        if(parentLink == root)
+        {
+            throw std::runtime_error("Base joint not found on path from end effector frame");
+        }
+        currentJoint = parentLink->parent_joint;
+        chainList.push_back(model->getJoint(currentJoint->name));
+    }
+
+    std::cout << "Output base_joint_name: \n" << chainList.back()->name << std::endl;
+
+    std::string currentName = "";
+
+    
 
     // Parse each joint
-    std::vector<JointData> jointsData;
-    for (const YAML::Node &jointNode : jointsNode)
-    {
-        JointData joint;
-        joint.name = jointNode["name"].as<std::string>();
-        joint.w = jointNode["w"].as<Eigen::Vector3d>();
-        joint.q = jointNode["q"].as<Eigen::Vector3d>();
-        jointsData.push_back(joint);
-    }
+    // std::vector<JointData> jointsData;
+    // for (const YAML::Node &jointNode : jointsNode)
+    // {
+    //     JointData joint;
+    //     joint.name = jointNode["name"].as<std::string>();
+    //     joint.w = jointNode["w"].as<Eigen::Vector3d>();
+    //     joint.q = jointNode["q"].as<Eigen::Vector3d>();
+    //     jointsData.push_back(joint);
+    // }
 
-    // Access the tool info
-    const YAML::Node &toolNode = config["tool"];
-    const std::string &tool_name = toolNode[0]["name"].as<std::string>(); // access with [0] since only one tool
+    // // Access the tool info
+    // const YAML::Node &toolNode = config["tool"];
+    // const std::string &tool_name = toolNode[0]["name"].as<std::string>(); // access with [0] since only one tool
 
     // Compute screw axes
-    const size_t screwSize = 6;
-    const size_t &totalNofJoints = jointsData.size();
-    Eigen::MatrixXd Slist(screwSize, totalNofJoints);
+    // const size_t screwSize = 6;
+    // const size_t &totalNofJoints = jointsData.size();
+    // Eigen::MatrixXd Slist(screwSize, totalNofJoints);
 
-    for (size_t i = 0; i < totalNofJoints; i++)
-    {
-        const JointData &joint = jointsData[i];
-        Slist.col(i) << joint.w, -joint.w.cross(joint.q);
-        /* Start setting the output of the function */
-        // Joint names
-        robotConfig.joint_names.push_back(joint.name);
-    }
+    // for (size_t i = 0; i < totalNofJoints; i++)
+    // {
+    //     const JointData &joint = jointsData[i];
+    //     Slist.col(i) << joint.w, -joint.w.cross(joint.q);
+    //     /* Start setting the output of the function */
+    //     // Joint names
+    //     robotConfig.joint_names.push_back(joint.name);
+    // }
 
-    /* Fill out the remaining members of the output and return it*/
-    // Screw list
-    robotConfig.Slist = Slist;
+    // /* Fill out the remaining members of the output and return it*/
+    // // Screw list
+    // robotConfig.Slist = Slist;
 
-    // EE homogenous transformation matrix
-    const Eigen::Vector3d toolLocation = toolNode[0]["q"].as<Eigen::Vector3d>();
-    Eigen::Matrix4d M = Eigen::Matrix4d::Identity();
-    M.block<3, 1>(0, 3) = toolLocation;
-    robotConfig.M = M;
+    // // EE homogenous transformation matrix
+    // const Eigen::Vector3d toolLocation = toolNode[0]["q"].as<Eigen::Vector3d>();
+    // Eigen::Matrix4d M = Eigen::Matrix4d::Identity();
+    // M.block<3, 1>(0, 3) = toolLocation;
+    // robotConfig.M = M;
 
-    // Reference frame name
-    robotConfig.ref_frame_name = ref_frame_name;
+    // // Reference frame name
+    // robotConfig.ref_frame_name = ref_frame_name;
 
-    // Tool name
-    robotConfig.tool_name = tool_name;
+    // // Tool name
+    // robotConfig.tool_name = tool_name;
 
     return robotConfig;
 }
