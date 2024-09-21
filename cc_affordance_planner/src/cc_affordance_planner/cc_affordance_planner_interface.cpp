@@ -376,14 +376,15 @@ void CcAffordancePlannerInterface::validate_input_(const affordance_util::RobotD
         throw std::invalid_argument("Task description: 'goal.affordance' must be specified and cannot be NaN.");
     }
 
-    if ((task_description.motion_type == MotionType::APPROACH) &&
-        ((!task_description.goal.grasp_pose.block<3, 3>(0, 0).isUnitary(tolerance)) ||
-         (std::abs(task_description.goal.grasp_pose(3, 3) - 1.0) > tolerance) ||
-         (!task_description.goal.grasp_pose.row(3).head(3).isZero(tolerance))))
-    {
-        throw std::invalid_argument("Task description: 'grasp_pose' is not a valid transformation matrix. Valid grasp "
-                                    "pose is needed for approach motion.");
-    }
+    /* if ((task_description.motion_type == MotionType::APPROACH) && */
+    /*     ((!task_description.goal.grasp_pose.block<3, 3>(0, 0).isUnitary(tolerance)) || */
+    /*      (std::abs(task_description.goal.grasp_pose(3, 3) - 1.0) > tolerance) || */
+    /*      (!task_description.goal.grasp_pose.row(3).head(3).isZero(tolerance)))) */
+    /* { */
+    /*     throw std::invalid_argument("Task description: 'grasp_pose' is not a valid transformation matrix. Valid grasp
+     * " */
+    /*                                 "pose is needed for approach motion."); */
+    /* } */
 
     if (task_description.trajectory_density < 2)
     {
