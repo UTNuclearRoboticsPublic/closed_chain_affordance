@@ -272,12 +272,12 @@ RobotConfig robot_builder(const std::string &config_file_path)
     const std::string &ref_frame_name = refFrameNode[0]["name"].as<std::string>(); // access with [0] since only
                                                                                    // one reference frame
 
-    // Access the 'joints' array
-    const YAML::Node &jointsNode = config["joints"];
+    // Access the 'robot_joints' array
+    const YAML::Node &robotJointsNode = config["robot_joints"];
 
     // Parse each joint
     std::vector<JointData> jointsData;
-    for (const YAML::Node &jointNode : jointsNode)
+    for (const YAML::Node &jointNode : robotJointsNode)
     {
         JointData joint;
         joint.name = jointNode["name"].as<std::string>();
@@ -285,6 +285,12 @@ RobotConfig robot_builder(const std::string &config_file_path)
         joint.q = jointNode["q"].as<Eigen::Vector3d>();
         jointsData.push_back(joint);
     }
+
+    // Access gripper joint info
+    const YAML::Node &gripperJointNode = config["gripper_joint"];
+    const std::string &gripper_joint_name =
+        gripperJointNode[0]["name"]
+            .as<std::string>(); // access with [0] since only one joint. In the future, we may wanna add more joints
 
     // Access the tool info
     const YAML::Node &toolNode = config["tool"];
@@ -316,6 +322,9 @@ RobotConfig robot_builder(const std::string &config_file_path)
 
     // Reference frame name
     robotConfig.ref_frame_name = ref_frame_name;
+
+    // Tool name
+    robotConfig.gripper_joint_name = gripper_joint_name;
 
     // Tool name
     robotConfig.tool_name = tool_name;

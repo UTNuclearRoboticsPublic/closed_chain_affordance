@@ -159,6 +159,7 @@ struct RobotConfig
     Eigen::Matrix4d M;                    // EE homogenous transformation matrix
     std::string ref_frame_name;           // Name of the reference frame
     std::vector<std::string> joint_names; // Name of the joints
+    std::string gripper_joint_name;       // Name of the gripper joint
     std::string tool_name;                // Name of the frame that mimicks where the robot
                                           // would grasp external objects
 };
