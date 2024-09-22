@@ -585,12 +585,33 @@ void CcAffordancePlanner::adjust_for_closure_error(
     Eigen::VectorXd &theta_s) //**Alg3:L5 // theta_s and theta_p returned by reference
 {
 
+    // Define the axis of rotation (x-axis)
+    Eigen::Vector3d axis(1.0, 0.0, 0.0);
+
+    // Define the angle of rotation (180 degrees = pi radians)
+    double angle = M_PI; // M_PI is the constant for pi
+
+    // Create an AngleAxisd rotation for the given axis and angle
+    Eigen::AngleAxisd rotation(angle, axis);
+
+    // Convert the AngleAxisd rotation to a 3x3 rotation matrix
+    Eigen::Matrix3d rotation_matrix = rotation.toRotationMatrix();
+    // Create a 4x4 identity matrix
+    Eigen::Matrix4d m_err = Eigen::Matrix4d::Identity();
+
+    // Set the top-left 3x3 part of the 4x4 matrix to the 3x3 rotation matrix
+    m_err.block<3, 3>(0, 0) = rotation_matrix;
+
+    // Set the translation part (last column, index 3) of the 4x4 matrix
+    m_err.block<3, 1>(0, 3) = (Eigen::Vector3d() << 0, 0, 0.15643).finished();
+
     /* Eigen resizings */
     Eigen::VectorXd thetalist;
     thetalist.conservativeResize(slist.cols()); // helper variable holding theta_p, theta_s
 
     //**Alg3:L1: Compute forward kinematics to chain's end link, Tse
-    const Eigen::Matrix4d des_endlink_htm_ = Eigen::Matrix4d::Identity(); // Desired HTM for the end link
+    /* const Eigen::Matrix4d des_endlink_htm_ = Eigen::Matrix4d::Identity(); // Desired HTM for the end link */
+    const Eigen::Matrix4d des_endlink_htm_ = m_err; // Desired HTM for the end link
     thetalist << theta_p, theta_s;
     Eigen::Matrix4d Tse =
         affordance_util::FKinSpace(des_endlink_htm_, slist, thetalist); // HTM of actual end of ground link
@@ -598,7 +619,7 @@ void CcAffordancePlanner::adjust_for_closure_error(
     //**Alg3:L2: Compute closure error
     Eigen::Matrix<double, twist_length_, 1> rho =
         affordance_util::Adjoint(Tse) *
-        affordance_util::se3ToVec(affordance_util::MatrixLog6(affordance_util::TransInv(Tse)));
+        affordance_util::se3ToVec(affordance_util::MatrixLog6(affordance_util::TransInv(Tse) * m_err));
 
     //**Alg3:L3: Adjust joint angles for closure error
     Eigen::MatrixXd Nc(Np.rows(), Np.cols() + Ns.cols());
@@ -615,7 +636,7 @@ void CcAffordancePlanner::adjust_for_closure_error(
     thetalist << theta_p, theta_s;
     Tse = affordance_util::FKinSpace(des_endlink_htm_, slist, thetalist);
     rho = affordance_util::Adjoint(Tse) *
-          affordance_util::se3ToVec(affordance_util::MatrixLog6(affordance_util::TransInv(Tse)));
+          affordance_util::se3ToVec(affordance_util::MatrixLog6(affordance_util::TransInv(Tse) * m_err));
 }
 
 } // namespace cc_affordance_planner

@@ -1,4 +1,5 @@
 #include <cc_affordance_planner/cc_affordance_planner_interface.hpp>
+#include <iomanip> // for std::setprecision and std::fixed
 
 namespace cc_affordance_planner
 {
@@ -90,6 +91,10 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
         // Compose the closed-chain model screws
         const Eigen::MatrixXd cc_slist =
             affordance_util::compose_cc_model_slist(robot_description, aff, vir_screw_order);
+        std::cout << std::fixed << std::setprecision(4);
+        std::cout << "Here is the closed chain screw list primary: \n" << cc_slist.block<6, 7>(0, 0) << std::endl;
+        /* std::cout << "Here is the closed chain screw list secondary: \n" << cc_slist.block<6, 4>(0, 7) << std::endl;
+         */
 
         // Extract and construct the secondary joint goals
         const Eigen::VectorXd secondary_joint_goals =
