@@ -97,10 +97,10 @@ int main()
     std::cout << "Input T: \n" << T << std::endl;
     std::cout << "Output: \n" << MatrixLog6(T) << std::endl;
 
-    const std::string filepath = "/home/john/temp_cca_ws/spot.urdf";
-    const std::string ref_frame = "";
-    const std::string base_joint = "front_right_hip_x";
-    const std::string ee_frame = "front_right_knee";
+    const std::string filepath = "/home/john/temp_cca_ws/spot_arm.urdf";
+    const std::string ref_frame = "spot_arm_shoulder_yaw";
+    const std::string base_joint = "spot_arm_shoulder_yaw";
+    const std::string ee_frame = "spot_arm_wrist_roll";
     const RobotConfig robot_config = robot_builder(filepath, ref_frame, base_joint, ee_frame);
     std::cout << "\n Testing robot_builder" << std::endl;
     std::cout << "Input filepath: \n" << filepath << std::endl;

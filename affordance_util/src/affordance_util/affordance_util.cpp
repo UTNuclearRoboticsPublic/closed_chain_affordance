@@ -288,56 +288,63 @@ RobotConfig robot_builder(const std::string &config_file_path, const std::string
         chainList.push_back(model->getJoint(currentJoint->name));
     }
 
-    std::cout << "Output base_joint_name: \n" << chainList.back()->name << std::endl;
+    std::vector<JointData> jointsData;
 
-    std::string currentName = "";
+    for (const urdf::JointConstSharedPtr& jointNode: chainList)
+    {
+        JointData joint;
+        joint.name = jointNode->name;
 
-    
+        urdf::Vector3 position = jointNode->parent_to_joint_origin_transform.position;
+        Eigen::Vector3d w(position.x, position.y, position.z);
+        joint.w = w;
 
-    // Parse each joint
-    // std::vector<JointData> jointsData;
-    // for (const YAML::Node &jointNode : jointsNode)
-    // {
-    //     JointData joint;
-    //     joint.name = jointNode["name"].as<std::string>();
-    //     joint.w = jointNode["w"].as<Eigen::Vector3d>();
-    //     joint.q = jointNode["q"].as<Eigen::Vector3d>();
-    //     jointsData.push_back(joint);
-    // }
+        urdf::Rotation rotation = jointNode->parent_to_joint_origin_transform.rotation;
+        Eigen::Vector3d q(rotation.w, rotation.x, rotation.y);
+        joint.q = q;
 
-    // // Access the tool info
-    // const YAML::Node &toolNode = config["tool"];
-    // const std::string &tool_name = toolNode[0]["name"].as<std::string>(); // access with [0] since only one tool
+        joint.lower = jointNode->limits->lower;
+        joint.upper = jointNode->limits->upper;
+        joint.effort = jointNode->limits->effort;
+        joint.velocity = jointNode->limits->velocity;
+
+        jointsData.push_back(joint);
+    }
+
+    // Access the tool info
+    const std::string &tool_name = ee_frame;
 
     // Compute screw axes
-    // const size_t screwSize = 6;
-    // const size_t &totalNofJoints = jointsData.size();
-    // Eigen::MatrixXd Slist(screwSize, totalNofJoints);
+    const size_t screwSize = 6;
+    const size_t &totalNofJoints = jointsData.size();
+    Eigen::MatrixXd Slist(screwSize, totalNofJoints);
 
-    // for (size_t i = 0; i < totalNofJoints; i++)
-    // {
-    //     const JointData &joint = jointsData[i];
-    //     Slist.col(i) << joint.w, -joint.w.cross(joint.q);
-    //     /* Start setting the output of the function */
-    //     // Joint names
-    //     robotConfig.joint_names.push_back(joint.name);
-    // }
+    for (size_t i = 0; i < totalNofJoints; i++)
+    {
+        const JointData &joint = jointsData[i];
+        Slist.col(i) << joint.w, -joint.w.cross(joint.q);
+        /* Start setting the output of the function */
+        // Joint names
+        robotConfig.joint_names.push_back(joint.name);
+    }
 
-    // /* Fill out the remaining members of the output and return it*/
-    // // Screw list
-    // robotConfig.Slist = Slist;
+    /* Fill out the remaining members of the output and return it*/
+    // Screw list
+    robotConfig.Slist = Slist;
 
-    // // EE homogenous transformation matrix
-    // const Eigen::Vector3d toolLocation = toolNode[0]["q"].as<Eigen::Vector3d>();
-    // Eigen::Matrix4d M = Eigen::Matrix4d::Identity();
-    // M.block<3, 1>(0, 3) = toolLocation;
-    // robotConfig.M = M;
+    // EE homogenous transformation matrix
+    urdf::Vector3 tool_position = model->getLink(tool_name)->parent_joint->parent_to_joint_origin_transform.position;
+    Eigen::Vector3d toolLocation(tool_position.x, tool_position.y, tool_position.z);
 
-    // // Reference frame name
-    // robotConfig.ref_frame_name = ref_frame_name;
+    Eigen::Matrix4d M = Eigen::Matrix4d::Identity();
+    M.block<3, 1>(0, 3) = toolLocation;
+    robotConfig.M = M;
 
-    // // Tool name
-    // robotConfig.tool_name = tool_name;
+    // Reference frame name
+    robotConfig.ref_frame_name = ref_frame;
+
+    // Tool name
+    robotConfig.tool_name = tool_name;
 
     return robotConfig;
 }
