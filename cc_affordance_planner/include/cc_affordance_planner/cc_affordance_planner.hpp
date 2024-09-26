@@ -280,10 +280,11 @@ class CcAffordancePlanner
 
   private:
     //--Planner config parameters
-    double accuracy_; // accuracy of the affordance goal
-    double eps_rw_;   // closure error threshold for angular part
-    double eps_rv_;   // closure error threshold for linear part
-    int max_itr_l_;   // max interations for IK solver
+    double accuracy_;             // accuracy of the affordance goal
+    Eigen::VectorXd theta_s_tol_; // secondary joint goal tolerance
+    double eps_rw_;               // closure error threshold for angular part
+    double eps_rv_;               // closure error threshold for linear part
+    int max_itr_l_;               // max interations for IK solver
     //--EOF Planner config parameters
     constexpr static size_t twist_length_ = 6;   // length of a twist vector
     constexpr static double start_guess_ = 1e-7; // trajectory start guess for all motions
@@ -299,7 +300,7 @@ class CcAffordancePlanner
      * @param theta_s Eigen::VectorXd containing secondary joint angles
      */
     void adjust_for_closure_error(const Eigen::MatrixXd &slist, const Eigen::MatrixXd &Np, const Eigen::MatrixXd &Ns,
-                                  Eigen::VectorXd &theta_p, Eigen::VectorXd &theta_s);
+                                  Eigen::VectorXd &theta_p, Eigen::VectorXd &theta_s, Eigen::VectorXd &rho);
 
     /**
      * @brief Given the primary joint angles, desired and current secondary joint angles, and constraint Jacobian,

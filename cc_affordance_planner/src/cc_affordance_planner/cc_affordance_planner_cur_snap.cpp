@@ -347,11 +347,6 @@ PlannerResult CcAffordancePlanner::generate_affordance_motion_joint_trajectory(c
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
     theta_sd.tail(1).setConstant(0);      // start affordance at 0 but gripper orientation as specified
 
-    // Compute secondary joint goal tolerance
-    theta_s_tol_.conservativeResize(nof_sjoints_);
-    theta_s_tol_.setConstant(deltatheta_a);
-    theta_s_tol_ = accuracy_ * theta_s_tol_.cwiseAbs();
-
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal: Passed in as planner config
 
     //**Alg1:L5: Initialize loop counter, loop_counter_k; success counter, success_counter_s
@@ -444,7 +439,7 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
     int loop_counter_i = 0;
 
     //**Alg2:L5: Start closure error at 0
-    Eigen::VectorXd rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
+    Eigen::Matrix<double, twist_length_, 1> rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
 
     // Compute error
     const Eigen::VectorXd theta_s_tol =
@@ -488,8 +483,8 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
         this->update_theta_p(theta_p, theta_sd, theta_s, N); // returned by reference
 
         //**Alg2:L12: Call Algorithm 3 with args, theta_s, theta_p, slist, Np, Ns
-        this->adjust_for_closure_error(slist, Np, Ns, theta_p, theta_s,
-                                       rho); // theta_s and theta_p returned by reference
+        this->adjust_for_closure_error(slist, Np, Ns, theta_p,
+                                       theta_s); // theta_s and theta_p returned by reference
 
         // Check error
         theta_s_err = (theta_sd - theta_s).cwiseAbs(); // secondary joint goal error
@@ -520,8 +515,8 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
     Eigen::VectorXd thetalist; // helper variable holding theta_p, theta_s
     thetalist.conservativeResize(slist.cols());
 
-    //**Alg2:L1: Set max. no. of iterations, p_max_itr_l, and error thresholds, p_task_err_threshold_eps_s,
-    // p_closure_err_threshold_eps_r: Defined as class public variables
+    //**Alg2:L1: Set max. no. of iterations, max_itr_l_, and error thresholds, p_task_err_threshold_eps_s,
+    // eps_r_: Defined as class public variables
 
     //** Alg2:L2: Set dt as small time increment
     const double dt = 1e-2; // time step to compute joint velocities
@@ -537,29 +532,21 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
     int loop_counter_i = 0;
 
     //**Alg2:L5: Start closure error at 0
-    Eigen::VectorXd rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
+    Eigen::Matrix<double, twist_length_, 1> rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
 
     // Compute error
-    bool err = (((theta_sd - theta_s).norm() > 0.02) || rho.norm() > 1e-3);
+    const Eigen::VectorXd theta_s_tol =
+        accuracy_ * theta_sd.cwiseAbs();                           // elementwise tolerance for secondary joint goal
+    Eigen::VectorXd theta_s_err = (theta_sd - theta_s).cwiseAbs(); // secondary joint goal error
 
-    /*******************************************************************/
-    // Compute error
-    /* const Eigen::VectorXd theta_s_tol = */
-    /*     accuracy_ * theta_sd.cwiseAbs(); // elementwise tolerance for secondary joint goal */
-
-    /* Eigen::VectorXd theta_s_err = (theta_sd - theta_s).cwiseAbs(); // secondary joint goal error *1/ */
-
-    /* bool err = ((theta_s_err.array() > theta_s_tol_.array()).any() || rho.head(3).norm() > eps_rw_ || */
-    /*             rho.tail(3).norm() > eps_rv_); */
-    /* bool err = ((theta_s_err.array() > theta_s_tol_.array()).any() || rho.norm() > 1e-4); */
-    /*// PRINT DEBUG DATA */
-    /*std::cout << "NOF P_JOINTS: " << nof_pjoints_ << std::endl; */
-    /*std::cout << "NOF S_JOINTS: " << nof_sjoints_ << std::endl; */
-    /*std::cout << "theta_sd: " << theta_sd << std::endl; */
-    /*std::cout << "theta_s_tol: " << theta_s_tol_ << std::endl; */
-    /*std::cout << "Start theta_s_err: " << theta_s_err << std::endl; */
-    std::cout << "Norm of rho: " << rho.norm() << std::endl;
-    /*******************************************************************/
+    bool err = ((theta_s_err.array() > theta_s_tol.array()).any() || rho.head(3).norm() > eps_rw_ ||
+                rho.tail(3).norm() > eps_rv_);
+    // PRINT DEBUG DATA
+    std::cout << "NOF P_JOINTS: " << nof_pjoints_ << std::endl;
+    std::cout << "NOF S_JOINTS: " << nof_sjoints_ << std::endl;
+    std::cout << "theta_sd: " << theta_sd << std::endl;
+    std::cout << "theta_s_tol: " << theta_s_tol << std::endl;
+    std::cout << "Start theta_s_err: " << theta_s_err << std::endl;
 
     while (err && loop_counter_i < max_itr_l_) //**Alg2:L6
     {
@@ -588,18 +575,14 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
         this->update_theta_p(theta_p, theta_sd, theta_s, N); // returned by reference
 
         //**Alg2:L12: Call Algorithm 3 with args, theta_s, theta_p, slist, Np, Ns
-        this->adjust_for_closure_error(slist, Np, Ns, theta_p, theta_s,
-                                       rho); // theta_s and theta_p returned by reference
+        this->adjust_for_closure_error(slist, Np, Ns, theta_p,
+                                       theta_s); // theta_s and theta_p returned by reference
 
         // Check error
-        err = (((theta_sd - theta_s).norm() > 0.02) || rho.norm() > 1e-3);
-        /*******************************************************************/
-        /* theta_s_err = (theta_sd - theta_s).cwiseAbs(); // secondary joint goal error */
-        /* std::cout << "theta_s_err inside loop: " << theta_s_err << std::endl; */
-        /* err = ((theta_s_err.array() > theta_s_tol_.array()).any() || rho.head(3).norm() > eps_rw_ || */
-        /*        rho.tail(3).norm() > eps_rv_); */
-        /* err = ((theta_s_err.array() > theta_s_tol_.array()).any() || rho.norm() > 1e-4); */
-        /*******************************************************************/
+        theta_s_err = (theta_sd - theta_s).cwiseAbs(); // secondary joint goal error
+        std::cout << "theta_s_err inside loop: " << theta_s_err << std::endl;
+        err = ((theta_s_err.array() > theta_s_tol.array()).any() || rho.head(3).norm() > eps_rw_ ||
+               rho.tail(3).norm() > eps_rv_);
 
     } //**Alg2:L13
 
@@ -616,22 +599,22 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
 
 void CcAffordancePlanner::adjust_for_closure_error(
     const Eigen::MatrixXd &slist, const Eigen::MatrixXd &Np, const Eigen::MatrixXd &Ns, Eigen::VectorXd &theta_p,
-    Eigen::VectorXd &theta_s, Eigen::VectorXd &rho) //**Alg3:L5 // theta_s and theta_p returned by reference
+    Eigen::VectorXd &theta_s) //**Alg3:L5 // theta_s and theta_p returned by reference
 {
 
-    /* // Define the axis of rotation (x-axis) */
-    /* Eigen::Vector3d axis(1.0, 0.0, 0.0); */
+    // Define the axis of rotation (x-axis)
+    Eigen::Vector3d axis(1.0, 0.0, 0.0);
 
-    /* // Define the angle of rotation (180 degrees = pi radians) */
-    /* double angle = M_PI; // M_PI is the constant for pi */
+    // Define the angle of rotation (180 degrees = pi radians)
+    double angle = M_PI; // M_PI is the constant for pi
 
-    /* // Create an AngleAxisd rotation for the given axis and angle */
-    /* Eigen::AngleAxisd rotation(angle, axis); */
+    // Create an AngleAxisd rotation for the given axis and angle
+    Eigen::AngleAxisd rotation(angle, axis);
 
-    /* // Convert the AngleAxisd rotation to a 3x3 rotation matrix */
-    /* Eigen::Matrix3d rotation_matrix = rotation.toRotationMatrix(); */
-    /* // Create a 4x4 identity matrix */
-    /* Eigen::Matrix4d m_err = Eigen::Matrix4d::Identity(); */
+    // Convert the AngleAxisd rotation to a 3x3 rotation matrix
+    Eigen::Matrix3d rotation_matrix = rotation.toRotationMatrix();
+    // Create a 4x4 identity matrix
+    Eigen::Matrix4d m_err = Eigen::Matrix4d::Identity();
 
     // Set the top-left 3x3 part of the 4x4 matrix to the 3x3 rotation matrix
     /* m_err.block<3, 3>(0, 0) = rotation_matrix; */
@@ -644,16 +627,16 @@ void CcAffordancePlanner::adjust_for_closure_error(
     thetalist.conservativeResize(slist.cols()); // helper variable holding theta_p, theta_s
 
     //**Alg3:L1: Compute forward kinematics to chain's end link, Tse
-    const Eigen::Matrix4d des_endlink_htm_ = Eigen::Matrix4d::Identity(); // Desired HTM for the end link
+    /* const Eigen::Matrix4d des_endlink_htm_ = Eigen::Matrix4d::Identity(); // Desired HTM for the end link */
+    const Eigen::Matrix4d des_endlink_htm_ = m_err; // Desired HTM for the end link
     thetalist << theta_p, theta_s;
     Eigen::Matrix4d Tse =
         affordance_util::FKinSpace(des_endlink_htm_, slist, thetalist); // HTM of actual end of ground link
 
     //**Alg3:L2: Compute closure error
-    rho =
-        /* Eigen::Matrix<double, twist_length_, 1> rho = */
+    Eigen::Matrix<double, twist_length_, 1> rho =
         affordance_util::Adjoint(Tse) *
-        affordance_util::se3ToVec(affordance_util::MatrixLog6(affordance_util::TransInv(Tse)));
+        affordance_util::se3ToVec(affordance_util::MatrixLog6(affordance_util::TransInv(Tse) * m_err));
 
     //**Alg3:L3: Adjust joint angles for closure error
     Eigen::MatrixXd Nc(Np.rows(), Np.cols() + Ns.cols());
@@ -670,7 +653,7 @@ void CcAffordancePlanner::adjust_for_closure_error(
     thetalist << theta_p, theta_s;
     Tse = affordance_util::FKinSpace(des_endlink_htm_, slist, thetalist);
     rho = affordance_util::Adjoint(Tse) *
-          affordance_util::se3ToVec(affordance_util::MatrixLog6(affordance_util::TransInv(Tse)));
+          affordance_util::se3ToVec(affordance_util::MatrixLog6(affordance_util::TransInv(Tse) * m_err));
 }
 
 } // namespace cc_affordance_planner

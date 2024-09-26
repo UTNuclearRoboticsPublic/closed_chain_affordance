@@ -91,9 +91,9 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
         // Compose the closed-chain model screws
         const Eigen::MatrixXd cc_slist =
             affordance_util::compose_cc_model_slist(robot_description, aff, vir_screw_order);
-        std::cout << std::fixed << std::setprecision(4);
-        std::cout << "Here is the closed chain screw list primary: \n" << cc_slist.block<6, 7>(0, 0) << std::endl;
-        /* std::cout << "Here is the closed chain screw list secondary: \n" << cc_slist.block<6, 4>(0, 7) << std::endl;
+        /* std::cout << std::fixed << std::setprecision(4); */
+        /* std::cout << "Here is the closed chain screw list primary: \n" << cc_slist.block<6, 6>(0, 0) << std::endl; */
+        /* std::cout << "Here is the closed chain screw list secondary: \n" << cc_slist.block<6, 4>(0, 6) << std::endl;
          */
 
         // Extract and construct the secondary joint goals
