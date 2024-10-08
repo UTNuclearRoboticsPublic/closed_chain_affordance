@@ -15,6 +15,7 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 
 # Find the yaml library
 find_package(yaml-cpp REQUIRED )
+find_package(urdfdom REQUIRED )
 
 # Create the library with source files
 add_library(${PROJECT_NAME} STATIC
@@ -23,6 +24,7 @@ add_library(${PROJECT_NAME} STATIC
 
 # Link the library we are creating against yaml-cpp
 target_link_libraries(${PROJECT_NAME} yaml-cpp)
+target_link_libraries(${PROJECT_NAME} ${urdfdom_LIBRARIES})
 
 # Add include directories
 target_include_directories(${PROJECT_NAME} PUBLIC
