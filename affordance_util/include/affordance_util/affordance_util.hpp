@@ -311,7 +311,25 @@ Eigen::Matrix4d computeTransformFromReferenceToJoint(const urdf::ModelInterfaceS
  * @return Struct containing the robot space-form screw list, EE htm,
  space-frame name, joint_names, and tool name
  */
-RobotConfig robot_builder(const std::string &config_file_path, const std::string &ref_frame_name, const std::string &base_joint_name, const std::string &ee_frame_name);
+RobotConfig robot_builder(const std::string &config_file_path);
+/**
+ * @brief Given a file path to a URDF file containing robot information, a ref frame, a base joint, and an ee_frame,
+ returns the robot space-form screw list, EE htm, space-frame name,
+ joint_names, and tool name.
+ * @param config_file_path File path to the config file containing robot
+ * information
+ *
+ * @param ref_frame_name Name of desired reference frame
+ * 
+ * @param base_joint_name Name of desired base joint
+ * 
+ * @param ee_frame_name Name of desired end effector frame
+ *
+ * @return Struct containing the robot space-form screw list, EE htm,
+ * space-frame name, joint_names, and tool name
+ */
+RobotConfig robot_builder(const std::string &urdf_file_path, const std::string &ref_frame_name, const std::string &base_joint_name, 
+    const std::string &ee_frame_name, const Eigen::Vector3d &tool_location=Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN()));
 /**
  * @brief Given a homogenenous transformation matrix, computes its adjoint
  * representation

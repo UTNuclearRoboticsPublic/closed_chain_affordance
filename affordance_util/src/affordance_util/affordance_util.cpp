@@ -345,12 +345,78 @@ Eigen::Matrix4d computeTransformFromReferenceToJoint(const urdf::ModelInterfaceS
 
     return ref_to_joint_transform;
 }
+RobotConfig robot_builder(const std::string &config_file_path)
+{
 
-RobotConfig robot_builder(const std::string &config_file_path, const std::string &ref_frame_name, const std::string &base_joint_name, const std::string &ee_frame_name)
+    RobotConfig robotConfig; // Output of the function
+
+    // Load the YAML file
+    const YAML::Node config = YAML::LoadFile(config_file_path);
+    if (!config)
+    {
+        throw std::runtime_error("Robot screw list cannot be built without a valid robot config yaml file");
+    }
+
+    // Access the reference frame info
+    const YAML::Node &refFrameNode = config["ref_frame"];
+    const std::string &ref_frame_name = refFrameNode[0]["name"].as<std::string>(); // access with [0] since only
+                                                                                   // one reference frame
+
+    // Access the 'joints' array
+    const YAML::Node &jointsNode = config["joints"];
+
+    // Parse each joint
+    std::vector<JointData> jointsData;
+    for (const YAML::Node &jointNode : jointsNode)
+    {
+        JointData joint;
+        joint.name = jointNode["name"].as<std::string>();
+        joint.screw_info.axis = jointNode["w"].as<Eigen::Vector3d>();
+        joint.screw_info.location = jointNode["q"].as<Eigen::Vector3d>();
+        jointsData.push_back(joint);
+    }
+
+    // Access the tool info
+    const YAML::Node &toolNode = config["tool"];
+    const std::string &tool_name = toolNode[0]["name"].as<std::string>(); // access with [0] since only one tool
+
+    // Compute screw axes
+    const size_t screwSize = 6;
+    const size_t &totalNofJoints = jointsData.size();
+    Eigen::MatrixXd Slist(screwSize, totalNofJoints);
+
+    for (size_t i = 0; i < totalNofJoints; i++)
+    {
+        const JointData &joint = jointsData[i];
+        Slist.col(i) << get_screw(joint.screw_info.axis, joint.screw_info.location);
+        /* Start setting the output of the function */
+        // Joint names
+        robotConfig.joint_names.push_back(joint.name);
+    }
+
+    /* Fill out the remaining members of the output and return it*/
+    // Screw list
+    robotConfig.Slist = Slist;
+
+    // EE homogenous transformation matrix
+    const Eigen::Vector3d toolLocation = toolNode[0]["q"].as<Eigen::Vector3d>();
+    Eigen::Matrix4d M = Eigen::Matrix4d::Identity();
+    M.block<3, 1>(0, 3) = toolLocation;
+    robotConfig.M = M;
+
+    // Reference frame name
+    robotConfig.ref_frame_name = ref_frame_name;
+
+    // Tool name
+    robotConfig.tool_name = tool_name;
+
+    return robotConfig;
+}
+RobotConfig robot_builder(const std::string &urdf_file_path, const std::string &ref_frame_name, const std::string &base_joint_name, const std::string &ee_frame_name, const Eigen::Vector3d &tool_location)
 {
     RobotConfig robot_config; // Output of the function
 
-    const urdf::ModelInterfaceSharedPtr model = urdf::parseURDFFile(config_file_path);
+    const urdf::ModelInterfaceSharedPtr model = urdf::parseURDFFile(urdf_file_path);
     if (!model)
     {
         throw std::runtime_error("Robot screw list cannot be built without a valid robot config URDF file");
@@ -372,9 +438,11 @@ RobotConfig robot_builder(const std::string &config_file_path, const std::string
     std::vector<urdf::JointConstSharedPtr> chain_list;   
     const urdf::LinkConstSharedPtr root = model->getRoot();
     urdf::JointConstSharedPtr current_joint = model->getLink(ee_frame_name)->parent_joint;
- 
-    chain_list.push_back(current_joint);
-
+    
+    // if(current_joint->type != urdf::Joint::FIXED)
+    // {
+    //     chain_list.push_back(current_joint);
+    // }
     while(current_joint->name != base_joint_name)
     {   
         std::string parent_name = current_joint->parent_link_name;
@@ -384,10 +452,11 @@ RobotConfig robot_builder(const std::string &config_file_path, const std::string
             throw std::runtime_error("Base joint not found on path from end effector frame");
         }
         current_joint = parent_link->parent_joint;
-        if(current_joint->type != urdf::Joint::FIXED || current_joint->name == ee_frame_name)
-        {
-            chain_list.insert(chain_list.begin(), model->getJoint(current_joint->name));
-        }
+        // if(current_joint->type != urdf::Joint::FIXED || current_joint->name == ee_frame_name)
+        // {
+        //     chain_list.insert(chain_list.begin(), model->getJoint(current_joint->name));
+        // }
+        chain_list.insert(chain_list.begin(), model->getJoint(current_joint->name));
     }
 
     // Sets transforms for ref frame and joint pose
@@ -397,59 +466,57 @@ RobotConfig robot_builder(const std::string &config_file_path, const std::string
 
     for (const auto& joint_node: chain_list)
     {
-        // Populates JointData struct
-        JointData joint;
+        // Get the parent_to_joint_origin_transform
+        const urdf::Pose parent_to_joint = joint_node->parent_to_joint_origin_transform;
+        Eigen::Matrix4d joint_transform = urdfPoseToMatrix(parent_to_joint);
 
-        if(joint_node->type == urdf::Joint::REVOLUTE || joint_node->type == urdf::Joint::CONTINUOUS)
+        if ((joint_node->type != urdf::Joint::FIXED))
         {
-            joint.screw_info.type = affordance_util::ROTATION;
-        }
-        else if(joint_node->type == urdf::Joint::PRISMATIC)
-        {
-            joint.screw_info.type = affordance_util::TRANSLATION;
-        }
-        else if(joint_node->type == urdf::Joint::FIXED)
-        {
-            continue;
-        }
-        else
-        {
-            joint.screw_info.type = affordance_util::SCREW;
-        }
+            // Fill out joint info
+            JointData joint;
+            if(joint_node->type == urdf::Joint::REVOLUTE || joint_node->type == urdf::Joint::CONTINUOUS)
+            {
+                joint.screw_info.type = affordance_util::ROTATION;
+            }
+            else if(joint_node->type == urdf::Joint::PRISMATIC)
+            {
+                joint.screw_info.type = affordance_util::TRANSLATION;
+            }
+            else
+            {   
+                throw std::runtime_error("Kinematic chain contains a joint type not accounted for.");
+            }
+            joint.name = joint_node->name;
+            joint.limits.lower = joint_node->limits->lower;
+            joint.limits.upper = joint_node->limits->upper;
 
-        joint.name = joint_node->name;
-        joint.limits.lower = joint_node->limits->lower;
-        joint.limits.upper = joint_node->limits->upper;
+            if(joint_node->name != base_joint_name)
+            {
+                // The transform from the reference frame to the joint
+                joint_pose_in_ref_frame = joint_pose_in_ref_frame * joint_transform;
+                
+                Eigen::Vector3d joint_position = joint_pose_in_ref_frame.block<3, 1>(0, 3);
+                joint.screw_info.location = joint_position;
 
-        if(joint_node->name != base_joint_name)
-        {
-            // Get the parent_to_joint_origin_transform
-            const urdf::Pose parent_to_joint = joint_node->parent_to_joint_origin_transform;
-            Eigen::Matrix4d joint_transform = urdfPoseToMatrix(parent_to_joint);
-            
-            // The transform from the reference frame to the joint
-            joint_pose_in_ref_frame = joint_pose_in_ref_frame * joint_transform;
-            Eigen::Vector3d joint_position = joint_pose_in_ref_frame.block<3, 1>(0, 3);
-            joint.screw_info.location = joint_position;
+                // Compute joint axis in reference frame
+                Eigen::Vector3d joint_axis(joint_node->axis.x, joint_node->axis.y, joint_node->axis.z);
+                Eigen::Vector3d world_joint_axis = joint_pose_in_ref_frame.block<3, 3>(0, 0) * joint_axis;
+                joint.screw_info.axis = world_joint_axis;
 
-            // Compute joint axis in reference frame
-            Eigen::Vector3d joint_axis(joint_node->axis.x, joint_node->axis.y, joint_node->axis.z);
-            Eigen::Vector3d world_joint_axis = joint_pose_in_ref_frame.block<3, 3>(0, 0) * joint_axis;
-            joint.screw_info.axis = world_joint_axis;
-
-            joint.screw_info.screw << affordance_util::get_screw(joint.screw_info);
-        } 
-        else
-        {
-            // Compute joint axis in reference frame
-            Eigen::Vector3d joint_axis(joint_node->axis.x, joint_node->axis.y, joint_node->axis.z);
-            // Compute joint position in reference frame
-            Eigen::Vector3d joint_position = joint_pose_in_ref_frame.block<3, 1>(0, 3);
-            joint.screw_info.location = joint_position;
-            Eigen::Vector3d world_joint_axis = joint_pose_in_ref_frame.block<3, 3>(0, 0) * joint_axis;
-            joint.screw_info.axis = world_joint_axis;
+                joint.screw_info.screw << affordance_util::get_screw(joint.screw_info);
+            } 
+            else
+            {
+                // Compute joint axis in reference frame
+                Eigen::Vector3d joint_axis(joint_node->axis.x, joint_node->axis.y, joint_node->axis.z);
+                // Compute joint position in reference frame
+                Eigen::Vector3d joint_position = joint_pose_in_ref_frame.block<3, 1>(0, 3);
+                joint.screw_info.location = joint_position;
+                Eigen::Vector3d world_joint_axis = joint_pose_in_ref_frame.block<3, 3>(0, 0) * joint_axis;
+                joint.screw_info.axis = world_joint_axis;
+            }
+            joints_data.push_back(joint);
         }
-        joints_data.push_back(joint);
     }
 
     // Access the tool info
@@ -472,11 +539,22 @@ RobotConfig robot_builder(const std::string &config_file_path, const std::string
     robot_config.Slist = s_list;
 
     // EE homogenous transformation matrix
-    urdf::Vector3 tool_position = model->getLink(tool_name)->parent_joint->parent_to_joint_origin_transform.position;
-    Eigen::Vector3d tool_location(tool_position.x, tool_position.y, tool_position.z);
 
-    Eigen::Matrix4d M = Eigen::Matrix4d::Identity();
-    M.block<3, 1>(0, 3) = tool_location;
+    Eigen::Matrix4d M;
+
+    //TODO: Deduce orientation of the tool or end effector from the URDF
+    if (tool_location.hasNaN())
+    {
+        // At this point, the last joint transform in the chain list must be the end effector joint
+        M = joint_pose_in_ref_frame;
+    }
+    else
+    {
+            M = Eigen::Matrix4d::Identity();
+
+        M.block<3, 1>(0, 3) = tool_location;
+    }
+
     robot_config.M = M;
 
     // Reference frame name
