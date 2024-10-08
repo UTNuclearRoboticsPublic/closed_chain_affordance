@@ -95,20 +95,72 @@ int main()
     std::cout << "Input T: \n" << T << std::endl;
     std::cout << "Output: \n" << MatrixLog6(T) << std::endl;
 
-    /* const std::string filepath = "/home/crasun/spot_ws/src/cc_affordance_planner/config/robot_setup.yaml"; */
-    /* const RobotConfig robot_config = robot_builder(filepath); */
-    /* std::cout << "\n Testing robot_builder" << std::endl; */
-    /* std::cout << "Input filepath: \n" << filepath << std::endl; */
-    /* std::cout << "Output Slist: \n" << robot_config.Slist << std::endl; */
-    /* std::cout << "Output M: \n" << robot_config.M << std::endl; */
-    /* std::cout << "Output ref_frame_name: \n" << robot_config.ref_frame_name << std::endl; */
-    /* std::cout << "Output tool_name: \n" << robot_config.tool_name << std::endl; */
-    /* std::cout << "Output joint_names: "; */
-    /* for (const std::string &joint_name : robot_config.joint_names) */
-    /* { */
-    /*     std::cout << joint_name << ","; */
-    /* } */
-    /* std::cout << std::endl; */
+    std::cout << "\nTesting robot_builder YAML version" << std::endl;
+    std::string filepath = "/home/john/random_tests/temp_cca_ws/cca_kinova_gen3_7dof_description.yaml";
+    RobotConfig robot_config;
+    try
+    {
+        robot_config = robot_builder(filepath);
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Error building robot: " << e.what() << std::endl;
+    }
+    std::cout << "Input filepath: \n" << filepath << std::endl;
+    const Eigen::MatrixXd yaml_slist = robot_config.Slist;
+    std::cout << "Output Slist: \n" << yaml_slist << std::endl;
+    std::cout << "Output M: \n" << robot_config.M << std::endl;
+    std::cout << "Output ref_frame_name: \n" << robot_config.ref_frame_name << std::endl;
+    std::cout << "Output tool_name: \n" << robot_config.tool_name << std::endl;
+    std::cout << "Output joint_names: ";
+    for (const std::string &joint_name : robot_config.joint_names)
+    {
+        std::cout << joint_name << ",";
+    }
+    std::cout << std::endl;
+    filepath = "/home/john/temp_cca_ws/GEN3_URDF_V12.urdf";
+    const std::string ref_frame = "base_link";
+    const std::string base_joint = "Actuator1";
+    const std::string ee_frame = "EndEffector_Link";
+    // const std::string filepath = "/home/john/temp_cca_ws/spot_arm.urdf";
+    // const std::string ref_frame = "spot_arm_base_link";
+    // const std::string base_joint = "spot_arm_shoulder_yaw";
+    // const std::string ee_frame = "spot_arm_fingers";
+    try
+    {
+        robot_config = robot_builder(filepath, ref_frame, base_joint, ee_frame);
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Error building robot: " << e.what() << std::endl;
+    }
+    std::cout << "\nTesting robot_builder URDF version" << std::endl;
+    std::cout << "Input filepath: \n" << filepath << std::endl;
+    std::cout << "Input ref_frame: \n" << ref_frame << std::endl;
+    std::cout << "Input base_joint: \n" << base_joint << std::endl;
+    std::cout << "Input ee_frame: \n" << ee_frame << std::endl;
+    const Eigen::MatrixXd urdf_slist = robot_config.Slist;
+    std::cout << "Output Slist: \n" << urdf_slist << std::endl;
+    std::cout << "Output M: \n" << robot_config.M << std::endl;
+    std::cout << "Output ref_frame_name: \n" << robot_config.ref_frame_name << std::endl;
+    std::cout << "Output tool_name: \n" << robot_config.tool_name << std::endl;
+    std::cout << "Output joint_names: ";
+    for (const std::string &joint_name : robot_config.joint_names)
+    {
+        std::cout << joint_name << ",";
+    }
+    std::cout << std::endl;
+    const double tolerance = 1e-3;
+    bool are_equal = yaml_slist.isApprox(urdf_slist, tolerance); // Just compare solution, excluding affordance
+    if (are_equal)
+    {
+        std::cout << "The URDF and YAML Slist match within " << tolerance << std::endl;
+    }
+    else
+    {
+
+        std::cerr << "The URDF and YAML Slist do not match within" << tolerance << std::endl;
+    }
 
     ScrewInfo si;
     si.type = affordance_util::ScrewType::TRANSLATION;
