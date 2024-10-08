@@ -255,28 +255,127 @@ Eigen::MatrixXd compose_cc_model_slist(const RobotDescription &robot_description
     return slist;
 }
 
-RobotConfig robot_builder(const std::string &config_file_path, const std::string &ref_frame, const std::string &base_joint, const std::string &ee_frame)
+// Function to convert URDF Pose to Eigen matrix
+Eigen::Matrix4d urdfPoseToMatrix(const urdf::Pose &pose)
 {
+    Eigen::Matrix4d transform = Eigen::Matrix4d::Identity();
+    Eigen::Matrix3d rotation_matrix;
 
-    RobotConfig robotConfig; // Output of the function
+    // Convert URDF rotation (quaternion) to roll, pitch, yaw
+    double roll, pitch, yaw;
+    pose.rotation.getRPY(roll, pitch, yaw);
+
+    // Create rotation matrix from RPY values
+    rotation_matrix =
+        (Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitX()) * Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY()) *
+         Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()))
+            .matrix();
+
+    // Set the rotation part of the matrix
+    transform.block<3, 3>(0, 0) = rotation_matrix;
+
+    // Set the translation part
+    transform(0, 3) = pose.position.x;
+    transform(1, 3) = pose.position.y;
+    transform(2, 3) = pose.position.z;
+
+    return transform;
+}
+
+// Function to compute the transform from the reference frame to a link
+Eigen::Matrix4d computeTransformFromReferenceToLink(const urdf::ModelInterfaceSharedPtr &robot_model, const std::string &link_name,
+                                                    const std::string &reference_frame)
+{
+    if (link_name == reference_frame)
+    {
+        return Eigen::Matrix4d::Identity();
+    }
+
+    urdf::LinkConstSharedPtr link = robot_model->getLink(link_name);
+    if (!link)
+    {
+        throw std::runtime_error("Link not found: " + link_name);
+    }
+
+    if (!link->parent_joint)
+    {
+        throw std::runtime_error("Reached root link without finding reference frame");
+    }
+
+    const urdf::JointConstSharedPtr joint = link->parent_joint;
+    const std::string &parent_link_name = joint->parent_link_name;
+
+    // Compute the transform from the reference frame to the parent link
+    Eigen::Matrix4d ref_to_parent_link_transform =
+        computeTransformFromReferenceToLink(robot_model, parent_link_name, reference_frame);
+
+    // Get the parent_to_joint_origin_transform
+    urdf::Pose parent_to_joint = joint->parent_to_joint_origin_transform;
+    Eigen::Matrix4d joint_transform = urdfPoseToMatrix(parent_to_joint);
+
+    // The transform from the reference frame to this link
+    Eigen::Matrix4d ref_to_link_transform = ref_to_parent_link_transform * joint_transform;
+
+    return ref_to_link_transform;
+}
+
+// Function to compute the transform from the reference frame to a joint
+Eigen::Matrix4d computeTransformFromReferenceToJoint(const urdf::ModelInterfaceSharedPtr &robot_model, const std::string &joint_name,
+                                                     const std::string &reference_frame)
+{
+    const urdf::JointConstSharedPtr joint = robot_model->getJoint(joint_name);
+    if (!joint)
+    {
+        throw std::runtime_error("Joint not found: " + joint_name);
+    }
+
+    // Get the parent link name
+    const std::string &parent_link_name = joint->parent_link_name;
+
+    // Compute the transform from the reference frame to the parent link
+    Eigen::Matrix4d ref_to_parent_link_transform =
+        computeTransformFromReferenceToLink(robot_model, parent_link_name, reference_frame);
+
+    // Get the parent_to_joint_origin_transform
+    urdf::Pose parent_to_joint = joint->parent_to_joint_origin_transform;
+    Eigen::Matrix4d joint_transform = urdfPoseToMatrix(parent_to_joint);
+
+    // The transform from the reference frame to the joint
+    Eigen::Matrix4d ref_to_joint_transform = ref_to_parent_link_transform * joint_transform;
+
+    return ref_to_joint_transform;
+}
+
+RobotConfig robot_builder(const std::string &config_file_path, const std::string &ref_frame_name, const std::string &base_joint_name, const std::string &ee_frame_name)
+{
+    RobotConfig robot_config; // Output of the function
 
     const urdf::ModelInterfaceSharedPtr model = urdf::parseURDFFile(config_file_path);
     if (!model)
     {
         throw std::runtime_error("Robot screw list cannot be built without a valid robot config URDF file");
     }
+    if (!model->getJoint(base_joint_name))
+    {
+        throw std::runtime_error("Robot URDF does not contain specified base joint");
+    }
+    if (!model->getLink(ref_frame_name))
+    {
+        throw std::runtime_error("Robot URDF does not contain specified reference frame");
+    }
+    if (!model->getLink(ee_frame_name))
+    {
+        throw std::runtime_error("Robot URDF does not contain specified ee frame");
+    }
 
-    std::vector<urdf::JointConstSharedPtr> chainList;
-    urdf::LinkConstSharedPtr root = model->getRoot();
-    bool rootFound = false;
-    
-
-    urdf::LinkConstSharedPtr eeLink = model->getLink(ee_frame);
-    urdf::JointConstSharedPtr currentJoint = eeLink->parent_joint;
-
+    // Get vector of joints between ee_frame and base_joint
+    std::vector<urdf::JointConstSharedPtr> chainList;   
+    const urdf::LinkConstSharedPtr root = model->getRoot();
+    urdf::JointConstSharedPtr currentJoint = model->getLink(ee_frame_name)->parent_joint;
+ 
     chainList.push_back(currentJoint);
 
-    while(currentJoint->name != base_joint)
+    while(currentJoint->name != base_joint_name)
     {   
         std::string parentName = currentJoint->parent_link_name;
         urdf::LinkConstSharedPtr parentLink = model->getLink(parentName);
@@ -285,69 +384,107 @@ RobotConfig robot_builder(const std::string &config_file_path, const std::string
             throw std::runtime_error("Base joint not found on path from end effector frame");
         }
         currentJoint = parentLink->parent_joint;
-        chainList.push_back(model->getJoint(currentJoint->name));
+        if(currentJoint->type != urdf::Joint::FIXED)
+        {
+            chainList.insert(chainList.begin(), model->getJoint(currentJoint->name));
+        }
     }
 
-    std::vector<JointData> jointsData;
+    // Sets transforms for ref frame and joint pose
+    std::vector<JointData> joints_data;
+    const Eigen::Matrix4d ref_frame_transform = computeTransformFromReferenceToJoint(model, base_joint_name, ref_frame_name);
+    Eigen::Matrix4d joint_pose_in_ref_frame = ref_frame_transform;
 
-    for (const urdf::JointConstSharedPtr& jointNode: chainList)
+    for (const auto& joint_node: chainList)
     {
+        // Populates JointData struct
         JointData joint;
-        joint.name = jointNode->name;
+        joint.name = joint_node->name;
+        joint.limits.lower = joint_node->limits->lower;
+        joint.limits.upper = joint_node->limits->upper;
 
-        urdf::Vector3 position = jointNode->parent_to_joint_origin_transform.position;
-        Eigen::Vector3d w(position.x, position.y, position.z);
-        joint.w = w;
+        std::cout << "\n Testing robot_builder: " << joint.name << std::endl;
 
-        urdf::Rotation rotation = jointNode->parent_to_joint_origin_transform.rotation;
-        Eigen::Vector3d q(rotation.w, rotation.x, rotation.y);
-        joint.q = q;
+        if(joint_node->type == urdf::Joint::REVOLUTE || joint_node->type == urdf::Joint::CONTINUOUS)
+        {
+            joint.screw_info.type = affordance_util::ROTATION;
+        }
+        else if(joint_node->type == urdf::Joint::PRISMATIC)
+        {
+            joint.screw_info.type = affordance_util::TRANSLATION;
+        }
+        else
+        {
+            joint.screw_info.type = affordance_util::SCREW;
+        }
 
-        joint.lower = jointNode->limits->lower;
-        joint.upper = jointNode->limits->upper;
-        joint.effort = jointNode->limits->effort;
-        joint.velocity = jointNode->limits->velocity;
+        if(joint_node->name != base_joint_name)
+        {
+            // Get the parent_to_joint_origin_transform
+            const urdf::Pose parent_to_joint = joint_node->parent_to_joint_origin_transform;
+            Eigen::Matrix4d joint_transform = urdfPoseToMatrix(parent_to_joint);
+            
+            // The transform from the reference frame to the joint
+            joint_pose_in_ref_frame = joint_pose_in_ref_frame * joint_transform;
+            Eigen::Vector3d joint_position = joint_pose_in_ref_frame.block<3, 1>(0, 3);
+            joint.screw_info.location = joint_position;
+            
+            // Compute joint axis in reference frame
+            Eigen::Vector3d joint_axis(joint_node->axis.x, joint_node->axis.y, joint_node->axis.z);
+            Eigen::Vector3d world_joint_axis = joint_pose_in_ref_frame.block<3, 3>(0, 0) * joint_axis;
+            joint.screw_info.axis = world_joint_axis;
 
-        jointsData.push_back(joint);
+            joint.screw_info.screw << affordance_util::get_screw(joint.screw_info);
+        } 
+        else
+        {
+            // Compute joint axis in reference frame
+            Eigen::Vector3d joint_axis(joint_node->axis.x, joint_node->axis.y, joint_node->axis.z);
+            // Compute joint position in reference frame
+            Eigen::Vector3d joint_position = joint_pose_in_ref_frame.block<3, 1>(0, 3);
+            joint.screw_info.location = joint_position;
+            Eigen::Vector3d world_joint_axis = joint_pose_in_ref_frame.block<3, 3>(0, 0) * joint_axis;
+            joint.screw_info.axis = world_joint_axis;
+        }
+        joints_data.push_back(joint);
     }
 
     // Access the tool info
-    const std::string &tool_name = ee_frame;
+    const std::string &tool_name = ee_frame_name;
 
     // Compute screw axes
-    const size_t screwSize = 6;
-    const size_t &totalNofJoints = jointsData.size();
-    Eigen::MatrixXd Slist(screwSize, totalNofJoints);
+    const size_t screw_size = 6;
+    const size_t &total_no_of_joints = joints_data.size();
+    Eigen::MatrixXd s_list(screw_size, total_no_of_joints);
 
-    for (size_t i = 0; i < totalNofJoints; i++)
+    for (size_t i = 0; i < total_no_of_joints; i++)
     {
-        const JointData &joint = jointsData[i];
-        Slist.col(i) << joint.w, -joint.w.cross(joint.q);
-        /* Start setting the output of the function */
-        // Joint names
-        robotConfig.joint_names.push_back(joint.name);
+        const JointData &joint = joints_data[i];
+        s_list.col(i) << affordance_util::get_screw(joint.screw_info);
+        robot_config.joint_names.push_back(joint.name);
     }
 
     /* Fill out the remaining members of the output and return it*/
     // Screw list
-    robotConfig.Slist = Slist;
+    robot_config.Slist = s_list;
 
     // EE homogenous transformation matrix
     urdf::Vector3 tool_position = model->getLink(tool_name)->parent_joint->parent_to_joint_origin_transform.position;
-    Eigen::Vector3d toolLocation(tool_position.x, tool_position.y, tool_position.z);
+    Eigen::Vector3d tool_location(tool_position.x, tool_position.y, tool_position.z);
 
     Eigen::Matrix4d M = Eigen::Matrix4d::Identity();
-    M.block<3, 1>(0, 3) = toolLocation;
-    robotConfig.M = M;
+    M.block<3, 1>(0, 3) = tool_location;
+    robot_config.M = M;
 
     // Reference frame name
-    robotConfig.ref_frame_name = ref_frame;
+    robot_config.ref_frame_name = ref_frame_name;
 
     // Tool name
-    robotConfig.tool_name = tool_name;
+    robot_config.tool_name = tool_name;
 
-    return robotConfig;
+    return robot_config;
 }
+
 Eigen::MatrixXd Adjoint(const Eigen::Matrix4d &htm)
 {
     Eigen::MatrixXd adjoint(6, 6); // Output

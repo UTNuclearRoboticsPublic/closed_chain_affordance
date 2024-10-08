@@ -145,17 +145,38 @@ struct ScrewInfo
 /**
  * @brief Struct to describe a joint with its name, axis, and location
  */
-struct JointData
-{
-    std::string name;  // Joint name
-    std::string  type; // Joint type
-    Eigen::Vector3d w; // Joint axis
-    Eigen::Vector3d q; // Joint location
-    double lower; // Joint lower limit
-    double upper; // Joint upper limit
-    double effort; // Joint effort limit
-    double velocity; // Joint velocity limit
+// struct JointData
+// {
+//     std::string name;  // Joint name
+//     std::string  type; // Joint type
+//     Eigen::Vector3d w; // Joint axis
+//     Eigen::Vector3d q; // Joint location
+//     double lower; // Joint lower limit
+//     double upper; // Joint upper limit
+//     double effort; // Joint effort limit
+//     double velocity; // Joint velocity limit
+// };
+
+struct JointData{
+
+struct Limits{
+    double lower;
+    double upper;
 };
+std::string name;
+ScrewInfo screw_info;
+//Relevant fields: type, axis, location, pitch (if screw type) 
+// If type=="revolute" then, screw_info.type = ScrewType::ROTATION;
+// If type=="prismatic" then, screw_info.type = ScrewType::TRANSLATION;
+// If type=="screw" then, screw_info.type = ScrewType::SCREW;
+
+Limits limits;
+
+
+
+};
+
+
 
 /**
  * @brief Struct describing a robotic arm
@@ -215,7 +236,38 @@ CcModel compose_cc_model_slist(const RobotDescription &robot_description, const 
  */
 Eigen::MatrixXd compose_cc_model_slist(const RobotDescription &robot_description, const ScrewInfo &aff_info,
                                        const VirtualScrewOrder &vir_screw_order = VirtualScrewOrder::XYZ);
-
+/** 
+ * @brief Given a urdf pose transform it to a rotation and translation matrix.
+ * 
+ * @param pose URDF pose for conversion.
+ * 
+ * @return Eigen::Matrix4d matrix representation of pose
+ */
+Eigen::Matrix4d urdfPoseToMatrix(const urdf::Pose &pose);
+/** 
+ * @brief Given a model and link get transform from reference.
+ * 
+ * @param robot_model Model containing information about robot.
+ * 
+ * @param link_name Goal link name for transform.
+ * 
+ * @param reference_frame Reference frame for transform.
+ * 
+ * @return Eigen::Matrix4d matrix representation of transform
+ */
+Eigen::Matrix4d computeTransformFromReferenceToLink(const urdf::ModelInterfaceSharedPtr &robot_model, const std::string &link_name,const std::string &reference_frame);
+/** 
+ * @brief Given a model and link get transform from reference.
+ * 
+ * @param robot_model Model containing information about robot.
+ * 
+ * @param joint_name Goal joint name for transform.
+ * 
+ * @param reference_frame Reference frame for transform.
+ * 
+ * @return Eigen::Matrix4d matrix representation of transform
+ */
+Eigen::Matrix4d computeTransformFromReferenceToJoint(const urdf::ModelInterfaceSharedPtr &robot_model, const std::string &joint_name, const std::string &reference_frame);
 /**
  * @brief Given a file path to a yaml file containing robot information,
  returns the robot space-form screw list, EE htm, space-frame name,
@@ -259,7 +311,7 @@ Eigen::MatrixXd compose_cc_model_slist(const RobotDescription &robot_description
  * @return Struct containing the robot space-form screw list, EE htm,
  space-frame name, joint_names, and tool name
  */
-RobotConfig robot_builder(const std::string &config_file_path, const std::string &ref_frame, const std::string &base_joint, const std::string &ee_frame);
+RobotConfig robot_builder(const std::string &config_file_path, const std::string &ref_frame_name, const std::string &base_joint_name, const std::string &ee_frame_name);
 /**
  * @brief Given a homogenenous transformation matrix, computes its adjoint
  * representation

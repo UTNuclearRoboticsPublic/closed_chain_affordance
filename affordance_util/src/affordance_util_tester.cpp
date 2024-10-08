@@ -97,10 +97,14 @@ int main()
     std::cout << "Input T: \n" << T << std::endl;
     std::cout << "Output: \n" << MatrixLog6(T) << std::endl;
 
-    const std::string filepath = "/home/john/temp_cca_ws/spot_arm.urdf";
-    const std::string ref_frame = "spot_arm_shoulder_yaw";
-    const std::string base_joint = "spot_arm_shoulder_yaw";
-    const std::string ee_frame = "spot_arm_wrist_roll";
+    const std::string filepath = "/home/john/temp_cca_ws/GEN3_URDF_V12.urdf";
+    const std::string ref_frame = "base_link";
+    const std::string base_joint = "Actuator1";
+    const std::string ee_frame = "EndEffector_Link";
+    // const std::string filepath = "/home/john/temp_cca_ws/spot_arm.urdf";
+    // const std::string ref_frame = "spot_arm_base_link";
+    // const std::string base_joint = "spot_arm_shoulder_yaw";
+    // const std::string ee_frame = "spot_arm_fingers";
     const RobotConfig robot_config = robot_builder(filepath, ref_frame, base_joint, ee_frame);
     std::cout << "\n Testing robot_builder" << std::endl;
     std::cout << "Input filepath: \n" << filepath << std::endl;
