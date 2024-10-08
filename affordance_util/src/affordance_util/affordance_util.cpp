@@ -369,24 +369,24 @@ RobotConfig robot_builder(const std::string &config_file_path, const std::string
     }
 
     // Get vector of joints between ee_frame and base_joint
-    std::vector<urdf::JointConstSharedPtr> chainList;   
+    std::vector<urdf::JointConstSharedPtr> chain_list;   
     const urdf::LinkConstSharedPtr root = model->getRoot();
-    urdf::JointConstSharedPtr currentJoint = model->getLink(ee_frame_name)->parent_joint;
+    urdf::JointConstSharedPtr current_joint = model->getLink(ee_frame_name)->parent_joint;
  
-    chainList.push_back(currentJoint);
+    chain_list.push_back(current_joint);
 
-    while(currentJoint->name != base_joint_name)
+    while(current_joint->name != base_joint_name)
     {   
-        std::string parentName = currentJoint->parent_link_name;
-        urdf::LinkConstSharedPtr parentLink = model->getLink(parentName);
-        if(parentLink == root)
+        std::string parent_name = current_joint->parent_link_name;
+        urdf::LinkConstSharedPtr parent_link = model->getLink(parent_name);
+        if(parent_link == root)
         {
             throw std::runtime_error("Base joint not found on path from end effector frame");
         }
-        currentJoint = parentLink->parent_joint;
-        if(currentJoint->type != urdf::Joint::FIXED)
+        current_joint = parent_link->parent_joint;
+        if(current_joint->type != urdf::Joint::FIXED || current_joint->name == ee_frame_name)
         {
-            chainList.insert(chainList.begin(), model->getJoint(currentJoint->name));
+            chain_list.insert(chain_list.begin(), model->getJoint(current_joint->name));
         }
     }
 
@@ -395,15 +395,10 @@ RobotConfig robot_builder(const std::string &config_file_path, const std::string
     const Eigen::Matrix4d ref_frame_transform = computeTransformFromReferenceToJoint(model, base_joint_name, ref_frame_name);
     Eigen::Matrix4d joint_pose_in_ref_frame = ref_frame_transform;
 
-    for (const auto& joint_node: chainList)
+    for (const auto& joint_node: chain_list)
     {
         // Populates JointData struct
         JointData joint;
-        joint.name = joint_node->name;
-        joint.limits.lower = joint_node->limits->lower;
-        joint.limits.upper = joint_node->limits->upper;
-
-        std::cout << "\n Testing robot_builder: " << joint.name << std::endl;
 
         if(joint_node->type == urdf::Joint::REVOLUTE || joint_node->type == urdf::Joint::CONTINUOUS)
         {
@@ -413,10 +408,18 @@ RobotConfig robot_builder(const std::string &config_file_path, const std::string
         {
             joint.screw_info.type = affordance_util::TRANSLATION;
         }
+        else if(joint_node->type == urdf::Joint::FIXED)
+        {
+            continue;
+        }
         else
         {
             joint.screw_info.type = affordance_util::SCREW;
         }
+
+        joint.name = joint_node->name;
+        joint.limits.lower = joint_node->limits->lower;
+        joint.limits.upper = joint_node->limits->upper;
 
         if(joint_node->name != base_joint_name)
         {
@@ -428,7 +431,7 @@ RobotConfig robot_builder(const std::string &config_file_path, const std::string
             joint_pose_in_ref_frame = joint_pose_in_ref_frame * joint_transform;
             Eigen::Vector3d joint_position = joint_pose_in_ref_frame.block<3, 1>(0, 3);
             joint.screw_info.location = joint_position;
-            
+
             // Compute joint axis in reference frame
             Eigen::Vector3d joint_axis(joint_node->axis.x, joint_node->axis.y, joint_node->axis.z);
             Eigen::Vector3d world_joint_axis = joint_pose_in_ref_frame.block<3, 3>(0, 0) * joint_axis;
