@@ -216,15 +216,15 @@ CcModel compose_cc_model_slist(const RobotDescription &robot_description, const 
 Eigen::MatrixXd compose_cc_model_slist(const RobotDescription &robot_description, const ScrewInfo &aff_info,
                                        const VirtualScrewOrder &vir_screw_order = VirtualScrewOrder::XYZ);
 /** 
- * @brief Given a urdf pose transform it to a rotation and translation matrix.
+ * @brief Given a urdf-type pose converts it to a homogeneous transformation matrix of Eigen::Matrix4d type.
  * 
  * @param pose URDF pose for conversion.
  * 
  * @return Eigen::Matrix4d matrix representation of pose
  */
-Eigen::Matrix4d urdfPoseToMatrix(const urdf::Pose &pose);
+Eigen::Matrix4d convert_urdf_pose_to_matrix(const urdf::Pose &pose);
 /** 
- * @brief Given a model and link get transform from reference.
+ * @brief Given a urdf model, desired link name, and reference frame name, returns the homogeneous transformation matrix representing the link pose in the reference frame.
  * 
  * @param robot_model Model containing information about robot.
  * 
@@ -234,9 +234,9 @@ Eigen::Matrix4d urdfPoseToMatrix(const urdf::Pose &pose);
  * 
  * @return Eigen::Matrix4d matrix representation of transform
  */
-Eigen::Matrix4d computeTransformFromReferenceToLink(const urdf::ModelInterfaceSharedPtr &robot_model, const std::string &link_name,const std::string &reference_frame);
+Eigen::Matrix4d compute_transform_from_reference_to_link(const urdf::ModelInterfaceSharedPtr &robot_model, const std::string &link_name,const std::string &reference_frame);
 /** 
- * @brief Given a model and link get transform from reference.
+ * @brief Given a urdf model, desired joint name, and reference frame name, returns the homogeneous transformation matrix representing the joint pose in the reference frame.
  * 
  * @param robot_model Model containing information about robot.
  * 
@@ -246,7 +246,7 @@ Eigen::Matrix4d computeTransformFromReferenceToLink(const urdf::ModelInterfaceSh
  * 
  * @return Eigen::Matrix4d matrix representation of transform
  */
-Eigen::Matrix4d computeTransformFromReferenceToJoint(const urdf::ModelInterfaceSharedPtr &robot_model, const std::string &joint_name, const std::string &reference_frame);
+Eigen::Matrix4d compute_transform_from_reference_to_joint(const urdf::ModelInterfaceSharedPtr &robot_model, const std::string &joint_name, const std::string &reference_frame);
 /**
  * @brief Given a file path to a yaml file containing robot information,
  returns the robot space-form screw list, EE htm, space-frame name,
@@ -293,9 +293,9 @@ Eigen::Matrix4d computeTransformFromReferenceToJoint(const urdf::ModelInterfaceS
 RobotConfig robot_builder(const std::string &config_file_path);
 /**
  * @brief Given a file path to a URDF file containing robot information, a ref frame, a base joint, and an ee_frame,
- returns the robot space-form screw list, EE htm, space-frame name,
- joint_names, and tool name.
- * @param config_file_path File path to the config file containing robot
+ * returns the robot space-form screw list, EE htm, space-frame name, joint_names, tool name, and optionally, tool location. 
+ * Defaults to using EE link as tool but it is encouraged to provide a tool location that represents the center of the robot palm.
+ * @param urdf_file_path File path to the config file containing robot
  * information
  *
  * @param ref_frame_name Name of desired reference frame
