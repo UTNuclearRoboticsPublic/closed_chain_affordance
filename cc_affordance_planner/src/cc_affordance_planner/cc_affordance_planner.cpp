@@ -252,7 +252,6 @@ PlannerResult CcAffordancePlanner::generate_affordance_motion_joint_trajectory(c
                                                                                std::stop_token st)
 {
 
-    std::cout << "COMPUTING AFFORDANCE MOTION" << std::endl;
     auto start_time = std::chrono::high_resolution_clock::now(); // Monitor clock to track planning time
 
     PlannerResult plannerResult; // Result of the planner
