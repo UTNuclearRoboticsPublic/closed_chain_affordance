@@ -1,0 +1,7 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(yaml-cpp REQUIRED)
+find_dependency(urdfdom REQUIRED)
+
+include("${CMAKE_CURRENT_LIST_DIR}/affordance_utilTargets.cmake")
