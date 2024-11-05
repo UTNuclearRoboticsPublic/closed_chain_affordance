@@ -280,14 +280,13 @@ class CcAffordancePlanner
 
   private:
     //--Planner config parameters
-    double accuracy_;             // accuracy of the affordance goal
-    Eigen::VectorXd theta_s_tol_; // secondary joint goal tolerance
-    double eps_rw_;               // closure error threshold for angular part
-    double eps_rv_;               // closure error threshold for linear part
-    int max_itr_l_;               // max interations for IK solver
+    double accuracy_; // accuracy of the secondary goals
+    double eps_rw_;   // closure error threshold for angular part
+    double eps_rv_;   // closure error threshold for linear part
+    int max_itr_l_;   // max interations for IK solver
     //--EOF Planner config parameters
-    constexpr static size_t twist_length_ = 6;   // length of a twist vector
-    constexpr static double start_guess_ = 1e-7; // trajectory start guess for all motions
+    constexpr static size_t twist_length_ = 6; // length of a twist vector
+    Eigen::VectorXd theta_s_tol_;              // IK tolerance for secondary joint goal vector
 
     /**
      * @brief Given a list of closed-chain screw axes, primary and secondary network matrices, and primary and secondary
