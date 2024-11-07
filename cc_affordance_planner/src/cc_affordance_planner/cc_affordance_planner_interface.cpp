@@ -351,11 +351,19 @@ void CcAffordancePlannerInterface::validate_input_(const affordance_util::RobotD
         throw std::invalid_argument("Task description: 'affordance_info.type' must be specified.");
     }
 
-    if (task_description.affordance_info.axis.hasNaN() ||
-        task_description.affordance_info.location.hasNaN() && task_description.affordance_info.screw.hasNaN())
+    if (task_description.affordance_info.location_method != affordance_util::ScrewLocationMethod::FROM_FK &&
+        (task_description.affordance_info.axis.hasNaN() ||
+         task_description.affordance_info.location.hasNaN() && task_description.affordance_info.screw.hasNaN()))
     {
         throw std::invalid_argument("Task description: Either 'affordance_info.axis' and 'affordance_info.location', "
                                     "or 'affordance_info.screw' must be specified.");
+    }
+
+    if (task_description.affordance_info.location_method == affordance_util::ScrewLocationMethod::FROM_FK &&
+        (task_description.affordance_info.axis.hasNaN() && task_description.affordance_info.screw.hasNaN()))
+    {
+        throw std::invalid_argument(
+            "Task description: Either 'affordance_info.axis' or 'affordance_info.screw' must be specified.");
     }
 
     if (task_description.affordance_info.type == affordance_util::ScrewType::SCREW &&
