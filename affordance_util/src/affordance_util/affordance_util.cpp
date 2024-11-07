@@ -68,11 +68,12 @@ CcModel compose_cc_model_slist(const RobotDescription &robot_description, const 
     CcModel cc_model; // Output of the function
 
     // Compute robot Jacobian
-    Eigen::MatrixXd robot_jacobian = JacobianSpace(robot_description.slist, robot_description.joint_states);
+    const Eigen::MatrixXd robot_jacobian = JacobianSpace(robot_description.slist, robot_description.joint_states);
 
     // Compute approach screw
     const Eigen::Matrix4d approach_start_pose =
         FKinSpace(robot_description.M, robot_description.slist, robot_description.joint_states);
+    const Eigen::Vector3d ee_location = approach_start_pose.block<3, 1>(0, 3); // Translation part of the HTM
     const Eigen::Matrix<double, 6, 1> approach_twist =
         affordance_util::Adjoint(approach_start_pose) *
         affordance_util::se3ToVec(
@@ -82,8 +83,14 @@ CcModel compose_cc_model_slist(const RobotDescription &robot_description, const 
     // Fill out the approach limit
     cc_model.approach_limit = approach_twist.norm();
 
-    // In case aff screw is not set, compute it
+    // If aff info says to extract location from FK, do that
     ScrewInfo aff = aff_info;
+    if (aff.location_method == ScrewLocationMethod::FROM_FK)
+    {
+        aff.location = ee_location;
+    }
+
+    // In case aff screw is not set, compute it
     if (aff.screw.hasNaN())
     {
         aff.screw = affordance_util::get_screw(aff);
@@ -112,11 +119,16 @@ CcModel compose_cc_model_slist(const RobotDescription &robot_description, const 
     }
     else
     {
-        const size_t screw_length = 6;      // Length of the screw vector
-        const size_t screw_axis_length = 3; // Length of the screw axis
-        const size_t nof_vir_ee_joints = 3; // Number of virtual ee joints
+        // Extract robot palm location
+        const Eigen::Vector3d &q_vir = ee_location; // Translation part of the HTM
+
+        // Retrieve the axes corresponding to the virtual screw order
+        const Eigen::MatrixXd &w_vir = affordance_util::get_vir_screw_axes(vir_screw_order);
+
+        const size_t nof_vir_ee_joints = w_vir.cols(); // Number of virtual ee joints
         const size_t nof_sjoints =
-            nof_vir_ee_joints + 2; // Number of joints to be appended, + 2 for approach and affordance screw
+            nof_vir_ee_joints + 2;     // Number of joints to be appended, + 2 for approach and affordance screw
+        const size_t screw_length = 6; // Length of the screw vector
 
         // Append virtual EE screw axes as well as the affordance screw.
         // Note: In the future it might be desired to append the virtual EE screws as Jacobians as well. This would
@@ -124,32 +136,6 @@ CcModel compose_cc_model_slist(const RobotDescription &robot_description, const 
         // Currently, we model the Virtual EE screws as aligned with the space frame at the start pose of the
         // affordance. An advantage of this is physical intuition in controlling the gripper.
         Eigen::MatrixXd vir_slist(screw_length, nof_vir_ee_joints);
-
-        // Extract robot palm location
-        const Eigen::Vector3d q_vir = approach_start_pose.block<3, 1>(0, 3); // Translation part of the HTM
-
-        // Virtual EE screw axes
-        Eigen::Matrix<double, screw_axis_length, nof_vir_ee_joints> w_vir; // Virtual EE screw axes
-
-        // Assign virtual EE screw axes in requested order
-        if (vir_screw_order == VirtualScrewOrder::YZX)
-        {
-            w_vir.col(0) << 0, 1, 0; // y
-            w_vir.col(1) << 0, 0, 1; // z
-            w_vir.col(2) << 1, 0, 0; // x
-        }
-        else if (vir_screw_order == VirtualScrewOrder::ZXY)
-        {
-            w_vir.col(0) << 0, 0, 1; // z
-            w_vir.col(1) << 1, 0, 0; // x
-            w_vir.col(2) << 0, 1, 0; // y
-        }
-        else // vir_screw_order == VirtualScrewOrder::XYZ
-        {
-            w_vir.col(0) << 1, 0, 0; // x
-            w_vir.col(1) << 0, 1, 0; // y
-            w_vir.col(2) << 0, 0, 1; // z
-        }
 
         // Compute virtual EE screws
         for (size_t i = 0; i < nof_vir_ee_joints; ++i)
@@ -168,12 +154,25 @@ CcModel compose_cc_model_slist(const RobotDescription &robot_description, const 
 Eigen::MatrixXd compose_cc_model_slist(const RobotDescription &robot_description, const ScrewInfo &aff_info,
                                        const VirtualScrewOrder &vir_screw_order)
 {
+    Eigen::MatrixXd slist; // Output of the function
+
     // Compute robot Jacobian
-    Eigen::MatrixXd robot_jacobian = JacobianSpace(robot_description.slist, robot_description.joint_states);
-    Eigen::MatrixXd slist;
+    const Eigen::MatrixXd robot_jacobian = JacobianSpace(robot_description.slist, robot_description.joint_states);
+
+    // Extract robot palm location
+    const Eigen::Matrix4d ee_htm =
+        FKinSpace(robot_description.M, robot_description.slist, robot_description.joint_states);
+    const Eigen::Vector3d ee_location = ee_htm.block<3, 1>(0, 3); // Translation part of the HTM
+
+    // If aff info says to extract location from FK, do that
+    ScrewInfo aff = aff_info;
+
+    if (aff.location_method == ScrewLocationMethod::FROM_FK)
+    {
+        aff.location = ee_location;
+    }
 
     // In case aff screw is not set, compute it
-    ScrewInfo aff = aff_info;
     if (aff.screw.hasNaN())
     {
         aff.screw = affordance_util::get_screw(aff);
@@ -201,10 +200,15 @@ Eigen::MatrixXd compose_cc_model_slist(const RobotDescription &robot_description
     }
     else
     {
-        const size_t screw_length = 6;                    // Length of the screw vector
-        const size_t screw_axis_length = 3;               // Length of the screw axis
-        const size_t nof_vir_ee_joints = 3;               // Number of virtual ee joints
+        // Extract robot palm location
+        const Eigen::Vector3d &q_vir = ee_location; // Translation part of the HTM
+
+        // Retrieve the axes corresponding to the virtual screw order
+        const Eigen::MatrixXd &w_vir = affordance_util::get_vir_screw_axes(vir_screw_order);
+
+        const size_t nof_vir_ee_joints = w_vir.cols();    // Number of virtual ee joints
         const size_t nof_sjoints = nof_vir_ee_joints + 1; // Number of joints to be appended, + 1 for one affordance
+        const size_t screw_length = 6;                    // Length of the screw vector
 
         // Append virtual EE screw axes as well as the affordance screw.
         // Note: In the future it might be desired to append the virtual EE screws as Jacobians as well. This would
@@ -212,34 +216,6 @@ Eigen::MatrixXd compose_cc_model_slist(const RobotDescription &robot_description
         // Currently, we model the Virtual EE screws as aligned with the space frame at the start pose of the
         // affordance. An advantage of this is physical intuition in controlling the gripper.
         Eigen::MatrixXd vir_slist(screw_length, nof_vir_ee_joints);
-
-        // Extract robot palm location
-        const Eigen::Matrix4d ee_htm =
-            FKinSpace(robot_description.M, robot_description.slist, robot_description.joint_states);
-        const Eigen::Vector3d q_vir = ee_htm.block<3, 1>(0, 3); // Translation part of the HTM
-
-        // Virtual EE screw axes
-        Eigen::Matrix<double, screw_axis_length, nof_vir_ee_joints> w_vir; // Virtual EE screw axes
-
-        // Assign virtual EE screw axes in requested order
-        if (vir_screw_order == VirtualScrewOrder::YZX)
-        {
-            w_vir.col(0) << 0, 1, 0; // y
-            w_vir.col(1) << 0, 0, 1; // z
-            w_vir.col(2) << 1, 0, 0; // x
-        }
-        else if (vir_screw_order == VirtualScrewOrder::ZXY)
-        {
-            w_vir.col(0) << 0, 0, 1; // z
-            w_vir.col(1) << 1, 0, 0; // x
-            w_vir.col(2) << 0, 1, 0; // y
-        }
-        else // vir_screw_order == VirtualScrewOrder::XYZ
-        {
-            w_vir.col(0) << 1, 0, 0; // x
-            w_vir.col(1) << 0, 1, 0; // y
-            w_vir.col(2) << 0, 0, 1; // z
-        }
 
         // Compute virtual EE screws
         for (size_t i = 0; i < nof_vir_ee_joints; ++i)
@@ -281,8 +257,9 @@ Eigen::Matrix4d convert_urdf_pose_to_matrix(const urdf::Pose &pose)
 }
 
 // Function to compute the transform from the reference frame to a link
-Eigen::Matrix4d compute_transform_from_reference_to_link(const urdf::ModelInterfaceSharedPtr &robot_model, const std::string &link_name,
-                                                    const std::string &reference_frame)
+Eigen::Matrix4d compute_transform_from_reference_to_link(const urdf::ModelInterfaceSharedPtr &robot_model,
+                                                         const std::string &link_name,
+                                                         const std::string &reference_frame)
 {
     if (link_name == reference_frame)
     {
@@ -317,8 +294,9 @@ Eigen::Matrix4d compute_transform_from_reference_to_link(const urdf::ModelInterf
     return ref_to_link_transform;
 }
 // Function to compute the transform from the reference frame to a joint
-Eigen::Matrix4d compute_transform_from_reference_to_joint(const urdf::ModelInterfaceSharedPtr &robot_model, const std::string &joint_name,
-                                                     const std::string &reference_frame)
+Eigen::Matrix4d compute_transform_from_reference_to_joint(const urdf::ModelInterfaceSharedPtr &robot_model,
+                                                          const std::string &joint_name,
+                                                          const std::string &reference_frame)
 {
     const urdf::JointConstSharedPtr joint = robot_model->getJoint(joint_name);
     if (!joint)
@@ -418,7 +396,9 @@ RobotConfig robot_builder(const std::string &config_file_path)
 
     return robotConfig;
 }
-RobotConfig robot_builder(const std::string &urdf_file_path, const std::string &ref_frame_name, const std::string &base_joint_name, const std::string &ee_frame_name, const Eigen::Vector3d &tool_location)
+RobotConfig robot_builder(const std::string &urdf_file_path, const std::string &ref_frame_name,
+                          const std::string &base_joint_name, const std::string &ee_frame_name,
+                          const Eigen::Vector3d &tool_location)
 {
     RobotConfig robot_config; // Output of the function
 
@@ -441,15 +421,15 @@ RobotConfig robot_builder(const std::string &urdf_file_path, const std::string &
     }
 
     // Get vector of joints between ee_frame and base_joint
-    std::vector<urdf::JointConstSharedPtr> chain_list;   
+    std::vector<urdf::JointConstSharedPtr> chain_list;
     const urdf::LinkConstSharedPtr root = model->getRoot();
     urdf::JointConstSharedPtr current_joint = model->getLink(ee_frame_name)->parent_joint;
-    
-    while(current_joint->name != base_joint_name)
-    {   
+
+    while (current_joint->name != base_joint_name)
+    {
         std::string parent_name = current_joint->parent_link_name;
         urdf::LinkConstSharedPtr parent_link = model->getLink(parent_name);
-        if(parent_link == root)
+        if (parent_link == root)
         {
             throw std::runtime_error("Base joint not found on path from end effector frame");
         }
@@ -459,12 +439,13 @@ RobotConfig robot_builder(const std::string &urdf_file_path, const std::string &
 
     // Sets transforms for ref frame and joint pose
     std::vector<JointData> joints_data;
-    const Eigen::Matrix4d ref_frame_transform = compute_transform_from_reference_to_joint(model, base_joint_name, ref_frame_name);
+    const Eigen::Matrix4d ref_frame_transform =
+        compute_transform_from_reference_to_joint(model, base_joint_name, ref_frame_name);
     Eigen::Matrix4d joint_pose_in_ref_frame = ref_frame_transform;
 
-    for (const auto& joint_node: chain_list)
+    for (const auto &joint_node : chain_list)
     {
-        if(joint_node->name != base_joint_name)
+        if (joint_node->name != base_joint_name)
         {
             // Get the parent_to_joint_origin_transform
             const urdf::Pose parent_to_joint = joint_node->parent_to_joint_origin_transform;
@@ -477,22 +458,22 @@ RobotConfig robot_builder(const std::string &urdf_file_path, const std::string &
         {
             // Fill out joint info
             JointData joint;
-            if(joint_node->type == urdf::Joint::REVOLUTE || joint_node->type == urdf::Joint::CONTINUOUS)
+            if (joint_node->type == urdf::Joint::REVOLUTE || joint_node->type == urdf::Joint::CONTINUOUS)
             {
                 joint.screw_info.type = affordance_util::ROTATION;
             }
-            else if(joint_node->type == urdf::Joint::PRISMATIC)
+            else if (joint_node->type == urdf::Joint::PRISMATIC)
             {
                 joint.screw_info.type = affordance_util::TRANSLATION;
             }
             else
-            {   
+            {
                 throw std::runtime_error("Kinematic chain contains a joint type not accounted for.");
             }
             joint.name = joint_node->name;
             joint.limits.lower = joint_node->limits->lower;
             joint.limits.upper = joint_node->limits->upper;
-            
+
             Eigen::Vector3d joint_position = joint_pose_in_ref_frame.block<3, 1>(0, 3);
             joint.screw_info.location = joint_position;
 
@@ -529,7 +510,7 @@ RobotConfig robot_builder(const std::string &urdf_file_path, const std::string &
 
     Eigen::Matrix4d M;
 
-    //TODO: Deduce orientation of the tool or end effector from the URDF
+    // TODO: Deduce orientation of the tool or end effector from the URDF
     if (tool_location.hasNaN())
     {
         // At this point, the last joint transform in the chain list must be the end effector joint
