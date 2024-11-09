@@ -45,18 +45,9 @@ namespace cc_affordance_planner
 {
 
 /**
- * @brief Enum describing the closed-chain affordance motion type
- */
-enum MotionType
-{
-    APPROACH,
-    AFFORDANCE
-};
-
-/**
  * @brief Enum qualitatively describing a trajectory length as FULL, PARTIAL, or UNSET
  */
-enum TrajectoryDescription
+enum class TrajectoryDescription
 {
     FULL,
     PARTIAL,
@@ -66,38 +57,11 @@ enum TrajectoryDescription
 /**
  * @brief Enum representing update methods for the closed-chain affordance planner
  */
-enum UpdateMethod
+enum class UpdateMethod
 {
     INVERSE,
     TRANSPOSE,
     BEST
-};
-
-/**
- * @brief Struct describing the goals for the Closed-chain affordance planner in terms of affordance state, ee
- * orientation state, grasp_pose, and gripper state.
- */
-struct Goal
-{
-
-    double affordance = std::numeric_limits<double>::quiet_NaN();
-    Eigen::VectorXd ee_orientation;
-    Eigen::Matrix4d grasp_pose;
-    double gripper = std::numeric_limits<double>::quiet_NaN();
-};
-
-/**
- * @brief Struct describing a task for the Closed-Chain Affordance planner in terms of affordance info, goal state,
- * trajectory density, motion type, virtual screw order, grasp pose, and gripper goal type.
- */
-struct TaskDescription
-{
-    affordance_util::ScrewInfo affordance_info;
-    Goal goal;
-    int trajectory_density = 10;
-    MotionType motion_type = MotionType::AFFORDANCE;
-    affordance_util::VirtualScrewOrder vir_screw_order = affordance_util::VirtualScrewOrder::XYZ;
-    affordance_util::GripperGoalType gripper_goal_type = affordance_util::GripperGoalType::CONSTANT;
 };
 
 /**

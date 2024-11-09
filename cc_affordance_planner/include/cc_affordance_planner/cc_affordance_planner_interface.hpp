@@ -45,6 +45,67 @@ namespace cc_affordance_planner
 {
 
 /**
+ * @brief Enum describing various planning types that the closed-chain affordance planner offers
+ */
+enum class PlanningType
+{
+    APPROACH,
+    AFFORDANCE,
+    EE_ORIENTATION_ONLY,
+    CARTESIAN_GOAL
+};
+
+/**
+ * @brief Enum describing various motion types that the closed-chain affordance model offers
+ */
+enum class MotionType
+{
+    APPROACH,
+    AFFORDANCE,
+};
+
+/**
+ * @brief Struct describing the goals for the Closed-chain affordance planner in terms of affordance state, ee
+ * orientation state, grasp_pose, and gripper state.
+ */
+struct Goal
+{
+
+    double affordance = std::numeric_limits<double>::quiet_NaN();
+    Eigen::VectorXd ee_orientation;
+    Eigen::Matrix4d grasp_pose;
+    double gripper = std::numeric_limits<double>::quiet_NaN();
+};
+
+/**
+ * @brief Struct describing a task for the Closed-Chain Affordance planner in terms of affordance info, goal state,
+ * trajectory density, motion type, virtual screw order, grasp pose, and gripper goal type.
+ */
+struct TaskDescription
+{
+    affordance_util::ScrewInfo affordance_info;
+    Goal goal;
+    int trajectory_density = 10;
+    MotionType motion_type = MotionType::AFFORDANCE;
+    affordance_util::VirtualScrewOrder vir_screw_order = affordance_util::VirtualScrewOrder::XYZ;
+    affordance_util::GripperGoalType gripper_goal_type = affordance_util::GripperGoalType::CONSTANT;
+
+    /**
+     * @brief Given a planning type, constructs a cca task description with necessary parameters. This constructor is
+     * especially useful for CARTESIAN_GOAL and EE_ORIENTATION_ONLY planning, which are special cases of APPROACH and
+     * AFFORDANCE motions respectively.
+     *
+     * @param task_type cc_affordance_planner::PlanningType indicating what type of planning is intended.
+     */
+    explicit TaskDescription(const PlanningType &planningType);
+
+    /**
+     * @brief Default constructor for cca task description
+     */
+    TaskDescription() = default;
+};
+
+/**
  * @class CcAffordancePlannerInterface
  * @brief Interface class for the Closed-Chain (CC) Affordance Planner, providing a method to generate
  *        joint trajectories for robot affordance and approach motions.
