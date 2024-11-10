@@ -62,11 +62,11 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
 
     PlannerResult plannerResult;                   // Result of the planner
     const double theta_adf = theta_sdf.tail(1)(0); // affordance screw goal
-    const double theta_pdf = theta_sdf.tail(2)(0); // approach screw goal
+    // const double theta_pdf = theta_sdf.tail(2)(0); // approach screw goal
 
     //**Alg1:L1: Define affordance step, deltatheta_a
     const double deltatheta_a = theta_adf / (stepper_max_itr_m - 1);
-    const double deltatheta_p = theta_pdf / (stepper_max_itr_m - 1);
+    // const double deltatheta_p = theta_pdf / (stepper_max_itr_m - 1);
 
     //** Alg1:L2: Determine relevant matrix and vector sizes based on task_offset_tau
     nof_pjoints_ = slist.cols() - task_offset_tau;
@@ -98,7 +98,7 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
         // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
         // theta_sd
         theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a;
-        theta_sd(nof_sjoints_ - 2) = theta_sd(nof_sjoints_ - 2) - deltatheta_p;
+        // theta_sd(nof_sjoints_ - 2) = theta_sd(nof_sjoints_ - 2) - deltatheta_p;
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
         std::optional<Eigen::VectorXd> ik_result = this->call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd, st);
@@ -158,11 +158,11 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
 
     PlannerResult plannerResult;                   // Result of the planner
     const double theta_adf = theta_sdf.tail(1)(0); // affordance screw goal
-    const double theta_pdf = theta_sdf.tail(2)(0); // approach screw goal
+    // const double theta_pdf = theta_sdf.tail(2)(0); // approach screw goal
 
     //**Alg1:L1: Define affordance step, deltatheta_a
     const double deltatheta_a = theta_adf / (stepper_max_itr_m - 1);
-    const double deltatheta_p = theta_pdf / (stepper_max_itr_m - 1);
+    // const double deltatheta_p = theta_pdf / (stepper_max_itr_m - 1);
 
     //** Alg1:L2: Determine relevant matrix and vector sizes based on task_offset_tau
     nof_pjoints_ = slist.cols() - task_offset_tau;
@@ -195,7 +195,7 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
         // Set the affordance step goal as aff_step away from the current pose. Affordance is the last element of
         // theta_sd
         theta_sd(nof_sjoints_ - 1) = theta_sd(nof_sjoints_ - 1) - deltatheta_a;
-        theta_sd(nof_sjoints_ - 2) = theta_sd(nof_sjoints_ - 2) - deltatheta_p;
+        // theta_sd(nof_sjoints_ - 2) = theta_sd(nof_sjoints_ - 2) - deltatheta_p;
 
         //**Alg1:L13: Call Algorithm 2 with args, theta_sd, theta_pg, theta_sg, slist
         std::optional<Eigen::VectorXd> ik_result = this->call_cc_ik_solver(slist, theta_pg, theta_sg, theta_sd);

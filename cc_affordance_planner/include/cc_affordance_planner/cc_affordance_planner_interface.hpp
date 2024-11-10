@@ -89,6 +89,7 @@ struct TaskDescription
     MotionType motion_type = MotionType::AFFORDANCE;
     affordance_util::VirtualScrewOrder vir_screw_order = affordance_util::VirtualScrewOrder::XYZ;
     affordance_util::GripperGoalType gripper_goal_type = affordance_util::GripperGoalType::CONSTANT;
+    Eigen::VectorXd force_correction;
 
     /**
      * @brief Given a planning type, constructs a cca task description with necessary parameters. This constructor is

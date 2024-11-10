@@ -110,17 +110,39 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
         const affordance_util::CcModel cc_model =
             affordance_util::compose_cc_model_slist(robot_description, aff, grasp_pose, vir_screw_order);
 
+        // Temporary: Replace approach screw with force screw
+        //---------------------------------------------------------------------------
+        Eigen::MatrixXd force_slist = cc_model.slist;
+
+        const double force_norm = task_description.force_correction.norm();
+
+        // Prevent division by zero
+        if (force_norm > std::numeric_limits<double>::epsilon())
+        {
+            // Normalize and assign the force correction vector
+            std::cout << "Slist before force replacement: " << cc_model.slist << std::endl;
+            force_slist.col(force_slist.cols() - 2) = task_description.force_correction / force_norm;
+            std::cout << "Slist after replacement: " << force_slist << std::endl;
+        }
+        else
+        {
+            throw std::runtime_error("Task description: force_correction vector is zero");
+        }
+        //---------------------------------------------------------------------------
+
         // Extract and construct the secondary joint goals
         nof_secondary_joints += 1; // add approach joint
         const Eigen::VectorXd secondary_joint_goals =
-            (Eigen::VectorXd(nof_secondary_joints) << task_description.goal.ee_orientation, cc_model.approach_limit,
+            // (Eigen::VectorXd(nof_secondary_joints) << task_description.goal.ee_orientation, cc_model.approach_limit,
+            (Eigen::VectorXd(nof_secondary_joints) << task_description.goal.ee_orientation, force_norm,
              task_description.goal.affordance)
                 .finished();
 
         // Solve the joint trajectory for the given task. This function calls the Cc Affordance Planner inside.
         plannerResult = this->generate_specified_motion_joint_trajectory_(
             &CcAffordancePlanner::generate_approach_motion_joint_trajectory,
-            &CcAffordancePlanner::generate_approach_motion_joint_trajectory, cc_model.slist, secondary_joint_goals,
+            // &CcAffordancePlanner::generate_approach_motion_joint_trajectory, cc_model.slist, secondary_joint_goals,
+            &CcAffordancePlanner::generate_approach_motion_joint_trajectory, force_slist, secondary_joint_goals,
             nof_secondary_joints, task_description.trajectory_density);
     }
 
