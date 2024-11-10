@@ -1,5 +1,4 @@
 #include <cc_affordance_planner/cc_affordance_planner_interface.hpp>
-#include <iomanip> // for std::setprecision and std::fixed
 
 namespace cc_affordance_planner
 {
