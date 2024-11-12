@@ -75,14 +75,15 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
     /// Compute the elementwise error tolerance for seconday joint goals
     theta_s_tol_ = theta_sdf;
     theta_s_tol_.tail(1)(0) = deltatheta_a;
-    theta_s_tol_.tail(2)(0) = deltatheta_p;
+    // theta_s_tol_.tail(2)(0) = deltatheta_p;
     theta_s_tol_ = (accuracy_ * theta_s_tol_).cwiseAbs();
 
     //**Alg1:L3 and Alg1:L2: Set start guesses and step goal
     Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
-    theta_sd.tail(2).setConstant(0); // start approach and affordance goals at 0 but gripper orientation as specified
+    // theta_sd.tail(2).setConstant(0); // start approach and affordance goals at 0 but gripper orientation as specified
+    theta_sd.tail(1).setConstant(0); // start approach and affordance goals at 0 but gripper orientation as specified
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal: Passed in as planner config
 
@@ -171,14 +172,15 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
     /// Compute the elementwise error tolerance for seconday joint goals
     theta_s_tol_ = theta_sdf;
     theta_s_tol_.tail(1)(0) = deltatheta_a;
-    theta_s_tol_.tail(2)(0) = deltatheta_p;
+    // theta_s_tol_.tail(2)(0) = deltatheta_p;
     theta_s_tol_ = (accuracy_ * theta_s_tol_).cwiseAbs();
 
     //**Alg1:L3 and Alg1:L2: Set start guesses and step goal
     Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
     Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
-    theta_sd.tail(2).setConstant(0); // start approach and affordance goals at 0 but gripper orientation as specified
+    // theta_sd.tail(2).setConstant(0); // start approach and affordance goals at 0 but gripper orientation as specified
+    theta_sd.tail(1).setConstant(0); // start approach and affordance goals at 0 but gripper orientation as specified
 
     //**Alg1:L4: Compute no. of iterations, stepper_max_itr_m to final goal: Passed in as planner config
 

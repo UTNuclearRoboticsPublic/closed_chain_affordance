@@ -120,9 +120,10 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
         if (force_norm > std::numeric_limits<double>::epsilon())
         {
             // Normalize and assign the force correction vector
-            std::cout << "Slist before force replacement: " << cc_model.slist << std::endl;
+            std::cout << std::fixed << std::setprecision(4) << std::endl;
+            std::cout << "Slist before force replacement: \n" << cc_model.slist << std::endl;
             force_slist.col(force_slist.cols() - 2) = task_description.force_correction / force_norm;
-            std::cout << "Slist after replacement: " << force_slist << std::endl;
+            std::cout << "Slist after replacement: \n" << force_slist << std::endl;
         }
         else
         {
