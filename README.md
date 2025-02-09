@@ -18,9 +18,9 @@ Follow these steps to install the `affordance_util` and `cc_affordance_planner` 
    cd closed_chain_affordance/affordance_util/ && mkdir build && cd build
    ```
 
-3. Run CMake to configure the build process. This will generate the build system files in the build directory. Also turn the PIC flag on so the ROS packages that use this can make shared objects:
+3. Run CMake to configure the build process. This will generate the build system files in the build directory. Also turn the PIC flag on so the ROS packages that use this can make shared objects. Set the bbuild type to Release to enable compiler optimation:
    ```bash
-   cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+   cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release
    ```
 
 4. Execute the following command to build the project:
@@ -41,7 +41,7 @@ Follow these steps to install the `affordance_util` and `cc_affordance_planner` 
    mkdir build && cd build
    ```
    ```bash
-   cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON && cmake --build . && sudo cmake --install .
+   cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release && cmake --build . && sudo cmake --install .
    ```
 
 7. Remove the temporary directory along with this repo clone since we don't need them anymore:
