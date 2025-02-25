@@ -199,7 +199,7 @@ grid on
 % Set fontsizes for various plot parameters
 title_fontsize = 50;
 label_fontsize = 50;
-legend_fontsize = 35;
+legend_fontsize = 45;
 tick_fontsize = 50;
 grid_lw = 1.5;
 

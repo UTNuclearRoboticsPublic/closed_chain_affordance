@@ -200,7 +200,7 @@ grid on
 % Set fontsizes for various plot parameters
 title_fontsize = 50;
 label_fontsize = 50;
-legend_fontsize = 35;
+legend_fontsize = 45;
 tick_fontsize = 50;
 grid_lw = 1.5;
 
@@ -219,7 +219,7 @@ ax_joint_states.XLabel.FontSize = label_fontsize;
 ax_joint_states.YLabel.FontSize = label_fontsize;
 ax_joint_states.ZLabel.FontSize = label_fontsize;
 ax_joint_states.Legend.FontSize = legend_fontsize;
-ax_joint_states.Legend.Location = "east";
+ax_joint_states.Legend.Location = "southwest";
 ax_joint_states.Title.FontSize = title_fontsize;
 ax_joint_states.GridLineWidth = grid_lw;
 
@@ -227,9 +227,9 @@ ax_joint_states.GridLineWidth = grid_lw;
 legend_position = ax_joint_states.Legend.Position;
 % shift_amount_x = 0.3825; 
 % shift_amount_y = 0.1825; 
-shift_amount_x = -0.365; 
-shift_amount_y = 0.28; 
-ax_joint_states.Legend.Position = [legend_position(1) + shift_amount_x, legend_position(2)+ shift_amount_y, legend_position(3), legend_position(4)];
+% shift_amount_x = -0.365; 
+% shift_amount_y = 0.28; 
+% ax_joint_states.Legend.Position = [legend_position(1) + shift_amount_x, legend_position(2)+ shift_amount_y, legend_position(3), legend_position(4)];
 
 % Set axis limits
 xlim([0 10])
