@@ -184,7 +184,7 @@ grid_lw = 1.5;
 xlabel(ax_joint_states, 'time (s)');
 ylabel(ax_joint_states, 'joint states (rad)');
 legend(ax_joint_states,'Interpreter', 'none', 'Color', 'none'); % Don't interpret underscores as cues for subscripts, and don't fill the legend box
-% title(ax_joint_states, ['Actual Joint States vs. Time - ',title_postfix]);
+title(ax_joint_states, ['Actual Joint States vs. Time - ',title_postfix]);
 
 % Set fontsizes for various plot parameters
 ax_joint_states.XAxis.FontSize = tick_fontsize; 
@@ -202,7 +202,7 @@ ax_joint_states.GridLineWidth = grid_lw;
 % Set legend position
 legend_position = ax_joint_states.Legend.Position;
 shift_amount_x = 0.265; 
-shift_amount_y = 0.28; 
+shift_amount_y = 0.273; 
 ax_joint_states.Legend.Position = [legend_position(1) + shift_amount_x, legend_position(2)+ shift_amount_y, legend_position(3), legend_position(4)];
 
 % Plot Error between predicted and actual EE cartesian trajectory
@@ -307,7 +307,7 @@ ylim([-700 100])
 xlim([0 800])
 xlabel(ax_ee_traj_final, 'x(mm)');
 ylabel(ax_ee_traj_final, 'y(mm)');
-% title(ax_ee_traj_error2, ['EE Trajectory and Error - ',title_postfix]);
+title(ax_ee_traj_final, ['EE Position Trajectory - ',title_postfix]);
 
 hLegend = legend(ax_ee_traj_final, 'Interpreter', 'none', 'Color', 'none');
 hLegend.Box = 'on'; % Turn on the legend box (if not already on)
@@ -346,12 +346,13 @@ ax_ee_traj_final.Legend.Position = [legend_position(1) + shift_amount_x, legend_
 
 
 fig5 = figure(5);
-title_fontsize = 35;
+title_fontsize = 45;
 label_fontsize = 45;
 legend_fontsize = 25;
 tick_fontsize = 40;
 grid_lw = 1.5;
 ax_ee_traj_error_final = subplot(1, 1, 1, 'Parent', fig5);
+
 
 % yyaxis right
 plot(ax_ee_traj_error_final, ...
@@ -363,7 +364,7 @@ plot(ax_ee_traj_error_final, ...
      'LineWidth', 8, 'MarkerSize', 12, 'DisplayName', 'trajectory error');
 xlabel(ax_ee_traj_error_final, 'predicted trajectory point index');
 ylabel(ax_ee_traj_error_final, 'ee trajectory error (mm)');
-% title(ax_ee_traj_error3, ['EE Trajectory Error - ',title_postfix]);
+title(ax_ee_traj_error_final, ['EE Position Trajectory Error - ',title_postfix]);
 
 grid on
 xlim([point_labels(1) point_labels(end)]);
@@ -372,6 +373,7 @@ xlim([point_labels(1) point_labels(end)]);
 ax_ee_traj_error_final.XAxis.FontSize = tick_fontsize; 
 ax_ee_traj_error_final.XAxis.FontWeight = 'bold';
 ax_ee_traj_error_final.XTick = point_labels;
+
 
 ax_ee_traj_error_final.YAxis.FontSize = tick_fontsize;  % Primary Y-axis
 ax_ee_traj_error_final.YAxis.FontWeight = 'bold';
