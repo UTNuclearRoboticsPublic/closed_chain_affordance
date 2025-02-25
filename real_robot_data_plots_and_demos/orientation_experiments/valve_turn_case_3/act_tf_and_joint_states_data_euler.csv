@@ -1,4 +1,4 @@
-arm0_shoulder_yaw,arm0_shoulder_pitch,arm0_elbow_pitch,arm0_elbow_roll,arm0_wrist_pitch,arm0_wrist_roll,Act EE x,Act EE y,Act EE z,Act EE x_or,Act EE y_or,Act EE z_or,Act EE_w_or,Timestamp,Euler_y,Euler_z,Euler_x,Euler_x_no_wrap,Timestep,Euler Y,Euler Z,Euler X
+shoulder_yaw,shoulder_pitch,elbow_pitch,elbow_roll,wrist_pitch,wrist_roll,Act EE x,Act EE y,Act EE z,Act EE x_or,Act EE y_or,Act EE z_or,Act EE_w_or,Timestamp,Euler_y,Euler_z,Euler_x,Euler_x_no_wrap,Timestep,Euler Y,Euler Z,Euler X
 0.02083,-1.27458,2.1327,0.02459,-0.8486,-0.09007,0.61149,0.00942,0.05844,-0.03699,0.00479,0.00137,0.9993,1715140909,0.009472189,0.003092471,-0.073983391,-0.073983391,0,0.009472189,0.003092471,-0.073983391
 -0.00463,-1.28596,2.13284,-0.01325,-0.83862,-0.15611,0.61079,-0.00089,0.06335,-0.08236,0.00392,0.00295,0.99659,1715140909,0.007327571,0.006525637,-0.164884965,-0.164884965,0.195348837,0.007327571,0.006525637,-0.164884965
 -0.07371,-1.29831,2.12539,-0.09072,-0.8381,-0.27972,0.6107,-0.03241,0.07425,-0.16973,-0.00387,-0.00387,0.98547,1715140909,-0.006314189,-0.008941462,-0.341090139,-0.341090139,0.390697674,-0.006314189,-0.008941462,-0.341090139
