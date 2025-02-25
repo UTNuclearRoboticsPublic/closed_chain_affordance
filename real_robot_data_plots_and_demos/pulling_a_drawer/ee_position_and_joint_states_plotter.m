@@ -162,7 +162,7 @@ end
 
 % Joint state column headers
 js_end_index = 50; % specify end to truncate saturated readings
-joint_names = {'arm0_shoulder_yaw', 'arm0_shoulder_pitch', 'arm0_elbow_pitch', 'arm0_elbow_roll', 'arm0_wrist_pitch', 'arm0_wrist_roll'};
+joint_names = {'shoulder_yaw', 'shoulder_pitch', 'elbow_pitch', 'elbow_roll', 'wrist_pitch', 'wrist_roll'};
 
 % Extract data and plot
 for i = 1:length(joint_names)
@@ -179,7 +179,7 @@ grid on
 % Set fontsizes for various plot parameters
 title_fontsize = 50;
 label_fontsize = 50;
-legend_fontsize = 30;
+legend_fontsize = 40;
 tick_fontsize = 50;
 grid_lw = 1.5;
 
@@ -204,8 +204,8 @@ ax_joint_states.GridLineWidth = grid_lw;
 
 % Set legend position
 legend_position = ax_joint_states.Legend.Position;
-shift_amount_x = 0.285; 
-shift_amount_y = 0.14; 
+shift_amount_x = 0.285-0.02; 
+shift_amount_y = 0.252; 
 ax_joint_states.Legend.Position = [legend_position(1) + shift_amount_x, legend_position(2)+ shift_amount_y, legend_position(3), legend_position(4)];
 
 
@@ -333,7 +333,7 @@ ax_ee_traj_final = subplot(1, 1, 1, 'Parent', fig4);
 plot(ax_ee_traj_final, df_pred{:, 'PredEEX'} * 1000, ...
     df_pred{:, 'PredEEY'} * 1000, ...
     'b-o', 'LineWidth', 8, 'MarkerSize', 10, 'DisplayName', 'predicted trajectory');
-point_label_font_size = 15;
+point_label_font_size = 25;
 point_label_offset_y = 4;
 point_labels = 1:1:length(df_pred{:, 'PredEEX'} );
 labelpoints(df_pred{:, 'PredEEX'} * 1000, ...
@@ -372,7 +372,7 @@ ax_ee_traj_final.Legend.Location = "southwest";
 % Set fontsizes for various plot parameters
 title_fontsize = 35;
 label_fontsize = 35;
-legend_fontsize = 25;
+legend_fontsize = 35;
 tick_fontsize = 30;
 grid_lw = 1.5;
 
