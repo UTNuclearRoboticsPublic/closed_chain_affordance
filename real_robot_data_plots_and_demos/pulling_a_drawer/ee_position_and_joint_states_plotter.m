@@ -187,7 +187,7 @@ grid_lw = 1.5;
 xlabel(ax_joint_states, 'time (s)');
 ylabel(ax_joint_states, 'joint states (rad)');
 legend(ax_joint_states,'Interpreter', 'none', 'Color', 'none'); % Don't interpret underscores as cues for subscripts, and don't fill the legend box
-% title(ax_joint_states, ['Actual Joint States vs. Time - ',title_postfix]);
+title(ax_joint_states, ['Actual Joint States vs. Time - ',title_postfix]);
 
 % Set fontsizes for various plot parameters
 ax_joint_states.XAxis.FontSize = tick_fontsize; 
@@ -358,7 +358,7 @@ grid on
 
 xlabel(ax_ee_traj_final, 'x(mm)');
 ylabel(ax_ee_traj_final, 'y(mm)');
-% title(ax_ee_traj_error2, ['EE Trajectory and Error - ',title_postfix]);
+title(ax_ee_traj_final, ['EE Position Trajectory - ',title_postfix]);
 
 % Create legend for the left plot elements
 hLegend = legend(ax_ee_traj_final, 'Interpreter', 'none', 'Color', 'none');
@@ -394,7 +394,7 @@ ax_ee_traj_final.Legend.FontSize = legend_fontsize;
 
 
 fig5 = figure(5);
-title_fontsize = 35;
+title_fontsize = 45;
 label_fontsize = 45;
 legend_fontsize = 25;
 tick_fontsize = 40;
@@ -411,7 +411,7 @@ plot(ax_ee_traj_error_final, ...
      'LineWidth', 8, 'MarkerSize', 12, 'DisplayName', 'trajectory error');
 xlabel(ax_ee_traj_error_final, 'predicted trajectory point index');
 ylabel(ax_ee_traj_error_final, 'ee trajectory error (mm)');
-% title(ax_ee_traj_error3, ['EE Trajectory Error - ',title_postfix]);
+title(ax_ee_traj_error_final, ['EE Position Trajectory Error - ',title_postfix]);
 
 grid on
 
