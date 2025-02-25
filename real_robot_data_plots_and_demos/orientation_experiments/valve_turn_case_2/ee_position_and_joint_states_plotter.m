@@ -411,7 +411,7 @@ ax_ee_traj_error_final.GridLineWidth = grid_lw;
 % Set fontsizes for various plot parameters
 title_fontsize = 35;
 label_fontsize = 35;
-legend_fontsize = 25;
+legend_fontsize = 30;
 tick_fontsize = 30;
 grid_lw = 1.5;
 % Plot
@@ -464,7 +464,7 @@ pbaspect([1 1 1])
 
 % Add grid
 grid on
-xlim([0 1.5])
+xlim([0 2.4])
 ylim([-0.7 1.7])
 
 xlabel(ax_ee_or, 'time (t), s');
