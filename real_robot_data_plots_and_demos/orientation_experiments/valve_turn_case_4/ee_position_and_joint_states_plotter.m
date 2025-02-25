@@ -184,7 +184,7 @@ end
 
 % Joint state column headers
 js_end_index = 70; % specify end to truncate saturated readings
-joint_names = {'arm0_shoulder_yaw', 'arm0_shoulder_pitch', 'arm0_elbow_pitch', 'arm0_elbow_roll', 'arm0_wrist_pitch', 'arm0_wrist_roll'};
+joint_names = {'shoulder_yaw', 'shoulder_pitch', 'elbow_pitch', 'elbow_roll', 'wrist_pitch', 'wrist_roll'};
 
 % Extract data and plot
 for i = 1:length(joint_names)
@@ -200,7 +200,7 @@ grid on
 % Set fontsizes for various plot parameters
 title_fontsize = 50;
 label_fontsize = 50;
-legend_fontsize = 27;
+legend_fontsize = 35;
 tick_fontsize = 50;
 grid_lw = 1.5;
 
@@ -311,7 +311,7 @@ plot(ax_ee_traj_final, df_pred{:, 'PredEEY'} * 1000, ...
     df_pred{:, 'PredEEZ'} * 1000, ...
     'b-o', 'LineWidth', 8, 'MarkerSize', 13, 'DisplayName', 'predicted trajectory');
 point_labels = 1:1:length(df_pred{:, 'PredEEY'} );
-point_label_font_size = 15;
+point_label_font_size = 25;
 point_label_offset_y = -10;
 labelpoints((df_pred{1:5, 'PredEEY'} * 1000)+point_label_offset_y, ...
      df_pred{1:5, 'PredEEZ'} * 1000, point_labels(1:5),'NW', 0.0, 1, 'Fontsize', point_label_font_size, 'Color', 'b');
@@ -357,6 +357,7 @@ pbaspect([1 1 1])
 % Add grid
 grid on
 xlim([-150 250])
+xticks(-100:100:200)
 ylim([50 450])
 
 xlabel(ax_ee_traj_final, 'y(mm)');
@@ -371,7 +372,7 @@ ax_ee_traj_final.Legend.Location = "northwest";
 % Set fontsizes for various plot parameters
 title_fontsize = 35;
 label_fontsize = 35;
-legend_fontsize = 25;
+legend_fontsize = 35;
 tick_fontsize = 30;
 grid_lw = 1.5;
 
@@ -433,7 +434,7 @@ ax_ee_traj_error_final.GridLineWidth = grid_lw;
 % Set fontsizes for various plot parameters
 title_fontsize = 35;
 label_fontsize = 35;
-legend_fontsize = 25;
+legend_fontsize = 30;
 tick_fontsize = 30;
 grid_lw = 1.5;
 % Plot
@@ -463,22 +464,22 @@ pred_or_plot_euler_x_trend = plot(ax_ee_or, pred_p_timestep, pred_p_euler_x, ...
 act_or_plot_euler_y = plot(ax_ee_or, df_act_euler{:, 'Timestep'}, ...
     df_act_euler{:, 'EulerY'}, ...
      '-o', 'LineWidth', 8, 'DisplayName', 'actual pitch');
-act_or_plot_euler_y.Color = '#7E2F8E';
+act_or_plot_euler_y.Color = '#2ca02c';
 hold on;
 act_or_plot_euler_z = plot(ax_ee_or, df_act_euler{:, 'Timestep'}, ...
     df_act_euler{:, 'EulerZ'}, ...
     '-o', 'LineWidth', 8, 'DisplayName', 'actual yaw');
-act_or_plot_euler_z.Color = '#A2142F';
+act_or_plot_euler_z.Color = '#1f77b4';
 act_polyfit_euler_x = polyfit(df_act_euler{:, 'Timestep'}, df_act_euler{:, 'EulerX'}, 1);
 act_p_timestep = [min(df_act_euler{:, 'Timestep'}) max(df_act_euler{:, 'Timestep'})];
 act_p_euler_x = polyval(act_polyfit_euler_x, act_p_timestep);
 act_or_plot_euler_x = scatter(ax_ee_or, df_act_euler{:, 'Timestep'}, ...
     df_act_euler{:, 'EulerX'}, ...
     100, 'filled','SizeData', 150);
-act_or_plot_euler_x.MarkerFaceColor = '#000000';
+act_or_plot_euler_x.MarkerFaceColor = '#f08080';
 act_or_plot_euler_x_trend = plot(ax_ee_or, act_p_timestep, act_p_euler_x, ...
     'LineWidth', 7, 'DisplayName', 'actual roll, r_a');
-act_or_plot_euler_x_trend.Color = '#000000';
+act_or_plot_euler_x_trend.Color = '#f08080';
 
 % Enforce equal aspect ratio
 axis equal
@@ -495,7 +496,7 @@ ylabel(ax_ee_or, 'ee orientation, rad');
 text(ax_ee_or, 3, -0.8, sprintf('r_p = %.3f*t %.3f : predicted', pred_polyfit_euler_x), ...
     'Rotation', -25, 'FontWeight', 'bold', 'FontSize',25, 'Color', 'r');
 text(ax_ee_or, 2.3, -2.0, sprintf('r_a = %.3f*t %.3f : actual', act_polyfit_euler_x), ...
-    'Rotation', -25, 'FontWeight', 'bold', 'FontSize',25);
+    'Rotation', -25, 'FontWeight', 'bold', 'FontSize',25, 'Color','#f08080');
 legend([pred_or_plot_euler_y, pred_or_plot_euler_z, pred_or_plot_euler_x_trend, act_or_plot_euler_y, act_or_plot_euler_z, act_or_plot_euler_x_trend], 'Color', 'none');
 
 % Set fontsizes for various plot parameters

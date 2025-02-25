@@ -1,4 +1,4 @@
-﻿arm0_shoulder_yaw,arm0_shoulder_pitch,arm0_elbow_pitch,arm0_elbow_roll,arm0_wrist_pitch,arm0_wrist_roll,Pred EE x,Pred EE y,Pred EE z,Pred EE x_or,Pred EE y_or,Pred EE z_or,Pred EE_w_or,Timestamp,Timestep,Euler Y,Euler Z,Euler X,Euler X with Wrap
+﻿shoulder_yaw,shoulder_pitch,elbow_pitch,elbow_roll,wrist_pitch,wrist_roll,Pred EE x,Pred EE y,Pred EE z,Pred EE x_or,Pred EE y_or,Pred EE z_or,Pred EE_w_or,Timestamp,Timestep,Euler Y,Euler Z,Euler X,Euler X with Wrap
 -0.14079,-1.50978,1.84494,-0.21216,-0.29095,-0.14518,0.61584,-0.0759,0.25777,-0.17077,0.03165,-0.03519,0.98417,0,0,0.074513508,-0.058489894,-0.345793072,-0.345793072
 -0.13038,-1.52058,1.81175,-0.26794,-0.2826,-0.20812,0.61598,-0.06711,0.28218,-0.22985,0.0153,-0.02539,0.97277,0,0.3,0.041488045,-0.042376904,-0.464936179,-0.464936179
 -0.11241,-1.52969,1.77747,-0.32879,-0.27339,-0.27569,0.61596,-0.05364,0.30593,-0.29274,-0.00186,-0.0137,0.95609,0,0.6,0.004466117,-0.027289356,-0.594302952,-0.594302952
