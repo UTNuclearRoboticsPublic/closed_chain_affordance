@@ -1,4 +1,4 @@
-arm0_shoulder_yaw,arm0_shoulder_pitch,arm0_elbow_pitch,arm0_elbow_roll,arm0_wrist_pitch,arm0_wrist_roll,Pred EE x,Pred EE y,Pred EE z,Timestamp
+shoulder_yaw,shoulder_pitch,elbow_pitch,elbow_roll,wrist_pitch,wrist_roll,Pred EE x,Pred EE y,Pred EE z,Timestamp
 0.20841,-0.52536,1.85988,0.18575,-1.37188,-0.07426,0.64092,0.09975,-0.20366,0.00000
 0.07815,-0.52452,1.85776,0.21082,-1.37197,-0.07730,0.64853,0.01094,-0.20366,0.30000
 -0.06302,-0.52346,1.85512,0.23776,-1.37206,-0.08062,0.64297,-0.08542,-0.20366,0.60000
