@@ -203,6 +203,8 @@ label_fontsize = 50;
 legend_fontsize = 35;
 tick_fontsize = 50;
 grid_lw = 1.5;
+xlim([0 2.5])
+ylim([-2.1 2.6])
 
 % Subplot labels
 xlabel(ax_joint_states, 'time (s)');
@@ -219,7 +221,7 @@ ax_joint_states.XLabel.FontSize = label_fontsize;
 ax_joint_states.YLabel.FontSize = label_fontsize;
 ax_joint_states.ZLabel.FontSize = label_fontsize;
 ax_joint_states.Legend.FontSize = legend_fontsize;
-ax_joint_states.Legend.Location = "northwest";
+ax_joint_states.Legend.Location = "southwest";
 ax_joint_states.Title.FontSize = title_fontsize;
 ax_joint_states.GridLineWidth = grid_lw;
 
