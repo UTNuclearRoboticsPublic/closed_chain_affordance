@@ -337,7 +337,9 @@ pbaspect([1 1 1])
 % Add grid
 grid on
 xlim([375 525])
+xticks(400:50:500)
 ylim([150 300])
+yticks(150:50:300)
 
 xlabel(ax_ee_traj_final, 'x(mm)');
 ylabel(ax_ee_traj_final, 'z(mm)');
