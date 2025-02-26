@@ -210,7 +210,7 @@ ylim([-2.1 2.6])
 xlabel(ax_joint_states, 'time (s)');
 ylabel(ax_joint_states, 'joint states (rad)');
 legend(ax_joint_states,'Interpreter', 'none', 'Color', 'none'); % Don't interpret underscores as cues for subscripts, and don't fill the legend box
-% title(ax_joint_states, ['Actual Joint States vs. Time - ',title_postfix]);
+title(ax_joint_states, ['Actual Joint States vs. Time - ',title_postfix]);
 
 % Set fontsizes for various plot parameters
 ax_joint_states.XAxis.FontSize = tick_fontsize; 
@@ -226,10 +226,10 @@ ax_joint_states.Title.FontSize = title_fontsize;
 ax_joint_states.GridLineWidth = grid_lw;
 
 % Set legend position
-% legend_position = ax_joint_states.Legend.Position;
-% shift_amount_x = 0.37; 
-% shift_amount_y = 0.1825; 
-% ax_joint_states.Legend.Position = [legend_position(1) + shift_amount_x, legend_position(2)+ shift_amount_y, legend_position(3), legend_position(4)];
+legend_position = ax_joint_states.Legend.Position;
+shift_amount_x =  0.285; 
+shift_amount_y = 0.165; 
+ax_joint_states.Legend.Position = [legend_position(1) + shift_amount_x, legend_position(2)+ shift_amount_y, legend_position(3), legend_position(4)];
 
 % Plot Error between predicted and actual EE cartesian trajectory
 fig3 = figure(3); 
@@ -343,11 +343,11 @@ yticks(150:50:300)
 
 xlabel(ax_ee_traj_final, 'x(mm)');
 ylabel(ax_ee_traj_final, 'z(mm)');
-% title(ax_ee_traj_final, ['EE Trajectory and Error - ',title_postfix]);
+title(ax_ee_traj_final, ['EE Position Trajectory - ',title_postfix]);
 hLegend = legend(ax_ee_traj_final, 'Interpreter', 'none', 'Color', 'none');
 hLegend.Box = 'on'; % Turn on the legend box (if not already on)
 hLegend.Color = 'white'; % Set the background color of the legend box
-ax_ee_traj_final.Legend.Location = "southwest";
+ax_ee_traj_final.Legend.Location = "east";
 
 
 % Set fontsizes for various plot parameters
@@ -375,7 +375,7 @@ ax_ee_traj_final.Legend.FontSize = legend_fontsize;
 
 
 fig5 = figure(5);
-title_fontsize = 35;
+title_fontsize = 45;
 label_fontsize = 45;
 tick_fontsize = 40;
 grid_lw = 1.5;
@@ -391,7 +391,7 @@ plot(ax_ee_traj_error_final, ...
      'LineWidth', 8, 'MarkerSize', 12, 'DisplayName', 'trajectory error');
 xlabel(ax_ee_traj_error_final, 'predicted trajectory point index');
 ylabel(ax_ee_traj_error_final, 'ee trajectory error (mm)');
-% title(ax_ee_traj_error3, ['EE Trajectory Error - ',title_postfix]);
+title(ax_ee_traj_error_final, ['EE Position Trajectory Error - ',title_postfix]);
 
 grid on
 ylimits = ylim;
@@ -473,10 +473,10 @@ ylim([-0.7 1.7])
 
 xlabel(ax_ee_or, 'time (t), s');
 ylabel(ax_ee_or, 'ee orientation, rad');
-% title(ax_ee_or, ['EE Orientation - ',title_postfix]);
-text(ax_ee_or, 0.2, 0.1, sprintf('p_p = %.3f*t + %.3f : predicted', pred_polyfit_euler_y), ...
+title(ax_ee_or, ['EE Orientation Trajectory- ',title_postfix]);
+text(ax_ee_or, 0.2, 0.1, sprintf('p_p = %.3f*t + %.3f', pred_polyfit_euler_y), ...
     'Rotation', -35, 'FontWeight', 'bold', 'FontSize',25, 'Color', 'g');
-text(ax_ee_or, 0.06, -0.125, sprintf('p_a = %.3f*t + %.3f : actual', act_polyfit_euler_y), ...
+text(ax_ee_or, 0.06, -0.125, sprintf('p_a = %.3f*t + %.3f', act_polyfit_euler_y), ...
     'Rotation', -35, 'FontWeight', 'bold', 'FontSize',25, 'Color', '#2ca02c');
 legend([pred_or_plot_euler_x, pred_or_plot_euler_y_trend, pred_or_plot_euler_z,  act_or_plot_euler_x, act_or_plot_euler_y_trend, act_or_plot_euler_z], 'Color', 'none');
 
