@@ -202,13 +202,24 @@ inline const Eigen::MatrixXd &get_vir_screw_axes(VirtualScrewOrder order)
  */
 struct RobotConfig
 {
-    Eigen::MatrixXd Slist;                // Space-form screw axes
-    Eigen::Matrix4d M;                    // EE homogenous transformation matrix
-    std::string ref_frame_name;           // Name of the reference frame
-    std::vector<std::string> joint_names; // Name of the joints
-    std::string gripper_joint_name;       // Name of the gripper joint
-    std::string tool_name;                // Name of the frame that mimicks where the robot
-                                          // would grasp external objects
+    struct JointNames
+    {
+        std::vector<std::string> robot; // Name of the joints
+        std::string gripper;            // Name of the gripper joint
+    };
+
+    struct FrameNames
+    {
+        std::string ref;  // Name of the reference frame
+        std::string ee;   // Name of the EE frame
+        std::string tool; // Name of the frame that mimicks where the robot
+                          // would grasp external objects
+    };
+
+    Eigen::MatrixXd Slist;  // Space-form screw axes
+    Eigen::Matrix4d M;      // EE homogenous transformation matrix
+    JointNames joint_names; // Joint names
+    FrameNames frame_names; // Frame names
 };
 
 /**

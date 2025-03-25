@@ -351,15 +351,20 @@ RobotConfig robot_builder(const std::string &config_file_path)
         jointsData.push_back(joint);
     }
 
-    // Access gripper joint info
-    const YAML::Node &gripperJointNode = config["gripper_joint"];
-    const std::string &gripper_joint_name =
-        gripperJointNode[0]["name"]
-            .as<std::string>(); // access with [0] since only one joint. In the future, we may wanna add more joints
+    // Access EE info
+    const YAML::Node &ee_node = config["end_effector"];
+    const std::string gripper_joint_name = ee_node[0]["gripper_joint_name"].as<std::string>();
+    const std::string ee_frame_name = ee_node[0]["frame_name"].as<std::string>();
 
-    // Access the tool info
-    const YAML::Node &toolNode = config["tool"];
-    const std::string &tool_name = toolNode[0]["name"].as<std::string>(); // access with [0] since only one tool
+    Eigen::Isometry3d htm_ref_to_ee = Eigen::Isometry3d::Identity();
+    htm_ref_to_ee.translation() = ee_node[0]["q"].as<Eigen::Vector3d>();
+
+    // Access tool info
+    const YAML::Node &tool_node = config["tool"];
+    const std::string tool_frame_name = tool_node[0]["name"].as<std::string>();
+
+    Eigen::Isometry3d htm_ee_to_tool = Eigen::Isometry3d::Identity();
+    htm_ee_to_tool.translation() = tool_node[0]["offset_from_ee_frame"].as<Eigen::Vector3d>();
 
     // Compute screw axes
     const size_t screwSize = 6;
@@ -372,27 +377,23 @@ RobotConfig robot_builder(const std::string &config_file_path)
         Slist.col(i) << affordance_util::get_screw(joint.screw_info.axis, joint.screw_info.location);
         /* Start setting the output of the function */
         // Joint names
-        robotConfig.joint_names.push_back(joint.name);
+        robotConfig.joint_names.robot.push_back(joint.name);
     }
 
     /* Fill out the remaining members of the output and return it*/
     // Screw list
     robotConfig.Slist = Slist;
 
-    // EE homogenous transformation matrix
-    const Eigen::Vector3d toolLocation = toolNode[0]["q"].as<Eigen::Vector3d>();
-    Eigen::Matrix4d M = Eigen::Matrix4d::Identity();
-    M.block<3, 1>(0, 3) = toolLocation;
-    robotConfig.M = M;
-
     // Reference frame name
-    robotConfig.ref_frame_name = ref_frame_name;
+    robotConfig.frame_names.ref = ref_frame_name;
 
-    // Tool name
-    robotConfig.gripper_joint_name = gripper_joint_name;
+    // EE info
+    robotConfig.frame_names.ee = ee_frame_name;
+    robotConfig.joint_names.gripper = gripper_joint_name;
 
-    // Tool name
-    robotConfig.tool_name = tool_name;
+    // Tool info
+    robotConfig.frame_names.tool = tool_frame_name;
+    robotConfig.M = (htm_ref_to_ee * htm_ee_to_tool).matrix();
 
     return robotConfig;
 }
@@ -488,7 +489,7 @@ RobotConfig robot_builder(const std::string &urdf_file_path, const std::string &
     }
 
     // Access the tool info
-    const std::string &tool_name = ee_frame_name;
+    const std::string &tool_frame_name = ee_frame_name;
 
     // Compute screw axes
     const size_t screw_size = 6;
@@ -499,7 +500,7 @@ RobotConfig robot_builder(const std::string &urdf_file_path, const std::string &
     {
         const JointData &joint = joints_data[i];
         s_list.col(i) << affordance_util::get_screw(joint.screw_info);
-        robot_config.joint_names.push_back(joint.name);
+        robot_config.joint_names.robot.push_back(joint.name);
     }
 
     /* Fill out the remaining members of the output and return it*/
@@ -525,10 +526,10 @@ RobotConfig robot_builder(const std::string &urdf_file_path, const std::string &
     robot_config.M = M;
 
     // Reference frame name
-    robot_config.ref_frame_name = ref_frame_name;
+    robot_config.frame_names.ref = ref_frame_name;
 
     // Tool name
-    robot_config.tool_name = tool_name;
+    robot_config.frame_names.tool = tool_frame_name;
 
     return robot_config;
 }
