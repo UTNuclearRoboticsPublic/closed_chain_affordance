@@ -363,8 +363,9 @@ RobotConfig robot_builder(const std::string &config_file_path)
     const YAML::Node &tool_node = config["tool"];
     const std::string tool_frame_name = tool_node[0]["name"].as<std::string>();
 
+    const Eigen::Vector3d tool_offset = tool_node[0]["offset_from_ee_frame"].as<Eigen::Vector3d>();
     Eigen::Isometry3d htm_ee_to_tool = Eigen::Isometry3d::Identity();
-    htm_ee_to_tool.translation() = tool_node[0]["offset_from_ee_frame"].as<Eigen::Vector3d>();
+    htm_ee_to_tool.translation() = tool_offset;
 
     // Compute screw axes
     const size_t screwSize = 6;
@@ -394,6 +395,7 @@ RobotConfig robot_builder(const std::string &config_file_path)
     // Tool info
     robotConfig.frame_names.tool = tool_frame_name;
     robotConfig.M = (htm_ref_to_ee * htm_ee_to_tool).matrix();
+    robotConfig.ee_to_tool_offset = tool_offset;
 
     return robotConfig;
 }

@@ -216,10 +216,11 @@ struct RobotConfig
                           // would grasp external objects
     };
 
-    Eigen::MatrixXd Slist;  // Space-form screw axes
-    Eigen::Matrix4d M;      // EE homogenous transformation matrix
-    JointNames joint_names; // Joint names
-    FrameNames frame_names; // Frame names
+    Eigen::MatrixXd Slist;             // Space-form screw axes
+    Eigen::Matrix4d M;                 // EE homogenous transformation matrix
+    JointNames joint_names;            // Joint names
+    FrameNames frame_names;            // Frame names
+    Eigen::Vector3d ee_to_tool_offset; // Location of the tool from the EE
 };
 
 /**
@@ -310,38 +311,43 @@ Eigen::Matrix4d compute_transform_from_reference_to_joint(const urdf::ModelInter
  returns the robot space-form screw list, EE htm, space-frame name,
  joint_names, and tool name.
  * Below is an example of the information and formatting required in the YAML
- * file describing the robot. w is axis and q is location.
- * ref_frame:
- *   - name: arm0_base_link
+ * file describing the robot. w is axis and q is location. Robot is Spot arm.
+ *ref_frame:
+ *  - name: arm0_base_link
  *
- * joints:
- *   - name: arm0_shoulder_yaw
- *     w: [0, 0, 1]
- *     q: [0, 0, 0]
+ *robot_joints:
+ *  - name: arm0_shoulder_yaw
+ *    w: [0, 0, 1]
+ *    q: [0, 0, 0]
  *
- *   - name: arm0_shoulder_pitch
- *     w: [0, 1, 0]
- *     q: [0, 0, 0]
+ *  - name: arm0_shoulder_pitch
+ *    w: [0, 1, 0]
+ *    q: [0, 0, 0]
  *
- *   - name: arm0_elbow_pitch
- *     w: [0, 1, 0]
- *     q: [0.3385, -0.0001, -0.0003]
+ *  - name: arm0_elbow_pitch
+ *    w: [0, 1, 0]
+ *    q: [0.3385, -0.0001, -0.0003]
  *
- *   - name: arm0_elbow_roll
- *     w: [1, 0, 0]
- *     q: [0.7428, -0.0003, 0.0693]
+ *  - name: arm0_elbow_roll
+ *    w: [1, 0, 0]
+ *    q: [0.7428, -0.0003, 0.0693]
  *
- *   - name: arm0_wrist_pitch
- *     w: [0, 1, 0]
- *     q: [0.7428, -0.0003, 0.0693]
+ *  - name: arm0_wrist_pitch
+ *    w: [0, 1, 0]
+ *    q: [0.7428, -0.0003, 0.0693]
  *
- *   - name: arm0_wrist_roll
- *     w: [1, 0, 0]
- *     q: [0.7428, -0.0003, 0.0693]
+ *  - name: arm0_wrist_roll
+ *    w: [1, 0, 0]
+ *    q: [0.7428, -0.0003, 0.0693]
  *
- * tool:
- *   - name: arm0_shoulder_yaw
- *     q: [0.9383, 0.0005, 0.0664]
+ *end_effector:
+ *  - gripper_joint_name: arm0_fingers
+ *    frame_name: arm0_fingers
+ *    q: [0.86025, -0.0003, 0.08412] # EE location
+ *
+ *tool:
+ *  - name: arm0_tool0 # This is usually at the center of the palm
+ *    offset_from_ee_frame: [0.07805, 0.0008, -0.01772] # Tool location from EE
  * @param config_file_path File path to the config file containing robot
  information
  *
