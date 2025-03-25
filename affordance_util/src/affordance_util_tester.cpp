@@ -119,6 +119,8 @@ int main()
         std::cout << "Output M: \n" << spot_yaml_m_out << std::endl;
         std::cout << "Output ref_frame_name: \n" << spot_yaml_robot_config.frame_names.ref << std::endl;
         std::cout << "Output tool_name: \n" << spot_yaml_robot_config.frame_names.tool << std::endl;
+        std::cout << "Output tool offset from EE: \n"
+                  << spot_yaml_robot_config.ee_to_tool_offset.transpose() << std::endl;
         std::cout << "Output joint_names: ";
         for (const std::string &joint_name : spot_yaml_robot_config.joint_names.robot)
         {
@@ -225,6 +227,8 @@ int main()
         std::cout << "Output M: \n" << kinova_yaml_m_out << std::endl;
         std::cout << "Output ref_frame_name: \n" << kinova_yaml_robot_config.frame_names.ref << std::endl;
         std::cout << "Output tool_name: \n" << kinova_yaml_robot_config.frame_names.tool << std::endl;
+        std::cout << "Output tool offset from EE: \n"
+                  << kinova_yaml_robot_config.ee_to_tool_offset.transpose() << std::endl;
         std::cout << "Output joint_names: ";
         for (const std::string &joint_name : kinova_yaml_robot_config.joint_names.robot)
         {
