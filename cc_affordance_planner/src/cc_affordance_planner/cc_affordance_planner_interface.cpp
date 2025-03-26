@@ -2,9 +2,82 @@
 
 namespace cc_affordance_planner
 {
-CcAffordancePlannerInterface::CcAffordancePlannerInterface(const PlannerConfig &planner_config)
-    : planner_config_(planner_config)
+
+TaskDescription::TaskDescription(const PlanningType &planningType)
 {
+
+    if (planningType == PlanningType::EE_ORIENTATION_ONLY)
+    {
+        // Model Setting -- EE_ORIENTATION_ONLY is simply a special case of the AFFORDANCE motion
+        motion_type = cc_affordance_planner::MotionType::AFFORDANCE;
+        vir_screw_order = affordance_util::VirtualScrewOrder::NONE;
+
+        // Affordance Info
+        affordance_info.type = affordance_util::ScrewType::ROTATION;
+        affordance_info.location_method = affordance_util::ScrewLocationMethod::FROM_FK;
+    }
+    else if (planningType == PlanningType::CARTESIAN_GOAL)
+    {
+        // Model Setting -- CARTESIAN_GOAL is simply a special case of the APPROACH motion
+        motion_type = cc_affordance_planner::MotionType::APPROACH;
+        vir_screw_order = affordance_util::VirtualScrewOrder::NONE;
+
+        // Affordance Info
+        affordance_info.type = affordance_util::ScrewType::ROTATION;
+        affordance_info.location_method = affordance_util::ScrewLocationMethod::FROM_FK;
+
+        // The cartesian goal is simply the affordance reference pose i.e. a pose at which the affordance is zero for
+        // the APPROACH motion. Doesn't matter what affordance we chose since at its zero, the affordance has not caused
+        // any transformation yet.
+        affordance_info.axis = Eigen::Vector3d(0.707107, -0.408248, 0.577350); // A random axis
+        goal.affordance = 1e-7;                                                // an epsilon
+    }
+    else if (planningType == PlanningType::APPROACH)
+    {
+        // Model Setting -- Set to common use-case default values
+        motion_type = cc_affordance_planner::MotionType::APPROACH;
+        vir_screw_order = affordance_util::VirtualScrewOrder::NONE; // Constrain the EE orientation to what's dictated
+                                                                    // by the approach path
+    }
+}
+
+CcAffordancePlannerInterface::CcAffordancePlannerInterface()
+    : ccAffordancePlannerInverse_(), ccAffordancePlannerTranspose_()
+{
+}
+
+CcAffordancePlannerInterface::CcAffordancePlannerInterface(const PlannerConfig &planner_config)
+    : planner_config_(planner_config),
+      ccAffordancePlannerInverse_(planner_config),
+      ccAffordancePlannerTranspose_(planner_config)
+
+{
+    // Validate planner config
+
+    if ((planner_config.accuracy <= 0) || (planner_config.accuracy > 1.0))
+    {
+        throw std::invalid_argument("Planner config: 'accuracy' must be in the range (0,1]");
+    }
+
+    if (planner_config.closure_err_threshold_ang < 1e-10)
+    {
+
+        throw std::invalid_argument(
+            "Planner config: 'closure_err_threshold_ang' cannot be unrealistically small, i.e. less than 1e-10.");
+    }
+
+    if (planner_config.closure_err_threshold_lin < 1e-10)
+    {
+
+        throw std::invalid_argument(
+            "Planner config: 'closure_err_threshold_lin' cannot be unrealistically small, i.e. less than 1e-10.");
+    }
+
+    if ((planner_config.ik_max_itr < 2) || (planner_config.accuracy > 10000))
+    {
+
+        throw std::invalid_argument("Planner config: 'ik_max_itr' must be in the range [2, 10000]");
+    }
 }
 
 PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
@@ -19,28 +92,35 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
 
     // Extract task description
     const affordance_util::ScrewInfo aff = task_description.affordance_info;
-    const Eigen::VectorXd secondary_joint_goals = task_description.secondary_joint_goals;
-    const size_t nof_secondary_joints = task_description.nof_secondary_joints;
     const affordance_util::VirtualScrewOrder vir_screw_order = task_description.vir_screw_order;
+
+    // Compute the nof secondary joints
+    size_t nof_secondary_joints = 1; // secondary joints contain at least the affordance
+    nof_secondary_joints += task_description.goal.ee_orientation.size(); // add relevant virtual ee joints
+    // TODO: Remove the need to pass nof_secondary_joints to the planner and get it directly from the size of the
+    // theta_sdf vector.
 
     if (task_description.motion_type == MotionType::APPROACH)
     {
         // Extract additional task description
-        const Eigen::Matrix4d grasp_pose = task_description.grasp_pose;
+        const Eigen::Matrix4d grasp_pose = task_description.goal.grasp_pose;
 
         // Compose the closed-chain model screws and determine the limit for the approach screw
         const affordance_util::CcModel cc_model =
             affordance_util::compose_cc_model_slist(robot_description, aff, grasp_pose, vir_screw_order);
 
-        // Set the secondary joint goals
-        Eigen::VectorXd approach_secondary_joint_goals = secondary_joint_goals;
-        approach_secondary_joint_goals.tail(2)(0) = cc_model.approach_limit; // approach screw is second to the last
+        // Extract and construct the secondary joint goals
+        nof_secondary_joints += 1; // add approach joint
+        const Eigen::VectorXd secondary_joint_goals =
+            (Eigen::VectorXd(nof_secondary_joints) << task_description.goal.ee_orientation, cc_model.approach_limit,
+             task_description.goal.affordance)
+                .finished();
 
         // Solve the joint trajectory for the given task. This function calls the Cc Affordance Planner inside.
         plannerResult = this->generate_specified_motion_joint_trajectory_(
             &CcAffordancePlanner::generate_approach_motion_joint_trajectory,
-            &CcAffordancePlanner::generate_approach_motion_joint_trajectory, cc_model.slist,
-            approach_secondary_joint_goals, nof_secondary_joints);
+            &CcAffordancePlanner::generate_approach_motion_joint_trajectory, cc_model.slist, secondary_joint_goals,
+            nof_secondary_joints, task_description.trajectory_density);
     }
 
     else // task_description.motion_type == MotionType::AFFORDANCE
@@ -49,15 +129,37 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
         const Eigen::MatrixXd cc_slist =
             affordance_util::compose_cc_model_slist(robot_description, aff, vir_screw_order);
 
+        // Extract and construct the secondary joint goals
+        const Eigen::VectorXd secondary_joint_goals =
+            (Eigen::VectorXd(nof_secondary_joints) << task_description.goal.ee_orientation,
+             task_description.goal.affordance)
+                .finished();
+
         // Solve the joint trajectory for the given task. This function calls the Cc Affordance Planner inside.
         plannerResult = this->generate_specified_motion_joint_trajectory_(
             &CcAffordancePlanner::generate_affordance_motion_joint_trajectory,
             &CcAffordancePlanner::generate_affordance_motion_joint_trajectory, cc_slist, secondary_joint_goals,
-            nof_secondary_joints);
+            nof_secondary_joints, task_description.trajectory_density);
+    }
+
+    std::vector<double> gripper_joint_trajectory;
+
+    // Compute gripper trajectory if gripper goal is provided
+    if (!std::isnan(task_description.goal.gripper))
+    {
+        const int trajectory_size = static_cast<int>(plannerResult.joint_trajectory.size()) + 1;
+        gripper_joint_trajectory = affordance_util::compute_gripper_joint_trajectory(
+            task_description.gripper_goal_type, robot_description.gripper_state, task_description.goal.gripper,
+            trajectory_size);
+
+        // Indicate result includes gripper trajectory
+        plannerResult.includes_gripper_trajectory = true;
     }
 
     // Convert the differential closed-chain joint trajectory to robot joint trajectory
-    this->convert_cc_traj_to_robot_traj_(plannerResult.joint_trajectory, robot_description.joint_states);
+    this->convert_cc_traj_to_robot_traj_(
+        plannerResult.joint_trajectory, robot_description.joint_states,
+        gripper_joint_trajectory); // Will insert gripper_joint_trajectory if task description included a gripper goal
 
     return plannerResult;
 }
@@ -65,7 +167,7 @@ PlannerResult CcAffordancePlannerInterface::generate_joint_trajectory(
 PlannerResult CcAffordancePlannerInterface::generate_specified_motion_joint_trajectory_(
     const Gsmt &generate_specified_motion_joint_trajectory,
     const Gsmt_st &generate_specified_motion_joint_trajectory_st, const Eigen::MatrixXd &slist,
-    const Eigen::VectorXd &secondary_joint_goals, const size_t &nof_secondary_joints)
+    const Eigen::VectorXd &secondary_joint_goals, const size_t &nof_secondary_joints, const int &trajectory_density)
 
 {
     PlannerResult transposeResult; // Result from the transpose planner
@@ -76,16 +178,14 @@ PlannerResult CcAffordancePlannerInterface::generate_specified_motion_joint_traj
     std::atomic<bool> inverse_result_obtained{false};
 
     // Construct inverse and transpose planner objects
-    CcAffordancePlannerInverse ccAffordancePlannerInverse(planner_config_);
-    CcAffordancePlannerTranspose ccAffordancePlannerTranspose(planner_config_);
-    CcAffordancePlanner *ccAffordancePlannerInversePtr(&ccAffordancePlannerInverse);
-    CcAffordancePlanner *ccAffordancePlannerTransposePtr(&ccAffordancePlannerTranspose);
+    CcAffordancePlanner *ccAffordancePlannerInversePtr(&ccAffordancePlannerInverse_);
+    CcAffordancePlanner *ccAffordancePlannerTransposePtr(&ccAffordancePlannerTranspose_);
 
     // If a specific update method is requested, run the planner using that
     if (planner_config_.update_method == UpdateMethod::INVERSE)
     {
         inverseResult = (ccAffordancePlannerInversePtr->*generate_specified_motion_joint_trajectory)(
-            slist, secondary_joint_goals, nof_secondary_joints);
+            slist, secondary_joint_goals, nof_secondary_joints, trajectory_density);
         inverseResult.update_method = UpdateMethod::INVERSE;
         inverseResult.update_trail += "inverse";
         return inverseResult;
@@ -94,7 +194,7 @@ PlannerResult CcAffordancePlannerInterface::generate_specified_motion_joint_traj
     if (planner_config_.update_method == UpdateMethod::TRANSPOSE)
     {
         transposeResult = (ccAffordancePlannerTransposePtr->*generate_specified_motion_joint_trajectory)(
-            slist, secondary_joint_goals, nof_secondary_joints);
+            slist, secondary_joint_goals, nof_secondary_joints, trajectory_density);
         transposeResult.update_method = UpdateMethod::TRANSPOSE;
         transposeResult.update_trail += "transpose";
         return transposeResult;
@@ -104,7 +204,7 @@ PlannerResult CcAffordancePlannerInterface::generate_specified_motion_joint_traj
     // threads
     std::jthread inverse_thread([&](std::stop_token st) {
         inverseResult = (ccAffordancePlannerInversePtr->*generate_specified_motion_joint_trajectory_st)(
-            slist, secondary_joint_goals, nof_secondary_joints, st);
+            slist, secondary_joint_goals, nof_secondary_joints, trajectory_density, st);
         {
             std::unique_lock<std::mutex> lock(mtx);
             inverseResult.update_method = UpdateMethod::INVERSE;
@@ -116,7 +216,7 @@ PlannerResult CcAffordancePlannerInterface::generate_specified_motion_joint_traj
 
     std::jthread transpose_thread([&](std::stop_token st) {
         transposeResult = (ccAffordancePlannerTransposePtr->*generate_specified_motion_joint_trajectory_st)(
-            slist, secondary_joint_goals, nof_secondary_joints, st);
+            slist, secondary_joint_goals, nof_secondary_joints, trajectory_density, st);
         {
             std::unique_lock<std::mutex> lock(mtx);
             inverseResult.update_method = UpdateMethod::TRANSPOSE;
@@ -187,24 +287,60 @@ PlannerResult CcAffordancePlannerInterface::generate_specified_motion_joint_traj
 }
 
 void CcAffordancePlannerInterface::convert_cc_traj_to_robot_traj_(std::vector<Eigen::VectorXd> &cc_trajectory,
-                                                                  const Eigen::VectorXd &start_joint_states)
+                                                                  const Eigen::VectorXd &start_joint_states,
+                                                                  const std::vector<double> &gripper_joint_trajectory)
 {
-    // Return if the trajectory, no need to attempt conversion
+    // Return if the trajectory is empty, no need to attempt conversion
     if (cc_trajectory.empty())
     {
         return;
     }
-    // Compute the closed-chain trajectory absolute start state
-    Eigen::VectorXd cc_start_joint_states = Eigen::VectorXd::Zero(cc_trajectory[0].size());
-    cc_start_joint_states.head(start_joint_states.size()) = start_joint_states;
 
-    // convert the differential joint states to absolute states
-    for (Eigen::VectorXd &point : cc_trajectory)
+    const size_t nof_robot_joints = start_joint_states.size();
+    const size_t total_joints = cc_trajectory[0].size() + (gripper_joint_trajectory.empty() ? 0 : 1);
+
+    Eigen::VectorXd cc_start_joint_states = Eigen::VectorXd::Zero(total_joints);
+    cc_start_joint_states.head(nof_robot_joints) = start_joint_states;
+
+    // Lambda expression to handle both cases of transform with or without gripper trajectory
+    auto transform_point = [&](const Eigen::VectorXd &point,
+                               std::optional<double> gripper_value = std::nullopt) -> Eigen::VectorXd {
+        if (gripper_value)
+        {
+            Eigen::VectorXd new_point(total_joints);
+            new_point.head(nof_robot_joints) = point.head(nof_robot_joints);
+            new_point[nof_robot_joints] = 0.0;
+            new_point.tail(point.size() - nof_robot_joints) = point.tail(point.size() - nof_robot_joints);
+            cc_start_joint_states[nof_robot_joints] = *gripper_value;
+            return new_point + cc_start_joint_states;
+        }
+        else
+        {
+            return point + cc_start_joint_states;
+        }
+    };
+
+    // If gripper trajectory is provided, we insert it in the final trajectory
+    if (!gripper_joint_trajectory.empty())
     {
-        point += cc_start_joint_states;
+        std::transform(cc_trajectory.begin(), cc_trajectory.end(), gripper_joint_trajectory.begin() + 1,
+                       cc_trajectory.begin(), transform_point);
+
+        // We start with the second point in the gripper trajectory for std::transform cuz we'll insert the first
+        // element below
+
+        cc_start_joint_states[nof_robot_joints] = gripper_joint_trajectory[0];
     }
 
+    // Insert the start state at the beginning of the trajectory
     cc_trajectory.insert(cc_trajectory.begin(), cc_start_joint_states);
+
+    // If gripper trajectory is not provided, we transform the trajectory without gripper consideration
+    if (gripper_joint_trajectory.empty())
+    {
+        std::transform(cc_trajectory.begin() + 1, cc_trajectory.end(), cc_trajectory.begin() + 1,
+                       [&](Eigen::VectorXd &point) { return transform_point(point); });
+    }
 }
 
 void CcAffordancePlannerInterface::validate_input_(const affordance_util::RobotDescription &robot_description,
@@ -240,17 +376,31 @@ void CcAffordancePlannerInterface::validate_input_(const affordance_util::RobotD
             "Robot description: 'joint_states' size must match the number of columns in 'slist'.");
     }
 
+    if ((!std::isnan(task_description.goal.gripper)) && (std::isnan(robot_description.gripper_state)))
+    {
+        throw std::invalid_argument("Robot description: 'gripper_state' must be supplied and cannot be NaN when "
+                                    "goal.gripper is specified in task description.");
+    }
     /* Validate task description */
+
     if (task_description.affordance_info.type == affordance_util::ScrewType::UNSET)
     {
         throw std::invalid_argument("Task description: 'affordance_info.type' must be specified.");
     }
 
-    if (task_description.affordance_info.axis.hasNaN() ||
-        task_description.affordance_info.location.hasNaN() && task_description.affordance_info.screw.hasNaN())
+    if (task_description.affordance_info.location_method != affordance_util::ScrewLocationMethod::FROM_FK &&
+        (task_description.affordance_info.axis.hasNaN() ||
+         task_description.affordance_info.location.hasNaN() && task_description.affordance_info.screw.hasNaN()))
     {
         throw std::invalid_argument("Task description: Either 'affordance_info.axis' and 'affordance_info.location', "
                                     "or 'affordance_info.screw' must be specified.");
+    }
+
+    if (task_description.affordance_info.location_method == affordance_util::ScrewLocationMethod::FROM_FK &&
+        (task_description.affordance_info.axis.hasNaN() && task_description.affordance_info.screw.hasNaN()))
+    {
+        throw std::invalid_argument(
+            "Task description: Either 'affordance_info.axis' or 'affordance_info.screw' must be specified.");
     }
 
     if (task_description.affordance_info.type == affordance_util::ScrewType::SCREW &&
@@ -266,35 +416,26 @@ void CcAffordancePlannerInterface::validate_input_(const affordance_util::RobotD
         throw std::invalid_argument("Task description: 'affordance_info.axis' must be a unit vector");
     }
 
-    if (task_description.nof_secondary_joints < 1)
+    if (std::isnan(task_description.goal.affordance))
     {
-        throw std::invalid_argument("Task description: 'nof_secondary_joints' cannot be less than 1.");
+
+        throw std::invalid_argument("Task description: 'goal.affordance' must be specified and cannot be NaN.");
     }
 
-    if (task_description.secondary_joint_goals.size() == 0)
-    {
-        throw std::invalid_argument("Task description: 'secondary_joint_goals' cannot be empty.");
-    }
+    /* if ((task_description.motion_type == MotionType::APPROACH) && */
+    /*     ((!task_description.goal.grasp_pose.block<3, 3>(0, 0).isUnitary(tolerance)) || */
+    /*      (std::abs(task_description.goal.grasp_pose(3, 3) - 1.0) > tolerance) || */
+    /*      (!task_description.goal.grasp_pose.row(3).head(3).isZero(tolerance)))) */
+    /* { */
+    /*     throw std::invalid_argument("Task description: 'grasp_pose' is not a valid transformation matrix. Valid grasp
+     * " */
+    /*                                 "pose is needed for approach motion."); */
+    /* } */
 
-    if (task_description.nof_secondary_joints != task_description.secondary_joint_goals.size())
+    if (task_description.trajectory_density < 2)
     {
-        throw std::invalid_argument(
-            "Task description: 'nof_secondary_joints' must match the size of 'secondary_joint_goals'.");
-    }
 
-    if ((task_description.motion_type == MotionType::APPROACH) &&
-        ((!task_description.grasp_pose.block<3, 3>(0, 0).isUnitary(tolerance)) ||
-         (std::abs(task_description.grasp_pose(3, 3) - 1.0) > tolerance) ||
-         (!task_description.grasp_pose.row(3).head(3).isZero(tolerance))))
-    {
-        throw std::invalid_argument("Task description: 'grasp_pose' is not a valid transformation matrix.");
-    }
-
-    if ((task_description.motion_type == MotionType::APPROACH) &&
-        ((task_description.nof_secondary_joints < 2) || (task_description.nof_secondary_joints > 5)))
-    {
-        throw std::invalid_argument(
-            "Task description: 'nof_secondary_joints' must be in the range (2,5) for approach motion.");
+        throw std::invalid_argument("Task description: 'trajectory_density' must be >= 2.");
     }
 }
 

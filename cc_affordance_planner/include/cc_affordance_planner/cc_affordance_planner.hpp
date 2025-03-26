@@ -45,18 +45,9 @@ namespace cc_affordance_planner
 {
 
 /**
- * @brief Enum describing the closed-chain affordance motion type
- */
-enum MotionType
-{
-    APPROACH,
-    AFFORDANCE
-};
-
-/**
  * @brief Enum qualitatively describing a trajectory length as FULL, PARTIAL, or UNSET
  */
-enum TrajectoryDescription
+enum class TrajectoryDescription
 {
     FULL,
     PARTIAL,
@@ -66,7 +57,7 @@ enum TrajectoryDescription
 /**
  * @brief Enum representing update methods for the closed-chain affordance planner
  */
-enum UpdateMethod
+enum class UpdateMethod
 {
     INVERSE,
     TRANSPOSE,
@@ -74,25 +65,12 @@ enum UpdateMethod
 };
 
 /**
- * @brief Struct describing a task for the Closed-Chain Affordance planner in terms of affordance info, number of
- * secondary joints, secondary goal, virtual screw order, grasp pose, and post-grasp affordance goal.
- */
-struct TaskDescription
-{
-    MotionType motion_type = MotionType::AFFORDANCE;
-    affordance_util::ScrewInfo affordance_info;
-    size_t nof_secondary_joints = 0;
-    Eigen::VectorXd secondary_joint_goals;
-    affordance_util::VirtualScrewOrder vir_screw_order = affordance_util::VirtualScrewOrder::XYZ;
-    Eigen::Matrix4d grasp_pose;
-};
-
-/**
  * @brief Designed to contain the result of the Closed-chain Affordance planner with fields:
- * success indicating success; traj_full_or_partial indicating full or partial trajectory with values, "Full",
- * "Partial", or "Unset"; joint_trajectory representing the joint trajectory; planning_time representing time taken for
- * planning in microseconds; and update_method indicating the type of update scheme used, for instance "inverse",
- * "inverse with dls", and "transpose".
+ * success indicating success; trajectory_description indicating full or partial trajectory with values, "FULL",
+ * "PARTIAL", or "UNSET"; joint_trajectory representing the joint trajectory; planning_time representing time taken for
+ * planning in microseconds; update_method indicating the type of update scheme used, for instance "inverse",
+ * "inverse with dls", and "transpose"; and includes_gripper_trajectory indicating whether the result includes gripper
+ * trajectory
  */
 struct PlannerResult
 {
@@ -102,18 +80,16 @@ struct PlannerResult
     std::chrono::microseconds planning_time;
     UpdateMethod update_method;
     std::string update_trail = "";
+    bool includes_gripper_trajectory = false;
 };
 
 /**
  * @brief Designed to contain the configuration settings for the Closed-chain Affordance planner with fields:
- * trajectory_density indicating the density of the generated trajectory as the number of points in the trajectory;
  * accuracy indicating the accuracy of the planner as percentage; closure_err_threshold indicating the threshold for the
  * closed-chain closure error; and ik_max_itr indicating the maximum interations for the closed-chain IK solver.
  */
 struct PlannerConfig
 {
-
-    int trajectory_density = 10;
     double accuracy = 10.0 / 100.0;
     double closure_err_threshold_ang = 1e-4;
     double closure_err_threshold_lin = 1e-5;
@@ -128,7 +104,7 @@ class CcAffordancePlanner
 {
   public:
     // Constructor
-    explicit CcAffordancePlanner(const PlannerConfig &plannerConfig);
+    explicit CcAffordancePlanner(const PlannerConfig &plannerConfig = PlannerConfig());
 
     // Methods
     /**
@@ -143,6 +119,7 @@ class CcAffordancePlanner
      * The value 1 implies only affordance control, 2 represents affordance control
      * along with fixing the gripper x-axis, 3 involves fixing the gripper x and y axes,
      * and 4 involves fixing the gripper x, y, and z axes.
+     * @param stepper_max_itr_m int denoting the density for the trajectory in terms of number of points
      *
      * @return Struct containing the result of the planning with fields: success indicating success;
      * traj_full_or_partial indicating full or partial trajectory with values, "Full", "Partial", or "Unset";
@@ -151,7 +128,8 @@ class CcAffordancePlanner
      */
     PlannerResult generate_approach_motion_joint_trajectory(const Eigen::MatrixXd &slist,
                                                             const Eigen::VectorXd &theta_sdf,
-                                                            const size_t &task_offset_tau);
+                                                            const size_t &task_offset_tau,
+                                                            const int &stepper_max_itr_m);
 
     /**
      * @brief After setting the planner parameters described in the class documentation, call this function to generate
@@ -165,6 +143,7 @@ class CcAffordancePlanner
      * The value 1 implies only affordance control, 2 represents affordance control
      * along with fixing the gripper x-axis, 3 involves fixing the gripper x and y axes,
      * and 4 involves fixing the gripper x, y, and z axes.
+     * @param stepper_max_itr_m int denoting the density for the trajectory in terms of number of points
      * @param st std::stop_token for cooperative interruption when multi-threading
      *
      * @return Struct containing the result of the planning with fields: success indicating success;
@@ -174,7 +153,8 @@ class CcAffordancePlanner
      */
     PlannerResult generate_approach_motion_joint_trajectory(const Eigen::MatrixXd &slist,
                                                             const Eigen::VectorXd &theta_sdf,
-                                                            const size_t &task_offset_tau, std::stop_token st);
+                                                            const size_t &task_offset_tau, const int &stepper_max_itr_m,
+                                                            std::stop_token st);
     /**
      * @brief After setting the planner parameters described in the class documentation, call this function to generate
      * the differential joint trajectory to execute a given affordance.
@@ -187,6 +167,7 @@ class CcAffordancePlanner
      * The value 1 implies only affordance control, 2 represents affordance control
      * along with fixing the gripper x-axis, 3 involves fixing the gripper x and y axes,
      * and 4 involves fixing the gripper x, y, and z axes.
+     * @param stepper_max_itr_m int denoting the density for the trajectory in terms of number of points
      *
      * @return Struct containing the result of the planning with fields: success indicating success;
      * traj_full_or_partial indicating full or partial trajectory with values, "Full", "Partial", or "Unset";
@@ -195,7 +176,8 @@ class CcAffordancePlanner
      */
     PlannerResult generate_affordance_motion_joint_trajectory(const Eigen::MatrixXd &slist,
                                                               const Eigen::VectorXd &theta_sdf,
-                                                              const size_t &task_offset_tau);
+                                                              const size_t &task_offset_tau,
+                                                              const int &stepper_max_itr_m);
 
     /**
      * @brief After setting the planner parameters described in the class documentation, call this function to generate
@@ -218,7 +200,8 @@ class CcAffordancePlanner
      */
     PlannerResult generate_affordance_motion_joint_trajectory(const Eigen::MatrixXd &slist,
                                                               const Eigen::VectorXd &theta_sdf,
-                                                              const size_t &task_offset_tau, std::stop_token st);
+                                                              const size_t &task_offset_tau,
+                                                              const int &stepper_max_itr_m, std::stop_token st);
 
     /**
      * @brief Given a list of closed-chain Screws, initial primary and secondary joint guesses, and desired secondary
@@ -261,14 +244,13 @@ class CcAffordancePlanner
 
   private:
     //--Planner config parameters
-    int stepper_max_itr_m_; // trajectory density as no. of points in the trajectory
-    double accuracy_;       // accuracy of the affordance goal
-    double eps_rw_;         // closure error threshold for angular part
-    double eps_rv_;         // closure error threshold for linear part
-    int max_itr_l_;         // max interations for IK solver
+    double accuracy_; // accuracy of the secondary goals
+    double eps_rw_;   // closure error threshold for angular part
+    double eps_rv_;   // closure error threshold for linear part
+    int max_itr_l_;   // max interations for IK solver
     //--EOF Planner config parameters
-    constexpr static size_t twist_length_ = 6;   // length of a twist vector
-    constexpr static double start_guess_ = 1e-7; // trajectory start guess for all motions
+    constexpr static size_t twist_length_ = 6; // length of a twist vector
+    Eigen::VectorXd theta_s_tol_;              // IK tolerance for secondary joint goal vector
 
     /**
      * @brief Given a list of closed-chain screw axes, primary and secondary network matrices, and primary and secondary
@@ -281,7 +263,7 @@ class CcAffordancePlanner
      * @param theta_s Eigen::VectorXd containing secondary joint angles
      */
     void adjust_for_closure_error(const Eigen::MatrixXd &slist, const Eigen::MatrixXd &Np, const Eigen::MatrixXd &Ns,
-                                  Eigen::VectorXd &theta_p, Eigen::VectorXd &theta_s);
+                                  Eigen::VectorXd &theta_p, Eigen::VectorXd &theta_s, Eigen::VectorXd &rho);
 
     /**
      * @brief Given the primary joint angles, desired and current secondary joint angles, and constraint Jacobian,
@@ -302,6 +284,7 @@ class CcAffordancePlanner
 class CcAffordancePlannerTranspose : public CcAffordancePlanner
 {
   public:
+    explicit CcAffordancePlannerTranspose() : CcAffordancePlanner() {}
     explicit CcAffordancePlannerTranspose(const PlannerConfig &plannerConfig) : CcAffordancePlanner(plannerConfig) {}
 
   private:
@@ -324,6 +307,7 @@ class CcAffordancePlannerTranspose : public CcAffordancePlanner
 class CcAffordancePlannerInverse : public CcAffordancePlanner
 {
   public:
+    explicit CcAffordancePlannerInverse() : CcAffordancePlanner() {}
     explicit CcAffordancePlannerInverse(const PlannerConfig &plannerConfig) : CcAffordancePlanner(plannerConfig) {}
 
   private:

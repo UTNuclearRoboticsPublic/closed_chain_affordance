@@ -1,0 +1,43 @@
+# **Description of the kinova_gen3_7dof robot
+# Define the reference frame, joint axes, their locations, and the tool's position.
+# Add or remove joint fields as needed to accurately represent the robot
+ref_frame:
+  - name: base_link
+
+robot_joints:
+  - name: joint_1
+    w: [0, 0, -1]
+    q: [0, 0, 0.15643]
+
+  - name: joint_2
+    w: [0, 1, 0]
+    q: [0, -0.00537, 0.28481]
+
+  - name: joint_3
+    w: [0, 0, -1]
+    q: [0, -0.0118, 0.4952]
+
+  - name: joint_4
+    w: [0, 1, 0]
+    q: [0, -0.0182, 0.7056]
+
+  - name: joint_5
+    w: [0, 0, -1]
+    q: [0, -0.0246, 0.9140]
+
+  - name: joint_6
+    w: [0, 1, 0]
+    q: [0, -0.0246, 1.0199]
+
+  - name: joint_7
+    w: [0, 0, -1]
+    q: [0, -0.0246, 1.1258]
+
+end_effector:
+  - gripper_joint_name: robotiq_85_left_knuckle_joint
+    frame_name: end_effector_link
+    q: [0, -0.025, 1.187] # EE location
+
+tool:
+  - name: manual_grasp_link # This is usually at the center of the palm
+    offset_from_ee_frame: [0, 0, 0.112] # Tool location from EE
