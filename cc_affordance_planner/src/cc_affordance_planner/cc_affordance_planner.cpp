@@ -72,9 +72,15 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
     nof_pjoints_ = slist.cols() - task_offset_tau;
     nof_sjoints_ = task_offset_tau;
 
+    /// Compute the elementwise error tolerance for seconday joint goals
+    theta_s_tol_ = theta_sdf;
+    theta_s_tol_.tail(1)(0) = deltatheta_a;
+    theta_s_tol_.tail(2)(0) = deltatheta_p;
+    theta_s_tol_ = (accuracy_ * theta_s_tol_).cwiseAbs();
+
     //**Alg1:L3 and Alg1:L2: Set start guesses and step goal
-    Eigen::VectorXd theta_sg = Eigen::VectorXd::Constant(nof_sjoints_, start_guess_);
-    Eigen::VectorXd theta_pg = Eigen::VectorXd::Constant(nof_pjoints_, start_guess_);
+    Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
+    Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
     theta_sd.tail(2).setConstant(0); // start approach and affordance goals at 0 but gripper orientation as specified
 
@@ -162,9 +168,15 @@ PlannerResult CcAffordancePlanner::generate_approach_motion_joint_trajectory(con
     nof_pjoints_ = slist.cols() - task_offset_tau;
     nof_sjoints_ = task_offset_tau;
 
+    /// Compute the elementwise error tolerance for seconday joint goals
+    theta_s_tol_ = theta_sdf;
+    theta_s_tol_.tail(1)(0) = deltatheta_a;
+    theta_s_tol_.tail(2)(0) = deltatheta_p;
+    theta_s_tol_ = (accuracy_ * theta_s_tol_).cwiseAbs();
+
     //**Alg1:L3 and Alg1:L2: Set start guesses and step goal
-    Eigen::VectorXd theta_sg = Eigen::VectorXd::Constant(nof_sjoints_, start_guess_);
-    Eigen::VectorXd theta_pg = Eigen::VectorXd::Constant(nof_pjoints_, start_guess_);
+    Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
+    Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
     theta_sd.tail(2).setConstant(0); // start approach and affordance goals at 0 but gripper orientation as specified
 
@@ -252,9 +264,14 @@ PlannerResult CcAffordancePlanner::generate_affordance_motion_joint_trajectory(c
     nof_pjoints_ = slist.cols() - task_offset_tau;
     nof_sjoints_ = task_offset_tau;
 
+    /// Compute the elementwise error tolerance for seconday joint goals
+    theta_s_tol_ = theta_sdf;
+    theta_s_tol_.tail(1)(0) = deltatheta_a;
+    theta_s_tol_ = (accuracy_ * theta_s_tol_).cwiseAbs();
+
     //**Alg1:L3 and Alg1:L2: Set start guesses and step goal
-    Eigen::VectorXd theta_sg = Eigen::VectorXd::Constant(nof_sjoints_, start_guess_);
-    Eigen::VectorXd theta_pg = Eigen::VectorXd::Constant(nof_pjoints_, start_guess_);
+    Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
+    Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
     theta_sd.tail(1).setConstant(0);      // start affordance at 0 but gripper orientation as specified
 
@@ -339,9 +356,14 @@ PlannerResult CcAffordancePlanner::generate_affordance_motion_joint_trajectory(c
     nof_pjoints_ = slist.cols() - task_offset_tau;
     nof_sjoints_ = task_offset_tau;
 
+    /// Compute the elementwise error tolerance for seconday joint goals
+    theta_s_tol_ = theta_sdf;
+    theta_s_tol_.tail(1)(0) = deltatheta_a;
+    theta_s_tol_ = (accuracy_ * theta_s_tol_).cwiseAbs();
+
     //**Alg1:L3 and Alg1:L2: Set start guesses and step goal
-    Eigen::VectorXd theta_sg = Eigen::VectorXd::Constant(nof_sjoints_, start_guess_);
-    Eigen::VectorXd theta_pg = Eigen::VectorXd::Constant(nof_pjoints_, start_guess_);
+    Eigen::VectorXd theta_sg = Eigen::VectorXd::Zero(nof_sjoints_);
+    Eigen::VectorXd theta_pg = Eigen::VectorXd::Zero(nof_pjoints_);
     Eigen::VectorXd theta_sd = theta_sdf; // We set the affordance goal in the loop in reference to the start state
     theta_sd.tail(1).setConstant(0);      // start affordance at 0 but gripper orientation as specified
 
@@ -437,14 +459,12 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
     int loop_counter_i = 0;
 
     //**Alg2:L5: Start closure error at 0
-    Eigen::Matrix<double, twist_length_, 1> rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
+    Eigen::VectorXd rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
 
-    // Compute error
-    const Eigen::VectorXd theta_s_tol =
-        accuracy_ * theta_sd.cwiseAbs();                           // elementwise tolerance for secondary joint goal
+    // Check error
     Eigen::VectorXd theta_s_err = (theta_sd - theta_s).cwiseAbs(); // secondary joint goal error
 
-    bool err = ((theta_s_err.array() > theta_s_tol.array()).any() || rho.head(3).norm() > eps_rw_ ||
+    bool err = ((theta_s_err.array() > theta_s_tol_.array()).any() || rho.head(3).norm() > eps_rw_ ||
                 rho.tail(3).norm() > eps_rv_);
 
     while (err && loop_counter_i < max_itr_l_ && !st.stop_requested()) //**Alg2:L6
@@ -474,12 +494,12 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
         this->update_theta_p(theta_p, theta_sd, theta_s, N); // returned by reference
 
         //**Alg2:L12: Call Algorithm 3 with args, theta_s, theta_p, slist, Np, Ns
-        this->adjust_for_closure_error(slist, Np, Ns, theta_p,
-                                       theta_s); // theta_s and theta_p returned by reference
+        this->adjust_for_closure_error(slist, Np, Ns, theta_p, theta_s,
+                                       rho); // theta_s and theta_p returned by reference
 
         // Check error
         theta_s_err = (theta_sd - theta_s).cwiseAbs(); // secondary joint goal error
-        err = ((theta_s_err.array() > theta_s_tol.array()).any() || rho.head(3).norm() > eps_rw_ ||
+        err = ((theta_s_err.array() > theta_s_tol_.array()).any() || rho.head(3).norm() > eps_rw_ ||
                rho.tail(3).norm() > eps_rv_);
 
     } //**Alg2:L13
@@ -505,8 +525,8 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
     Eigen::VectorXd thetalist; // helper variable holding theta_p, theta_s
     thetalist.conservativeResize(slist.cols());
 
-    //**Alg2:L1: Set max. no. of iterations, max_itr_l_, and error thresholds, p_task_err_threshold_eps_s,
-    // eps_r_: Defined as class public variables
+    //**Alg2:L1: Set max. no. of iterations, p_max_itr_l, and error thresholds, p_task_err_threshold_eps_s,
+    // p_closure_err_threshold_eps_r: Defined as class public variables
 
     //** Alg2:L2: Set dt as small time increment
     const double dt = 1e-2; // time step to compute joint velocities
@@ -522,14 +542,12 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
     int loop_counter_i = 0;
 
     //**Alg2:L5: Start closure error at 0
-    Eigen::Matrix<double, twist_length_, 1> rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
+    Eigen::VectorXd rho = Eigen::VectorXd::Zero(twist_length_); // twist length is 6
 
-    // Compute error
-    const Eigen::VectorXd theta_s_tol =
-        accuracy_ * theta_sd.cwiseAbs();                           // elementwise tolerance for secondary joint goal
+    // Check error
     Eigen::VectorXd theta_s_err = (theta_sd - theta_s).cwiseAbs(); // secondary joint goal error
 
-    bool err = ((theta_s_err.array() > theta_s_tol.array()).any() || rho.head(3).norm() > eps_rw_ ||
+    bool err = ((theta_s_err.array() > theta_s_tol_.array()).any() || rho.head(3).norm() > eps_rw_ ||
                 rho.tail(3).norm() > eps_rv_);
 
     while (err && loop_counter_i < max_itr_l_) //**Alg2:L6
@@ -559,12 +577,12 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
         this->update_theta_p(theta_p, theta_sd, theta_s, N); // returned by reference
 
         //**Alg2:L12: Call Algorithm 3 with args, theta_s, theta_p, slist, Np, Ns
-        this->adjust_for_closure_error(slist, Np, Ns, theta_p,
-                                       theta_s); // theta_s and theta_p returned by reference
+        this->adjust_for_closure_error(slist, Np, Ns, theta_p, theta_s,
+                                       rho); // theta_s and theta_p returned by reference
 
         // Check error
         theta_s_err = (theta_sd - theta_s).cwiseAbs(); // secondary joint goal error
-        err = ((theta_s_err.array() > theta_s_tol.array()).any() || rho.head(3).norm() > eps_rw_ ||
+        err = ((theta_s_err.array() > theta_s_tol_.array()).any() || rho.head(3).norm() > eps_rw_ ||
                rho.tail(3).norm() > eps_rv_);
 
     } //**Alg2:L13
@@ -582,7 +600,7 @@ std::optional<Eigen::VectorXd> CcAffordancePlanner::call_cc_ik_solver(const Eige
 
 void CcAffordancePlanner::adjust_for_closure_error(
     const Eigen::MatrixXd &slist, const Eigen::MatrixXd &Np, const Eigen::MatrixXd &Ns, Eigen::VectorXd &theta_p,
-    Eigen::VectorXd &theta_s) //**Alg3:L5 // theta_s and theta_p returned by reference
+    Eigen::VectorXd &theta_s, Eigen::VectorXd &rho) //**Alg3:L5 // theta_s and theta_p returned by reference
 {
 
     /* Eigen resizings */
@@ -596,7 +614,8 @@ void CcAffordancePlanner::adjust_for_closure_error(
         affordance_util::FKinSpace(des_endlink_htm_, slist, thetalist); // HTM of actual end of ground link
 
     //**Alg3:L2: Compute closure error
-    Eigen::Matrix<double, twist_length_, 1> rho =
+    rho =
+        /* Eigen::Matrix<double, twist_length_, 1> rho = */
         affordance_util::Adjoint(Tse) *
         affordance_util::se3ToVec(affordance_util::MatrixLog6(affordance_util::TransInv(Tse)));
 

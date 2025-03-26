@@ -90,7 +90,7 @@ int main()
     // Task description
     cc_affordance_planner::TaskDescription task_description;
     task_description.affordance_info = aff;
-    task_description.trajectory_density = 4; // with 0.4 aff_goal, we get 0.1 aff step as MATLAB
+    task_description.trajectory_density = 5; // with 0.4 aff_goal, we get 0.1 aff step as MATLAB
     /* task_description.motion_type = cc_affordance_planner::MotionType::AFFORDANCE; // Default */
     task_description.gripper_goal_type = affordance_util::GripperGoalType::CONTINUOUS;
     task_description.goal.affordance = 0.4;
@@ -114,6 +114,11 @@ int main()
     if (plannerResult.success)
     {
         std::vector<Eigen::VectorXd> solution = plannerResult.joint_trajectory;
+        std::cout << "HERE IS THE PLANNER RESULT: \n";
+        for (const auto &point : plannerResult.joint_trajectory)
+        {
+            std::cout << point.transpose() << std::endl;
+        }
         std::cout << "Planner succeeded with update trail '" << plannerResult.update_trail
                   << "', and here is the first point in the trajectory: \n"
                   << solution.at(1) << std::endl; // Look at the second point since the first one is 0 in this case cuz
