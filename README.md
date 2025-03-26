@@ -1,11 +1,28 @@
-# Affordance Planning Framework
+# Closed-Chain Affordance (CCA) Planning Framework
 
-This repository encompasses two C++ packages, namely `affordance_util` and `cc_affordance_planner`, collectively forming a standalone library framework for affordance planning based on the closed-chain affordance model described in the paper referenced at `<paper_reference>`.
+Can you think of a robot manipulation task in terms of an axis, a location, and a goal? For example:
+- Turning a valve 90 degrees about its central axis
+- Pulling a drawer 20 cm straight outwards to open it
+- Fastening a screw with a few turns, considering its axis and pitch
+
+Many common manipulation tasks can be approached this way. The **Closed-Chain Affordance (CCA) Framework** enables you to plan robot joint trajectories for such tasks using these intuitive inputs. Additionally, it offers the flexibility to:
+- **Control or free the end-effector (EE) orientation** along the task path
+- **Adjust the EE orientation while keeping its position fixed**, useful for tasks like reconfiguration, aligning objects, etc.
+
+This repository contains two C++ packages, `affordance_util` and `cc_affordance_planner`, which together form a standalone library framework for CCA. It utilizes the closed-chain affordance model described in the paper referenced at `<paper_reference>`. A demonstration video showcasing simulation and real-world tasks is available [here](https://www.youtube.com/watch?v=Ukv93hbNrOM).
+
+## Notable Dependencies
+
+1. `urdfdom`
+2. `eigen3`
+
+Install with `sudo apt install liburdfdom-dev libeigen3-dev`
 
 ## Installation Instructions
 Follow these steps to install the `affordance_util` and `cc_affordance_planner` libraries:
 
 1. Create a temporary directory and clone this repository in there:
+
    ```bash
    mkdir ~/temp_cca_ws && cd ~/temp_cca_ws
    ```
@@ -13,74 +30,44 @@ Follow these steps to install the `affordance_util` and `cc_affordance_planner` 
    git clone git@github.com:UTNuclearRoboticsPublic/closed_chain_affordance.git
    ```
 
-2. Navigate to the `affordance_util` directory and create a `build` folder at the same level as the `src` folder and navigate to it:
+2. Build and install the `affordance_util` package.
+
    ```bash
-   cd closed_chain_affordance/affordance_util/ && mkdir build && cd build
+   cd ~/temp_cca_ws/closed_chain_affordance/affordance_util/ && mkdir build && cd build && cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release && cmake --build . && sudo cmake --install .
    ```
 
-3. Run CMake to configure the build process. This will generate the build system files in the build directory. Also turn the PIC flag on so the ROS packages that use this can make shared objects. Set the bbuild type to Release to enable compiler optimation:
+3. Build and install the `cc_affordance_planner` package.
+
    ```bash
-   cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release
+   cd ~/temp_cca_ws/closed_chain_affordance/cc_affordance_planner && cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release && cmake --build . && sudo cmake --install .
    ```
 
-4. Execute the following command to build the project:
-   ```bash
-   cmake --build .
-   ```
+4. Remove the temporary directory along with this repo clone since we don't need them anymore:
 
-5. Install the `affordance_util` library and header files:
-   ```bash
-   sudo cmake --install .
-   ```
-
-6. Repeat the above process for the `cc_affordance_planner` package.
-   ```bash
-   cd ~/temp_cca_ws/closed_chain_affordance/cc_affordance_planner
-   ```
-   ```bash
-   mkdir build && cd build
-   ```
-   ```bash
-   cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release && cmake --build . && sudo cmake --install .
-   ```
-
-7. Remove the temporary directory along with this repo clone since we don't need them anymore:
    ```bash
    cd && rm -rf ~/temp_cca_ws
    ```
 
 ## ROS2 Implementation
 
-The framework is designed to be directly used in your Cpp project (see Usage section below). However, a ROS2 interface is available to facilitate easy implementation on physical robots. To utilize the ROS2 interface, which is basically a wrapper around this Cpp library, go to the following repository and follow instructions there:</br>
-   [ROS2 implementation instructions](https://github.com/UTNuclearRoboticsPublic/closed_chain_affordance_ros.git)
+The planner is designed for direct use in your C++ project (see the Usage section below). However, for easier implementation on physical robots, a ROS2 interface (essentially a wrapper around this C++ library) is available. Additionally, an optional user-friendly RViz plugin is provided for intuitive, code-free planning and execution.
+
+👉 [ROS2 Implementation Instructions](https://github.com/UTNuclearRoboticsPublic/closed_chain_affordance_ros.git)
 
 ## Usage Information
 This section provides detailed instructions on configuring your project's CMakeLists.txt file (see Housekeeping) and writing code (see Code) to utilize the planner.
+
 ### Housekeeping
-If you need to use these libraries in other projects, you can do so by adding the following to your CMakeLists file:
-To find the libraries:
-```cmake
-FIND_LIBRARY(affordance_util_LIBRARIES affordance_util /usr/local/lib)
-FIND_LIBRARY(cc_affordance_planner_LIBRARIES cc_affordance_planner /usr/local/lib)
-```
-<small>Note: Verify that the libraries were indeed installed in the /usr/local/lib folder and that the header files were placed in the /usr/local/include folder. This can be done by ensuring each of the following commands returns some output. If installed elsewhere, replace the path in the above calls.</small>
+You can include these libraries in your cpp project by including the following in your `CMakeLists.txt`.
 ```bash
-ls /usr/local/lib/ | grep affordance_util
+find_package(affordance_util REQUIRED)
+find_package(cc_affordance_planner REQUIRED)
 ```
+
+Link against your targets as:
 ```bash
-ls /usr/local/include/ | grep affordance_util
+target_link_libraries(<target_name> PUBLIC affordance_util::affordance_util PUBLIC cc_affordance_planner::cc_affordance_planner)
 ```
-```bash
-ls /usr/local/lib/ | grep cc_affordance_planner
-```
-```bash
-ls /usr/local/include/ | grep cc_affordance_planner
-```
-To link the libraries against your target:
-```cmake
- target_link_libraries(${PROJECT_NAME} affordance_util cc_affordance_planner)
-```
-where `${PROJECT_NAME}` is your desired target.
 
 ### Code
 This section describes the required and optional code setup for this planner.
@@ -96,7 +83,8 @@ Using the planner is straightforward and requires just instantiating the planner
 ```cpp
 cc_affordance_planner::CcAffordancePlannerInterface ccAffordancePlannerInterface;
 ```
-3. Furnish robot description
+3. Provide the robot description. You can generate this automatically from a URDF or YAML file using the `affordance_util::robot_builder` functions. Sample YAML and URDF files are available in `affordance_util/src/test`. If you'd prefer to manually specify the description, you can do so as follows:
+
 ```cpp
 affordance_util::RobotDescription robot_description;
 robot_description.slist = ; // Eigen::MatrixXd with robot joint screws as its columns in order
@@ -104,7 +92,7 @@ robot_description.M = ; // Eigen::Matrix4d representing the homogenous transform
 robot_description.joint_states = ; // Eigen::VectorXd representing the joint states of the robot in order at the start config of the affordance
 ```
 
-4. Furnish task description. Here is an example for affordance-type motion. More examples in Task Examples section.
+4. Furnish task description. Here is an example for rotation motion. More examples in Task Examples section.
 ```cpp
 cc_affordance_planner::TaskDescription task_description;
 
@@ -119,23 +107,14 @@ task_description.affordance_info = aff;
 // Goals
 task_description.goal.affordance = 0.4; // Goal for the affordance, 0.4 for instance
 ```
+Here is an example for planning EE orientation adjustment about reference frame `x-axis` while keeping its position fixed.
 
-4. Here is a task-description example for approach-type motion. More examples in Task Examples section.
 ```cpp
-cc_affordance_planner::TaskDescription task_description;
-
-// Affordance
-affordance_util::ScrewInfo aff;
-aff.type = affordance_util::ScrewType::ROTATION; // Possible values are ROTATION, TRANSLATION, SCREW. SCREW requires the pitch parameter.
-aff.axis = Eigen::Vector3d(1, 0, 0); // Eigen::Vector3d representing the affordance screw axis, [1,0,0] for example
-aff.location = Eigen::Vector3d(0, 0, 0); // Eigen::Vector3d representing the location of the affordance screw axis, [0,0,0] for example
-
-task_description.affordance_info = aff;
-
-// Goals
-task_description.goal.affordance = 0.4; // Goal for the affordance, 0.4 for instance
-task_description.goal.grasp_pose = ; // Eigen::Matrix4d representing grasp pose. Only relevant for approach motion
+cc_affordance_planner::TaskDescription task_description(cc_affordance_planner::PlanningType::EE_ORIENTATION_ONLY);
+req.task_description.affordance_info.axis = Eigen::Vector3d(1, 0, 0); // Axis
+req.task_description.goal.affordance = M_PI / 2.0; // Goal
 ```
+
 5. Generating the joint trajectory to accomplish the specified task:
 ```cpp
 try
@@ -208,7 +187,6 @@ Optional task description parameters:
 task_description.goal.ee_orientation = Eigen::Vector3d(0.1, 0.0, 0.1); // EE orientation to maintain along the affordance path, rpy = [0.1,0.0,0.1] for instance. Can specify one or more aspections of the orientation in the order specified by VirScrewOrder below.
 task_description.trajectory_density = 10; // Number of points in the solved joint trajectory, 10 for example
 task_description.vir_screw_order = affordance_util::VirtualScrewOrder::XYZ; // Order of the axes in the closed-chain model virtual gripper joint. Possible values are XYZ, YZX, ZXY, and NONE.
-task_description.motion_type = cc_affordance_planner::MotionType::AFFORDANCE; // Possible values are AFFORDANCE and APPROACH. Default is AFFORDANCE.
 
 // For affordance, one can directly specify the 6x1 screw vector for affordance instead of axis and location
 aff.type = affordance_util::ScrewType::TRANSLATION;
@@ -273,22 +251,6 @@ task_description.affordance_info = aff;
 // Goal
 task_description.goal.affordance = (1.0 / 2.0) * M_PI;
 task_description.goal.ee_orientation = Eigen::Vector3d(0.1, 0.0, 0.1); # Gripper-frame orientation per vir_screw_order. Default as roll-pitch-yaw.
-```
-
-##### Approach Motion
-```cpp
-cc_affordance_planner::TaskDescription task_description;
-task_description.motion_type = cc_affordance_planner::MotionType::APPROACH;
-
-// Affordance
-aff.type = affordance_util::ScrewType::ROTATION;
-aff.axis = Eigen::Vector3d(0, 0, 1);
-aff.location = Eigen::Vector3d(0.0, 0.0, 0.0);
-task_description.affordance_info = aff;
-
-// Goal
-task_description.goal.affordance = (1.0 / 4.0) * M_PI; // This is where the joint trajectory will take you. Specify where along the affordance path to "approach".
-task_description.goal.grasp_pose = Eigen::Matrix4d::Identity(); // Specify a valid grasp pose HTM. This is the reference pose where affordance magnitude is 0.
 ```
 
 ### Author
